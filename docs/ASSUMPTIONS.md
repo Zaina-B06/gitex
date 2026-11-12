@@ -126,13 +126,14 @@ show *relative* advantage, not real-world effect sizes.
 
 ### Behaviour model
 Each day the persona first decides whether to open the app at all:
-P(open) = sigmoid(1.75 + 1.5·motivation). On a closed-app day every action gets no response. On an open day,
+P(open) = sigmoid(1.6 + 1.5·motivation). On a closed-app day every action gets no response. On an open day,
 each action shown gets P(complete) = sigmoid(b0 + 1.0·motivation + 2.0·hidden habit + 1.0·tier_fit +
 1.0·BCT responsiveness + 0.5·window match − penalties).
 | Parameter | Value | Why |
 |---|---|---|
-| Daily app-open step | open_base 1.75, slope 1.5 | Disengagement happens a day at a time (people stop opening the app), not one action at a time. Without it, 14 silent days in a row almost never happened and nobody churned. |
+| Daily app-open step | open_base 1.6, slope 1.5 | Disengagement happens a day at a time (people stop opening the app), not one action at a time. Without it, 14 silent days in a row almost never happened and nobody churned. |
 | Novelty decay | motivation mean falls by Uniform(0, 2.0) per persona, with a 21-day time constant | Interest wears off after the first weeks. Some personas barely fade, others fade a lot. |
+| Success feedback | δ = 0.05: completion + δ, partial + δ/2, seen-but-missed − δ, open days only, every arm | Pre-registered; see "Success feedback" below. |
 | tier_fit | +0.3 per tier below capacity (max +0.9); −1.5 per tier above | Easier tasks are more likely done; overshooting capacity is strongly penalised (Task 02). |
 | Partial | 25% of non-completions | "Did a smaller version" is common. |
 | no_response share of misses on an open day | sigmoid(−1.5 − motivation) | Low motivation → silence rather than an active skip (Task 02). Most silence now comes from closed-app days. |
@@ -150,18 +151,18 @@ where nearly everyone leaves.
 
 | Target for arm A | Chosen | Reached on seed 101 |
 |---|---|---|
-| Share of shown actions completed | ~45% | 38% |
+| Share of shown actions completed | ~45% | 42% |
 | Persistence, week 12 | ~40% | 41% |
-| Retention at day 90 (not churned) | ~60% | 66% |
+| Retention at day 90 (not churned) | ~60% | 67% |
 
 - **Calibration seed:** 101 only, 100 personas, arm A only. The evaluation uses seeds 1–10, which were never used for
   tuning, so the reported numbers aren't fitted to themselves.
 - **What was tuned:** `b0` (0 → 1.5), `no_response_base` (−0.5 → −1.5), and the two new mechanisms above (daily
-  app-open step, `open_base` 1.75; novelty decay up to 2.0). B and C were never looked at during tuning.
+  app-open step, `open_base` 1.6 after adding success feedback; novelty decay up to 2.0; δ was never tuned). B and C were never looked at during tuning.
 - **Why not exact:** completion and retention pull against each other in this model. We stopped at the first
   setting within a few points of all three targets rather than over-fit one seed.
 - **Harsher world (Drop 2 scenario `harsh_attrition`, targets ~30% persistence and ~40% retention for A):** closest
-  found on seed 101 is `open_base` 1.25 with novelty drop up to 3.0, giving 21% persistence and 44% retention.
+  found on seed 101 (with success feedback) is `open_base` 1.25 with novelty drop up to 3.0, giving 24% persistence and 42% retention.
   In this model persistence and retention move together, so we kept the retention target and accepted lower
   persistence.
 
@@ -200,6 +201,57 @@ in the report is secondary.
 δ; (4) run seeds 1–10 once (run_003). In Drop 2 the sensitivity sweep includes δ = 0, 0.025, 0.05 and 0.1, so it
 shows how the advantage over A0 depends on this assumption.
 
+### Where Rebound doesn't help: the no-feedback world (run_002, commit 70a181d)
+Before success feedback, nothing an arm did could change motivation (except A's streak penalty), so engagement was
+the same in A0, B and C by construction. Seeds 1–10, 300 personas, 90 days:
+
+| C vs … | Persistence wk 12 | Recovery 14 d | Retention | Δ active min | Δ tier-weighted sleep |
+|---|---|---|---|---|---|
+| A (streak app) | +25.2 pts [+23.2, +27.2] | +19.5 [+17.9, +21.1] | +12.4 [+11.2, +13.7] | +12.2 min | +10.2 pts |
+| A0 (no streak penalty) | −0.5 [−1.0, +0.0] | +0.8 [−0.2, +1.8] | +0.3 [−0.5, +1.1] | +4.7 min [+3.7, +5.7] | +7.1 pts [+6.2, +8.0] |
+| B (rules only) | −0.1 [−0.7, +0.5] | +0.4 [−0.3, +1.0] | −0.2 [−0.7, +0.3] | −0.2 | −0.2 |
+
+**Reading:** in that world, Rebound's whole engagement advantage over A comes from the assumed streak penalty. Its
+own gain is more activity per engaged user (more minutes, harder sleep actions). This stays in the evaluation as
+the lower bound on what Rebound adds.
+
+**The bandit:** a per-user Thompson bandit learns little in 90 days when people open the app on ~40% of days (C vs
+B ≈ 0 on everything). We state that as is; it would need shared priors across similar users (PRD §6.4) or longer use.
+
+### Results: baseline with success feedback (run_003)
+Seeds 1–10 (never used for tuning), 300 personas, 90 days, δ = 0.05 as pre-registered, `open_base` 1.6.
+
+**Headline (draft):** Against a streak app that penalises misses, Rebound improves recovery, persistence and
+retention. Against a static plan without that penalty, it keeps engagement equal while increasing how much people
+do (+9 active min/week, +10 pts tier-weighted sleep). The bandit adds no measurable benefit over rules at 90 days
+and this sample size.
+
+**Pre-registered comparisons** (differences in percentage points, 95% interval; "helps" = whole interval above 0):
+
+| Comparison | Recovery within 14 days | Persistence, week 12 | Retention at day 90 |
+|---|---|---|---|
+| C vs A | +18.9 [+17.5, +20.3] helps | +25.6 [+23.3, +27.9] helps | +13.6 [+11.8, +15.4] helps |
+| C vs A0 | +1.3 [+0.2, +2.4] helps, **weak evidence** | −0.5 [−1.5, +0.5] not shown | +0.2 [−0.6, +1.0] not shown |
+| C vs B | −0.1 [−0.5, +0.3] not shown | −0.1 [−0.6, +0.3] not shown | +0.1 [−0.4, +0.6] not shown |
+
+C vs A0 recovery passes the rule, but it's 1 of 9 tests with no multiple-comparison correction, and the interval
+nearly touches zero. We don't claim it as a finding.
+
+**Secondary (not pre-registered):** C vs A0: +8.9 active min/week [+7.7, +10.2], +9.8 pts tier-weighted sleep nights
+[+8.6, +10.9], −1.4 pts persistent in all of weeks 4, 8 and 12 [−2.3, −0.5] (Rebound slightly worse).
+
+**Why engagement is equal to A0: a trade-off, not a bug.** On days the app was opened (seeds 1–10):
+
+| Arm | Movement completed / mean tier | Sleep completed / mean tier |
+|---|---|---|
+| A0 (static, easy plan) | 89% / 1.6 | 95% / 1.0 |
+| C (Rebound) | 83% / 2.2 | 86% / 2.5 |
+
+Rebound steps people up, so they complete a bit less often and get less positive success feedback than with A0's
+fixed easy plan. Shrinking after a slip helps; harder actions cost. The two roughly cancel for engagement, while
+Rebound users do more. How eagerly the engine steps up (3 consecutive successes) is a product question; it's in the
+Drop 2 sensitivity sweep (2 / 3 / 4 / 5) rather than tuned to these results.
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|
@@ -208,7 +260,7 @@ shows how the advantage over A0 depends on this assumption.
 | Illness | Poisson, 1 episode per 90 days, 3–7 days; −3.0 movement, −0.5 sleep | PRD §8. The engine learns of it only from a check-in answer. |
 | Travel | Poisson 0.5 per 90 days (office 0.8), 2–5 days, −0.7 | Check-in only. |
 | Workload spike | Poisson 1 per 90 days (shift 2.5), 3–7 days, motivation −0.6 | Shift workers get more. Check-in only. |
-| Common random numbers | each persona has the same traits and disruption schedule in every arm. Motivation noise and the daily app-open draw use their own random stream (one fixed pair of draws per day), separate from outcome draws and check-in answers | Arm differences come from the arms, not from luck. The open/no-open sequence is identical in A0, B and C for the whole run, and in A until its first streak reset (tested). The only arm-specific input to motivation is A's streak penalty. |
+| Common random numbers | each persona has the same traits and disruption schedule in every arm. Motivation noise and the daily app-open draw use their own random stream (one fixed pair of draws per day), separate from outcome draws and check-in answers | Arm differences come from the arms, not from luck. Only two things move motivation: A's streak penalty (arm A only, by design) and success feedback (same rule in every arm, driven only by outcomes). Tested: with δ = 0 the open/no-open sequence is identical in A0, B and C for the whole run and in A until its first streak reset; with δ = 0.05 it's identical until the arms' outcomes first differ. |
 
 ### Arms
 | Arm | What it is |
@@ -253,3 +305,8 @@ shows how the advantage over A0 depends on this assumption.
 - Screening questions are paraphrased from PAR-Q+ and are not a clinical tool.
 - The in-memory store loses data on restart; the API swaps in SQLite (Task 03).
 - Simulated behaviour is plausible, not empirically fitted; results show relative advantage, not real-world effect sizes.
+- In the calibrated simulation almost all disengagement comes from not opening the app: on open days, 82–95% of
+  actions are completed in every arm. Real users also open the app and still skip; if that's common, plan quality
+  matters more than this model shows.
+- The engagement advantage over a streak app depends on the assumed size of the streak penalty (arm A vs A0) and of
+  the success feedback δ; both are swept in Drop 2.

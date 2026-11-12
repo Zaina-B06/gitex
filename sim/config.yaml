@@ -67,7 +67,7 @@ behaviour:
   tier_easier_bonus: 0.3  # per tier below capacity
   tier_easier_cap: 0.9
   tier_fit_penalty: 1.5  # per tier above capacity ("strongly negative")
-  open_base: 1.75  # calibrated on seed 101.  P(opens the app today) = sigmoid(open_base + open_slope * motivation)
+  open_base: 1.6  # calibrated on seed 101 (with success feedback).  P(opens the app today) = sigmoid(open_base + open_slope * motivation)
   open_slope: 1.5  # closed-app days answer nothing: that's how silent streaks (and churn) happen
   partial_share: 0.25  # share of non-completions that are partials
   no_response_base: -1.5  # calibrated on seed 101; logit of no_response share among misses at motivation 0

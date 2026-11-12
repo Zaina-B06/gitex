@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -13,6 +14,8 @@ import numpy as np
 from .metrics import COMPARE_METRICS, EQUITY_METRICS, METRICS
 
 ARM_LABEL = {"A": "A · streak app", "A0": "A0 · streak app, no AVE", "B": "B · Rebound rules", "C": "C · Rebound full"}
+HEADLINE_COMPARISONS = ("C_vs_A", "C_vs_A0", "C_vs_B")
+HEADLINE_METRICS = ("recovery_rate", "persistence_w12", "retention")
 ARM_COLOR = {"A": "#9a9a9a", "A0": "#c9b27c", "B": "#5b8def", "C": "#2a9d6f"}
 
 
@@ -124,7 +127,19 @@ def summary_markdown(m: dict) -> str:
         lines.append(f"| {label} | " + " | ".join(fmt(m["arms"][a][key], unit) for a in arms) + " |")
     lines += ["", ("Raw Δ sleep nights completed favours arms that ask for less (A keeps the easiest sleep "
                    "action), so the comparisons use the tier-weighted version."),
-              "", "### Arm comparisons (difference, 95% interval)", ""]
+              "", "### Pre-registered headline (docs/ASSUMPTIONS.md, commit dc054ab)", "",
+              "Rebound \"helps\" on a measure only if the whole 95% interval of the difference is above zero.", "",
+              "| Comparison | " + " | ".join(METRICS[k][0] for k in HEADLINE_METRICS) + " |",
+              "|---|" + "---|" * len(HEADLINE_METRICS)]
+    for name in HEADLINE_COMPARISONS:
+        if name in m["comparisons"]:
+            cells = []
+            for k in HEADLINE_METRICS:
+                s = m["comparisons"][name][k]
+                verdict = "helps" if s["ci_low"] is not None and s["ci_low"] > 0 else "not shown"
+                cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({verdict})")
+            lines.append(f"| {name.replace('_vs_', ' vs ')} | " + " | ".join(cells) + " |")
+    lines += ["", "### All arm comparisons (difference, 95% interval)", ""]
     doesnt_help = []
     for name, comp in m["comparisons"].items():
         a, b = name.split("_vs_")
@@ -170,6 +185,7 @@ def main(argv: list[str] | None = None) -> None:
     chart_sensitivity(m, charts)
     md = summary_markdown(m)
     (run / "summary.md").write_text(md, encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows uses cp1252 when output is redirected; Δ/× would crash
     print(md)
     print(f"charts in {charts}, summary in {run / 'summary.md'}")
 

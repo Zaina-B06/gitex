@@ -36,6 +36,7 @@ class PersonaSim:
         self.day_rng = day_rng
         self.phi = cfg["traits"]["motivation_ar1"]
         self.tau = cfg["traits"]["novelty_tau_days"]
+        self.feedback = cfg["traits"]["success_feedback"]
         self.motivation = traits.motivation_mean
         self.habit = dict(traits.habit0)
         self.silent_days = 0
@@ -112,6 +113,8 @@ class PersonaSim:
             result = "no_response" if self.rng.random() < p_silent else "skipped"
         a = {"completed": 1.0, "partial": 0.5}.get(result, 0.0)
         self.habit[behaviour] = (1 - b["habit_rate"]) * self.habit[behaviour] + b["habit_rate"] * a
+        if self.app_open:  # self-efficacy (pre-registered): success lifts motivation, a seen-but-missed action lowers it
+            self.motivation += self.feedback * {"completed": 1.0, "partial": 0.5}.get(result, -1.0)
         return result
 
     def end_day(self, outcomes: list[str]) -> None:

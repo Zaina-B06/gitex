@@ -94,23 +94,76 @@ def test_audit_catches_unsafe_actions():
     assert audit(LIB["sl_t1_fixed_wake"], 20, payload, {ContextFlag.illness}) == ""
 
 
-def test_daily_open_sequence_is_the_same_in_every_arm():
-    """Motivation and the app-open draw are persona-only, on their own random stream. A0, B and C never move
-    motivation, so their open/no-open days match for the whole run; A matches until its first streak reset."""
-    n = 25
-    events, _, _ = simulate(n, 90, [4], ["A", "A0", "B", "C"], CFG, workers=1, quiet=True)
+def _open_sequences(cfg, n=25, seed=4):
+    events, _, _ = simulate(n, 90, [seed], ["A", "A0", "B", "C"], cfg, workers=1, quiet=True)
     acts = events[events["kind"] == "action"]
     opens = acts.groupby(["arm", "persona_id", "day"])["app_open"].first()
+    outcomes = acts.sort_values("behaviour").groupby(["arm", "persona_id", "day"])["outcome"].agg(tuple)
     resets = events[(events["kind"] == "streak_reset") & (events["arm"] == "A")].groupby("persona_id")["day"].min()
-    assert len(resets) > 0 and not opens.all()  # the A check and the comparison aren't vacuous
+    return opens, outcomes, resets
+
+
+def _first_difference(a, b) -> int:
+    """First day the two arms' outcomes differ (or one shows nothing); 10**9 if never."""
+    days = sorted(set(a.index) | set(b.index))
+    return next((d for d in days if a.get(d) != b.get(d)), 10**9)
+
+
+def _check_opens_match(opens, outcomes, resets, n, until_outcomes_differ):
     compared = 0
     for pid in range(n):
         ref = opens.loc[("A0", pid)]
         for arm in ("B", "C", "A"):
             other = opens.loc[(arm, pid)]
             common = ref.index.intersection(other.index)
+            limit = 10**9
             if arm == "A":
-                common = common[common <= resets.get(pid, 10**9)]
+                limit = resets.get(pid, limit)  # A's streak penalty moves motivation from the next day
+            if until_outcomes_differ:  # success feedback moves motivation from the next day
+                limit = min(limit, _first_difference(outcomes.loc[("A0", pid)], outcomes.loc[(arm, pid)]))
+            common = common[common <= limit]
             assert (ref[common] == other[common]).all(), f"arm {arm}, persona {pid}"
             compared += len(common)
-    assert compared > n * 90  # most persona-days were actually compared
+    return compared
+
+
+def test_daily_open_sequence_is_the_same_in_every_arm_without_feedback():
+    """With success feedback off, nothing in A0, B or C moves motivation: identical open days for the whole run.
+    A matches until its first streak reset."""
+    n = 25
+    opens, outcomes, resets = _open_sequences(_merge(CFG, {"traits": {"success_feedback": 0.0}}), n)
+    assert len(resets) > 0 and not opens.all()  # not vacuous
+    assert _check_opens_match(opens, outcomes, resets, n, until_outcomes_differ=False) > n * 90
+
+
+def test_daily_open_sequence_is_the_same_until_outcomes_differ():
+    """With success feedback on (same rule in every arm), open days match until the arms' outcomes first differ."""
+    n = 25
+    opens, outcomes, resets = _open_sequences(CFG, n)
+    assert _check_opens_match(opens, outcomes, resets, n, until_outcomes_differ=True) >= n  # day 1 at least
+
+
+def test_success_feedback_is_the_same_rule_in_every_arm():
+    """The feedback only depends on the outcome: same persona, same outcome -> same motivation change in any arm."""
+    import numpy as np
+    from sim.personas import generate_personas
+    from sim.user_model import PersonaSim
+
+    traits = generate_personas(1, 1, CFG)[0][1]
+    action = LIB["mv_t1_home_walk"]
+    deltas = {}
+    for result_forced in ("completed", "partial", "skipped"):
+        sim = PersonaSim(traits, CFG, 90, np.random.default_rng(0), np.random.default_rng(0))
+        sim.start_day(1)
+        sim.app_open = True
+        before = sim.motivation
+        b = dict(sim.b)
+        # force the outcome through the model's own thresholds
+        b["b0"] = {"completed": 50.0, "partial": -50.0, "skipped": -50.0}[result_forced]
+        b["partial_share"] = 1.0 if result_forced == "partial" else 0.0
+        b["no_response_base"] = -50.0
+        sim.b = b
+        assert sim.outcome(action, "morning", 8) == result_forced
+        deltas[result_forced] = sim.motivation - before
+    d = CFG["traits"]["success_feedback"]
+    assert deltas == pytest.approx({"completed": d, "partial": d / 2, "skipped": -d})

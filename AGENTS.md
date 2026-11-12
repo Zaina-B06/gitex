@@ -164,3 +164,18 @@ GET    /dashboard/employer?org_id=    → aggregates only; 403 if group < 10
 - Config (λ, thresholds, tier caps) lives in one `config.py` / YAML. No magic numbers in logic.
 - Write a short note in `docs/ASSUMPTIONS.md` whenever you choose a number or rule we haven't justified.
 - **The developer runs commands themselves.** Don't run long scripts, servers or test suites and summarise the output. Give the exact commands to run (and what output to expect); the developer will run them in their own terminal and paste back anything that fails.
+- Never commit `.env`. Only `.env.example` (empty keys) is in the repo.
+- Agents: make edits that contain escape sequences (`\n`, `\r`, `\"`) with an editor tool, not shell heredoc scripts. On Windows Git Bash a `\\n` in a heredoc reached Python as a real line break and broke a file.
+
+## 9. Evaluation rules (simulator)
+
+The simulation is our evidence, and "the simulation was rigged" is a named risk. These rules keep it honest.
+
+1. **Pre-register before changing the model or the engine because of results.** Write the parameter, its value with reasoning, and the headline comparisons in `docs/ASSUMPTIONS.md`, and commit that alone before running anything.
+2. **Calibrate on seed 101 only, arm A only** (100 personas), changing only the parameter named for calibration (`open_base`). Evaluation uses seeds 1–10, never used for tuning. A re-test of a pre-registered change uses fresh seeds (11–20).
+3. **Never tune the engine to simulator results.** Knobs that look better in the sim (e.g. the step-up threshold) go into the sensitivity sweep or a pre-registered test on fresh seeds, and stay a pilot question until then.
+4. **Pre-registered headline:** C vs A, C vs A0, C vs B on recovery within 14 days, persistence at week 12 and retention. Verdicts: **helps** = whole 95% interval above zero, **worse** = whole interval below zero, otherwise **not shown**. Report all of them, whatever the direction.
+5. **Say plainly what a gain depends on** (e.g. the advantage over a streak app depends on the abstinence-violation assumption). A borderline pass among many tests is labelled weak evidence, not a finding.
+6. **Keep earlier worlds documented**, e.g. the no-feedback run (run_002) under "Where Rebound doesn't help". Every run has a "Where Rebound doesn't help" section.
+7. **Outputs produced against a stale calibration are invalid:** delete them and say so in `docs/ASSUMPTIONS.md`. `sim/out/` is never committed; the reviewed snapshot lives in `docs/results/`.
+8. **The safety audit must be 0** for B and C (no unsafe action, no quiet-hour message); the run fails loudly otherwise.

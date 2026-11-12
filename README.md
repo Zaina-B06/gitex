@@ -5,6 +5,11 @@ Adaptive behaviour-change engine for the Future Health Digital Innovation Challe
 score that decays instead of resetting, drift detection, blame-free check-ins, and safety rules
 that run before any personalisation. See `AGENTS.md` for the full spec and `docs/tasks/` for the build plan.
 
+## Getting started
+
+New here? Read **[docs/HANDOFF.md](docs/HANDOFF.md)**: what's done, the key findings, what's next, setup for
+Windows and macOS/Linux, and how to regenerate the simulator results. Then `AGENTS.md` for the spec and rules.
+
 ## Layout
 
 | Folder | What |

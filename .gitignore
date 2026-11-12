@@ -1,10 +1,35 @@
+# Python
 .venv/
+venv/
 __pycache__/
+*.pyc
 *.egg-info/
+build/
+dist/
 .pytest_cache/
 .ruff_cache/
-node_modules/
-dist/
-.env
-*.sqlite
+
+# Simulator outputs (regenerate with the commands in docs/HANDOFF.md; a snapshot lives in docs/results/)
 sim/out/
+
+# Trained models (Task 02b)
+models/*.joblib
+
+# Secrets: only .env.example (empty keys) is committed
+.env
+.env.*
+!.env.example
+
+# Data
+*.sqlite
+
+# Frontend
+node_modules/
+web/dist/
+
+# Editors, OS, logs, local agent settings
+.vscode/
+.claude/settings.local.json
+*.log
+Thumbs.db
+.DS_Store

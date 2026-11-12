@@ -38,5 +38,21 @@ HEAT_END_HOUR = 16  # exclusive: 16:00 is outside the heat window
 
 # --- Prompt windows (hour of day an action is prompted) ---
 MORNING_OFFSET_H = 1  # after usual wake time
-MIDDAY_HOUR = 13
+AFTERNOON_HOUR = 13
 EVENING_OFFSET_H = -3  # before usual sleep time
+
+# --- History kept in UserState (engagement needs <= 7 counted days; the event log keeps everything) ---
+HISTORY_KEEP_DAYS = 21
+
+# --- Bandit (Task 02) ---
+BANDIT_PRIOR = (1.0, 1.0)  # Beta(alpha, beta) for every arm
+WARM_START_BONUS = 1.0  # +alpha for arms whose BCT matches one of the user's past_helpers
+HELPER_BCTS = {
+    "small_steps": ["8.7"],  # Graded tasks
+    "reminders": ["7.1"],  # Prompts/cues
+    "tracking": ["2.3"],  # Self-monitoring of behaviour
+    "routine_anchor": ["8.3", "1.4"],  # Habit formation, Action planning
+    "buddy": [],  # no social-support actions in the library yet
+    "rewards": [],  # no reward actions in the library yet
+    "other": [],
+}

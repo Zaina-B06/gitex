@@ -4,7 +4,6 @@ import pytest
 
 from rebound_engine.actions import filter_actions
 from rebound_engine.demo import LAPSE_DAYS, run
-from rebound_engine.engine import Engine
 from rebound_engine.models import (
     Barrier,
     Behaviour,
@@ -33,8 +32,8 @@ def _profile_and_state(make_profile, **groups):
     return profile, initial_state(profile, screening_flags(profile))
 
 
-def _movement_engine(make_payload, **groups):
-    engine = Engine()
+def _movement_engine(make_engine, make_payload, **groups):
+    engine = make_engine()
     payload = make_payload(basics={"goals": ["movement"]}, **groups)
     return engine, engine.onboard(payload, user_id="u1").user_id
 
@@ -60,7 +59,7 @@ def test_time_barrier_lowers_tier(make_profile):
     assert state.current_tier[M] == 3
     apply_barrier(profile, state, Barrier.time)
     assert state.current_tier[M] == 2
-    assert choose_action(profile, state, M).tier == 2
+    assert choose_action(profile, state, M).action.tier == 2
 
 
 def test_time_barrier_never_goes_below_tier_1(make_profile):
@@ -82,13 +81,13 @@ def test_environment_barrier_swaps_to_indoor(make_profile):
     profile, state = _profile_and_state(
         make_profile, basics={"goals": ["movement"]}, preferences={"setting": "outdoor"}
     )
-    assert choose_action(profile, state, M).setting == "outdoor"
+    assert choose_action(profile, state, M).action.setting == "outdoor"
     apply_barrier(profile, state, Barrier.environment)
-    assert choose_action(profile, state, M).setting != "outdoor"
+    assert choose_action(profile, state, M).action.setting != "outdoor"
 
 
-def test_multiple_barriers_apply_highest_priority(make_payload):
-    engine = Engine()
+def test_multiple_barriers_apply_highest_priority(make_engine, make_payload):
+    engine = make_engine()
     uid = engine.onboard(make_payload(), user_id="u2").user_id
     result = engine.checkin(uid, [Barrier.time, Barrier.illness_pain])
     assert result.barrier == Barrier.illness_pain
@@ -100,8 +99,8 @@ def test_multiple_barriers_apply_highest_priority(make_payload):
 # ---------- one action per goal per day ----------
 
 
-def test_one_action_per_goal_per_day(make_payload):
-    engine = Engine()
+def test_one_action_per_goal_per_day(make_engine, make_payload):
+    engine = make_engine()
     uid = engine.onboard(make_payload(), user_id="u5").user_id
     actions = engine.today(uid, 1).actions
     assert [s.action.behaviour for s in actions] == [Behaviour.movement, Behaviour.sleep]
@@ -109,8 +108,8 @@ def test_one_action_per_goal_per_day(make_payload):
     assert actions[1].time_window == TimeWindow.evening
 
 
-def test_unanswered_actions_become_no_response_next_day(make_payload):
-    engine = Engine()
+def test_unanswered_actions_become_no_response_next_day(make_engine, make_payload):
+    engine = make_engine()
     uid = engine.onboard(make_payload(), user_id="u6").user_id
     engine.today(uid, 1)
     engine.today(uid, 2)
@@ -121,42 +120,42 @@ def test_unanswered_actions_become_no_response_next_day(make_payload):
 # ---------- step-up / step-down ----------
 
 
-def test_step_up_after_three_consecutive_completions(make_payload):
-    engine, uid = _movement_engine(make_payload)
+def test_step_up_after_three_consecutive_completions(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload)
     assert _play(engine, uid, "CCC") == [1, 1, 2]
     assert engine.today(uid, 4).actions[0].action.tier == 2
 
 
-def test_skip_resets_step_up_counter(make_payload):
-    engine, uid = _movement_engine(make_payload)
+def test_skip_resets_step_up_counter(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload)
     assert _play(engine, uid, "CCSCC") == [1, 1, 1, 1, 1]
     assert _play(engine, uid, "C", start_day=6) == [2]
 
 
-def test_partial_neither_adds_nor_resets(make_payload):
-    engine, uid = _movement_engine(make_payload)
+def test_partial_neither_adds_nor_resets(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload)
     assert _play(engine, uid, "CCHC") == [1, 1, 1, 2]
 
 
-def test_step_up_never_jumps_two_tiers(make_payload):
-    engine, uid = _movement_engine(make_payload)
+def test_step_up_never_jumps_two_tiers(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload)
     tiers = [1, *_play(engine, uid, "C" * 19)]
     assert all(b - a in (0, 1) for a, b in pairwise(tiers))
     assert tiers[-1] == 4
 
 
-def test_step_up_respects_screening_cap(make_payload):
-    engine, uid = _movement_engine(make_payload, screening={"prescribed_medication": True})
+def test_step_up_respects_screening_cap(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload, screening={"prescribed_medication": True})
     assert _play(engine, uid, "C" * 19)[-1] == 2
 
 
-def test_two_misses_while_active_step_down(make_payload):
-    engine, uid = _movement_engine(make_payload, baseline={"active_days_per_week": 5})
+def test_two_misses_while_active_step_down(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload, baseline={"active_days_per_week": 5})
     assert _play(engine, uid, "SN") == [3, 2]
 
 
-def test_partial_breaks_a_run_of_misses(make_payload):
-    engine, uid = _movement_engine(make_payload, baseline={"active_days_per_week": 5})
+def test_partial_breaks_a_run_of_misses(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload, baseline={"active_days_per_week": 5})
     assert _play(engine, uid, "CCSHS") == [3, 3, 3, 3, 3]  # CC first so the state stays active
 
 
@@ -174,8 +173,8 @@ def test_shrink_on_slip(make_profile, new_state, expected):
     assert state.current_tier == {M: expected, Behaviour.sleep: expected}
 
 
-def test_entering_drifting_lowers_tier_and_sends_checkin(make_payload):
-    engine, uid = _movement_engine(make_payload, baseline={"active_days_per_week": 5})
+def test_entering_drifting_lowers_tier_and_sends_checkin(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload, baseline={"active_days_per_week": 5})
     tiers = _play(engine, uid, "CSCS")  # 2/4 done -> drifting, never 2 misses in a row
     assert engine.get_state(uid).engagement_state == EngagementState.drifting
     assert tiers == [3, 3, 3, 2]
@@ -184,16 +183,16 @@ def test_entering_drifting_lowers_tier_and_sends_checkin(make_payload):
     assert engine.get_state(uid).checkin_due
 
 
-def test_entering_lapsed_resets_to_tier_1_and_sends_checkin(make_payload):
-    engine, uid = _movement_engine(make_payload, baseline={"active_days_per_week": 5})
+def test_entering_lapsed_resets_to_tier_1_and_sends_checkin(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload, baseline={"active_days_per_week": 5})
     _play(engine, uid, "NNN")
     state = engine.get_state(uid)
     assert state.engagement_state == EngagementState.lapsed and state.current_tier[M] == 1
     assert any(e.payload.get("state") == "lapsed" for e in engine.events(uid) if e.type == EventType.checkin_sent)
 
 
-def test_no_step_up_after_lapse_until_recovering_and_three_completions(make_payload):
-    engine, uid = _movement_engine(make_payload)
+def test_no_step_up_after_lapse_until_recovering_and_three_completions(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload)
     _play(engine, uid, "NNN")
     assert engine.get_state(uid).engagement_state == EngagementState.lapsed
     # Day 4 still lapsed, day 5 -> recovering; third consecutive completion on day 6 steps up.
@@ -204,8 +203,8 @@ def test_no_step_up_after_lapse_until_recovering_and_three_completions(make_payl
 # ---------- red flags ----------
 
 
-def test_red_flag_in_checkin_stops_coaching(make_payload):
-    engine, uid = _movement_engine(make_payload)
+def test_red_flag_in_checkin_stops_coaching(make_engine, make_payload):
+    engine, uid = _movement_engine(make_engine, make_payload)
     result = engine.checkin(uid, [Barrier.other], free_text="I had chest pain yesterday")
     assert result.red_flag and result.adjusted_actions == []
     assert engine.today(uid, 1).actions == []
@@ -213,8 +212,8 @@ def test_red_flag_in_checkin_stops_coaching(make_payload):
     assert any(e.type == EventType.red_flag for e in engine.events(uid))
 
 
-def test_red_flag_in_motivation_reason_at_onboarding(make_payload):
-    engine = Engine()
+def test_red_flag_in_motivation_reason_at_onboarding(make_engine, make_payload):
+    engine = make_engine()
     result = engine.onboard(make_payload(history={"motivation_reason": "I keep fainting"}), user_id="u3")
     assert result.red_flag
     assert engine.today(result.user_id, 1).actions == []

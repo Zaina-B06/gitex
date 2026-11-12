@@ -1,0 +1,87 @@
+# Simulation parameters (baseline scenario). Every value is explained in docs/ASSUMPTIONS.md,
+# section "Simulation". Scenarios in scenarios.yaml override these.
+
+days: 90
+
+personas:
+  schedule_type: {office: 0.35, shift: 0.15, outdoor_manual: 0.15, home_caregiver: 0.15, student: 0.20}
+  language: {ar: 0.40, en: 0.35, south_asian: 0.25}  # south_asian uses English in the app
+  health_literacy: {low: 0.25, med: 0.50, high: 0.25}
+  mobility_limitation: {none: 0.90, some: 0.07, mobility_aid: 0.03}
+  sex: {female: 0.45, male: 0.50, prefer_not_to_say: 0.05}
+  age: [18, 70]
+  goals: {both: 0.70, movement: 0.20, sleep: 0.10}
+  setting: {either: 0.60, indoor: 0.25, outdoor: 0.15}
+  screening_flag_rate: 0.15
+  see_doctor_share: 0.20  # of flagged personas: the "yes" is chest pain or dizziness/fainting
+  pregnant_rate: 0.08  # of female personas aged 18-45
+  fasting_rate: 0.40
+  active_days_p: [0.20, 0.15, 0.15, 0.15, 0.12, 0.10, 0.08, 0.05]  # P(0..7 active days/week)
+  sleep_quality_p: [0.10, 0.25, 0.35, 0.20, 0.10]  # P(quality 1..5)
+  max_past_helpers: 2
+  max_past_stop_reasons: 2
+  # [wake hour, sleep hour]; quiet hours = sleep -> wake
+  wake_sleep:
+    office: [6, 23]
+    shift_day: [5, 22]
+    shift_night: [14, 6]
+    outdoor_manual: [5, 22]
+    home_caregiver: [6, 23]
+    student: [8, 1]
+  night_shift_share: 0.5
+
+traits:
+  motivation_mean: [0.0, 0.8]  # normal(mean, sd), logit scale
+  literacy_shift: {low: -0.3, med: 0.0, high: 0.3}
+  motivation_volatility: [0.2, 0.8]  # uniform
+  motivation_ar1: 0.85  # day-to-day persistence of motivation
+  novelty_drop: [0.0, 2.0]  # uniform per persona: how far the motivation mean falls as novelty wears off
+  novelty_tau_days: 21  # time constant of that fall: ~63% of it by day 21
+  capacity_extra_p: [0.25, 0.45, 0.30]  # P(-1, 0, +1) around the baseline-implied capacity
+  bct_responsiveness_sd: 0.5
+  preferred_window:
+    office: {morning: 0.30, afternoon: 0.10, evening: 0.60}
+    shift: {morning: 0.40, afternoon: 0.30, evening: 0.30}
+    outdoor_manual: {morning: 0.20, afternoon: 0.10, evening: 0.70}
+    home_caregiver: {morning: 0.30, afternoon: 0.50, evening: 0.20}
+    student: {morning: 0.20, afternoon: 0.40, evening: 0.40}
+  checkin_answer_rate: [6, 4]  # beta(a, b), mean 0.6
+  streak_sensitivity: [0.3, 1.0]  # uniform; motivation drop after a streak reset (arm A only)
+  barrier_alpha: 1.0  # Dirichlet concentration over barriers
+  stop_reason_boost: 3.0  # extra weight on barriers the persona named as past stop reasons
+  schedule_barrier_boost:
+    shift: {schedule_change: 2.0}
+    home_caregiver: {social_family: 2.0, time: 1.0}
+    outdoor_manual: {energy_fatigue: 2.0, environment: 1.0}
+    office: {time: 2.0}
+    student: {schedule_change: 1.0, forgot: 1.0}
+
+behaviour:
+  b0: 1.5  # calibrated on seed 101 (see ASSUMPTIONS.md)
+  b_motivation: 1.0
+  b_habit: 2.0
+  b_tier_fit: 1.0
+  b_bct: 1.0
+  b_window: 0.5
+  tier_easier_bonus: 0.3  # per tier below capacity
+  tier_easier_cap: 0.9
+  tier_fit_penalty: 1.5  # per tier above capacity ("strongly negative")
+  open_base: 1.75  # calibrated on seed 101.  P(opens the app today) = sigmoid(open_base + open_slope * motivation)
+  open_slope: 1.5  # closed-app days answer nothing: that's how silent streaks (and churn) happen
+  partial_share: 0.25  # share of non-completions that are partials
+  no_response_base: -1.5  # calibrated on seed 101; logit of no_response share among misses at motivation 0
+  no_response_slope: 1.0  # lower motivation -> more no_response
+  habit_rate: 0.05  # hidden habit: h = (1 - r) h + r a
+  habit_start_scale: 0.3
+  dropout_silent_days: 14
+
+disruptions:
+  ramadan_days: [30, 59]
+  ramadan_penalty: 1.5  # non-fasting-safe action shown to a fasting persona
+  heat_days: [61, 90]
+  heat_penalty: 1.0  # outdoor action in the 11:00-16:00 window; half that outside it
+  heat_multiplier: {outdoor_manual: 1.5}
+  illness: {rate: 1.0, length: [3, 7], penalty_movement: 3.0, penalty_sleep: 0.5}
+  travel: {rate: 0.5, length: [2, 5], penalty: 0.7, segment_rate: {office: 0.8}}
+  workload: {rate: 1.0, length: [3, 7], motivation_drop: 0.6, segment_rate: {shift: 2.5}}
+  # rate = expected episodes per 90 days (Poisson)

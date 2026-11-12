@@ -136,7 +136,7 @@ class ContextFlag(StrEnum):
 
 class TimeWindow(StrEnum):
     morning = "morning"
-    midday = "midday"
+    afternoon = "afternoon"
     evening = "evening"
 
 
@@ -322,11 +322,11 @@ class UserState(BaseModel):
     engagement_state: EngagementState = EngagementState.active
     checkin_due: bool = False
     context_flags: set[ContextFlag] = Field(default_factory=set)
-    bandit_params: dict[str, list[float]] = Field(default_factory=dict)  # Task 02
+    bandit_params: dict[str, list[float]] = Field(default_factory=dict)  # "action@window" -> [alpha, beta]
     last_barrier: Barrier | None = None  # cleared by the next full completion
-    shown_today: list[str] = Field(default_factory=list)  # action ids shown on `day`
+    shown_today: list[tuple[str, TimeWindow, int]] = Field(default_factory=list)  # (action id, window, hour)
     pending: list[str] = Field(default_factory=list)  # shown on `day`, no outcome yet
-    time_window: TimeWindow = TimeWindow.morning  # movement prompt window; sleep is always evening
+    time_window: TimeWindow = TimeWindow.morning  # rules mode: movement window; sleep is always evening
     channel: Channel = Channel.app
     prefer_indoor: bool = False
     red_flag: bool = False
@@ -366,6 +366,7 @@ class OnboardResult(BaseModel):
 class ScheduledAction(BaseModel):
     action: Action
     time_window: TimeWindow
+    hour: int  # prompt hour; never inside quiet hours unless every window is
     explanation_id: str  # GET /actions/{id}/explain
 
 

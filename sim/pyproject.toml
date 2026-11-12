@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rebound_sim"
+version = "0.1.0"
+description = "Synthetic-population simulator for the Rebound engine"
+requires-python = ">=3.11"
+# rebound_engine is installed separately from ../engine (pip install -e "engine[dev]").
+dependencies = ["numpy>=1.26", "pandas>=2.1", "pyarrow>=14", "matplotlib>=3.8", "pyyaml>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["sim"]
+package-dir = { "sim" = "." }
+
+[tool.setuptools.package-data]
+sim = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]  # so `import sim` works from the repo root without installing
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

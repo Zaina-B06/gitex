@@ -1,5 +1,6 @@
-"""Policy: safety filter -> rules layer -> (bandit) -> tier changes. AGENTS.md §6.3."""
+"""Policy: safety filter -> rules layer (tier) -> bandit (action + window) -> tier changes. AGENTS.md §6.3."""
 
+import random
 from typing import Protocol
 
 from . import config
@@ -15,6 +16,8 @@ from .models import (
     DayOutcome,
     EngagementState,
     PlaceSetting,
+    ScheduledAction,
+    TimeRange,
     TimeWindow,
     UserProfile,
     UserState,
@@ -52,15 +55,60 @@ def primary_barrier(barriers: list[Barrier]) -> Barrier | None:
     return min(barriers, key=BARRIER_PRIORITY.index) if barriers else None
 
 
+def arm_key(action_id: str, window: TimeWindow) -> str:
+    return f"{action_id}@{window.value}"
+
+
 class Bandit(Protocol):
-    def select(self, allowed_actions: list[Action], user_state: UserState) -> Action: ...
+    def select(self, arms: list[ScheduledAction], user_state: UserState) -> ScheduledAction: ...
 
 
 class RulesBandit:
-    """Stub until Task 02 (Thompson sampling): returns the rules layer's top-ranked action."""
+    """Rules mode: the arms come ranked by the rules layer (default window first); take the top one."""
 
-    def select(self, allowed_actions: list[Action], user_state: UserState) -> Action:
-        return allowed_actions[0]
+    def select(self, arms: list[ScheduledAction], user_state: UserState) -> ScheduledAction:
+        return arms[0]
+
+
+class ThompsonBandit:
+    """Thompson sampling over (action, window) arms with per-user Beta(alpha, beta) in state.bandit_params."""
+
+    def __init__(self, rng: random.Random) -> None:
+        self.rng = rng  # seeded by the caller; no global randomness
+
+    def select(self, arms: list[ScheduledAction], user_state: UserState) -> ScheduledAction:
+        params = user_state.bandit_params
+
+        def draw(arm: ScheduledAction) -> float:
+            alpha, beta = params.get(arm_key(arm.action.id, arm.time_window), config.BANDIT_PRIOR)
+            return self.rng.betavariate(alpha, beta)
+
+        return max(arms, key=draw)
+
+
+def update_arm(state: UserState, key: str, reward: float) -> None:
+    """Fractional Beta update: alpha += r, beta += 1 - r."""
+    alpha, beta = state.bandit_params.get(key, list(config.BANDIT_PRIOR))
+    state.bandit_params[key] = [alpha + reward, beta + 1 - reward]
+
+
+def init_bandit_params(
+    profile: UserProfile, library: list[Action] | tuple[Action, ...]
+) -> dict[str, list[float]]:
+    """Prior for every arm the user could get, with a warm start for BCTs matching past_helpers."""
+    helper_bcts = {
+        bct for h in profile.history.past_helpers for bct in config.HELPER_BCTS.get(h.value, [])
+    }
+    params = {}
+    for a in library:
+        if a.behaviour not in profile.basics.goals:
+            continue
+        alpha, beta = config.BANDIT_PRIOR
+        if a.bct_code in helper_bcts:
+            alpha += config.WARM_START_BONUS
+        for w in _candidate_windows(a.behaviour):
+            params[arm_key(a.id, w)] = [alpha, beta]
+    return params
 
 
 def tier_cap(profile: UserProfile, behaviour: Behaviour) -> int:
@@ -69,16 +117,37 @@ def tier_cap(profile: UserProfile, behaviour: Behaviour) -> int:
     return config.MAX_TIER
 
 
-def action_window(state: UserState, behaviour: Behaviour) -> TimeWindow:
-    return state.time_window if behaviour == Behaviour.movement else TimeWindow.evening
+def _candidate_windows(behaviour: Behaviour) -> list[TimeWindow]:
+    return list(TimeWindow) if behaviour == Behaviour.movement else [TimeWindow.evening]
 
 
 def window_hour(profile: UserProfile, window: TimeWindow) -> int:
     if window == TimeWindow.morning:
         return (profile.basics.usual_wake_time.hour + config.MORNING_OFFSET_H) % 24
-    if window == TimeWindow.midday:
-        return config.MIDDAY_HOUR
+    if window == TimeWindow.afternoon:
+        return config.AFTERNOON_HOUR
     return (profile.basics.usual_sleep_time.hour + config.EVENING_OFFSET_H) % 24
+
+
+def _in_quiet_hours(hour: int, quiet: TimeRange | None) -> bool:
+    if quiet is None:
+        return False
+    start, end = quiet.start.hour, quiet.end.hour
+    return start <= hour < end if start <= end else hour >= start or hour < end
+
+
+def prompt_options(
+    profile: UserProfile, state: UserState, behaviour: Behaviour
+) -> list[tuple[TimeWindow, int]]:
+    """(window, hour) pairs outside quiet hours; the rules-mode default window comes first.
+    If every window is quiet, the default window moves to the end of quiet hours."""
+    windows = _candidate_windows(behaviour)
+    default = state.time_window if behaviour == Behaviour.movement else TimeWindow.evening
+    i = windows.index(default)
+    ordered = windows[i:] + windows[:i]  # default first, then the next windows in order
+    quiet = profile.preferences.quiet_hours
+    free = [(w, h) for w in ordered if not _in_quiet_hours(h := window_hour(profile, w), quiet)]
+    return free or [(default, quiet.end.hour)]
 
 
 def _next_window(w: TimeWindow) -> TimeWindow:
@@ -154,7 +223,7 @@ def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> s
         target = Behaviour.movement if Behaviour.movement in state.current_tier else Behaviour.sleep
         _tier_down(state, target)
     elif barrier in (Barrier.schedule_change, Barrier.forgot):
-        state.time_window = _next_window(state.time_window)
+        state.time_window = _next_window(state.time_window)  # rules mode; bandit mode: see Engine.checkin
         if barrier == Barrier.forgot:
             # voice_note is disabled in the prototype, so toggle between the two live channels.
             state.channel = Channel.whatsapp_style if state.channel == Channel.app else Channel.app
@@ -183,20 +252,36 @@ def choose_action(
     hour: int | None = None,
     library: list[Action] | tuple[Action, ...] | None = None,
     bandit: Bandit | None = None,
-) -> Action | None:
-    """Today's action for one behaviour. None = nothing safe to show (or paused / not a goal)."""
+) -> ScheduledAction | None:
+    """Today's action for one behaviour. None = nothing safe to show (or paused / not a goal).
+
+    The rules layer fixes the tier; every arm is a safe (action, window) pair at that tier.
+    `hour` overrides the prompt hour (tests)."""
     if ContextFlag.paused in state.context_flags or behaviour not in state.current_tier:
         return None
-    hour = window_hour(profile, action_window(state, behaviour)) if hour is None else hour
-    allowed = filter_actions(profile, state, Context(flags=state.context_flags, hour=hour), library)
-    pool = [a for a in allowed if a.behaviour == behaviour]
+    options = prompt_options(profile, state, behaviour)
+    if hour is not None:
+        options = [(options[0][0], hour)]
+    allowed_at = {
+        (w, h): [
+            a
+            for a in filter_actions(profile, state, Context(flags=state.context_flags, hour=h), library)
+            if a.behaviour == behaviour
+        ]
+        for w, h in options
+    }
+    pool = [a for actions in allowed_at.values() for a in actions]
     if not pool:
         return None
     target = min(state.current_tier[behaviour], tier_cap(profile, behaviour))
-    at_or_below = [a for a in pool if a.tier <= target]
-    best = max(a.tier for a in at_or_below) if at_or_below else min(a.tier for a in pool)
-    ranked = sorted((a for a in pool if a.tier == best), key=lambda a: _setting_rank(profile, a))
-    return (bandit or RulesBandit()).select(ranked, state)
+    at_or_below = [a.tier for a in pool if a.tier <= target]
+    best = max(at_or_below) if at_or_below else min(a.tier for a in pool)
+    arms = [
+        ScheduledAction(action=a, time_window=w, hour=h, explanation_id=a.id)
+        for (w, h), actions in allowed_at.items()
+        for a in sorted((a for a in actions if a.tier == best), key=lambda a: _setting_rank(profile, a))
+    ]
+    return (bandit or RulesBandit()).select(arms, state)
 
 
 def choose_actions(
@@ -204,9 +289,7 @@ def choose_actions(
     state: UserState,
     library: list[Action] | tuple[Action, ...] | None = None,
     bandit: Bandit | None = None,
-) -> list[Action]:
-    """One action per goal (movement first), each at its own prompt window."""
-    picks = (
-        choose_action(profile, state, b, library=library, bandit=bandit) for b in Behaviour
-    )
+) -> list[ScheduledAction]:
+    """One action per goal (movement first), each with its prompt window and hour."""
+    picks = (choose_action(profile, state, b, library=library, bandit=bandit) for b in Behaviour)
     return [a for a in picks if a is not None]

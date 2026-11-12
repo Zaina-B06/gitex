@@ -1,0 +1,2 @@
+# Scenario overrides on config.yaml (deep-merged). Drop 1 ships baseline only; the rest come in Drop 2.
+baseline: {}

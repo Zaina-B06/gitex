@@ -25,14 +25,20 @@ python -m venv .venv
 # Windows (PowerShell):  .venv\Scripts\Activate.ps1
 # macOS/Linux:           source .venv/bin/activate
 pip install -e "engine[dev]"
+pip install -e "sim[dev]"                     # simulator: numpy, pandas, pyarrow, matplotlib
 ```
 
 ## Run
 
 ```bash
-pytest engine/tests                          # all engine tests
-ruff check engine                            # lint
+pytest engine/tests                          # engine tests
+pytest sim/tests                             # simulator tests
+ruff check engine sim                        # lint
 python -m rebound_engine.demo --days 30 --seed 1   # 30-day single-user demo
+
+# Simulation (from the repo root): 300 personas x 90 days x 10 seeds, arms A/B/C + sensitivity arm A0
+python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --scenario baseline --out sim/out/run_001 --sensitivity
+python -m sim.report --run sim/out/run_001     # charts in sim/out/run_001/charts + summary.md
 ```
 
 The demo prints one row per day: action, outcome, habit strength (H) per behaviour and engagement

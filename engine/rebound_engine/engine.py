@@ -1,13 +1,16 @@
 """Engine facade used by both the simulator and the API."""
 
+import random
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import uuid4
 
+from . import config
 from .actions import default_library
 from .models import (
     Action,
     Barrier,
+    Behaviour,
     CheckinResult,
     ContextFlag,
     DayLog,
@@ -27,12 +30,15 @@ from .policy import (
     BARRIER_MESSAGE,
     Bandit,
     RulesBandit,
-    action_window,
+    ThompsonBandit,
     apply_barrier,
+    arm_key,
     choose_actions,
+    init_bandit_params,
     primary_barrier,
     shrink_on_slip,
     tier_cap,
+    update_arm,
     update_tier_counters,
 )
 from .safety import detect_red_flags, screening_flags
@@ -82,17 +88,55 @@ class InMemoryStore:
             d.pop(user_id, None)
 
 
+class NoCopyStore(InMemoryStore):
+    """For the simulator: hands out the stored objects themselves (no copies) for speed.
+    Safe only when one caller owns each user, as in a simulation run."""
+
+    def save_profile(self, profile: UserProfile) -> None:
+        self._profiles[profile.user_id] = profile
+
+    def get_profile(self, user_id: str) -> UserProfile:
+        return self._profiles[user_id]
+
+    def save_state(self, state: UserState) -> None:
+        self._states[state.user_id] = state
+
+    def get_state(self, user_id: str) -> UserState:
+        return self._states[user_id]
+
+    def append_event(self, event: Event) -> None:
+        self._events.setdefault(event.user_id, []).append(event)
+
+    def events(self, user_id: str) -> list[Event]:
+        return list(self._events.get(user_id, []))
+
+
+PolicyMode = Literal["rules", "bandit"]
+
+
 class Engine:
     def __init__(
         self,
         store: Store | None = None,
         library: list[Action] | None = None,
         bandit: Bandit | None = None,
+        policy_mode: PolicyMode = "rules",
+        rng: random.Random | None = None,
     ) -> None:
+        """policy_mode="rules": deterministic choice, default window (Task 01 behaviour).
+        policy_mode="bandit": Thompson sampling over (action, window) arms, seeded by `rng`."""
+        if policy_mode not in ("rules", "bandit"):
+            raise ValueError(f"unknown policy_mode {policy_mode!r}")
         self.store = store or InMemoryStore()
         self.library = list(library) if library is not None else list(default_library())
         self._by_id = {a.id: a for a in self.library}
-        self.bandit = bandit or RulesBandit()
+        self.policy_mode = policy_mode
+        if bandit is not None:
+            self.bandit = bandit
+        elif policy_mode == "bandit":
+            self.bandit = ThompsonBandit(rng or random.Random(0))
+        else:
+            self.bandit = RulesBandit()
 
     # ---------- public API ----------
 
@@ -106,6 +150,8 @@ class Engine:
         )
         screening = screening_flags(profile)
         state = initial_state(profile, screening)
+        if self.policy_mode == "bandit":
+            state.bandit_params = init_bandit_params(profile, self.library)
         reason = profile.history.motivation_reason
         red_flag = bool(reason) and detect_red_flags(reason)
         if red_flag:
@@ -137,21 +183,27 @@ class Engine:
             if state.pending:
                 state.pending = []
                 self._end_day(profile, state)
-            actions = choose_actions(profile, state, library=self.library, bandit=self.bandit)
+            scheduled = choose_actions(profile, state, library=self.library, bandit=self.bandit)
             state.day = day
-            state.shown_today = [a.id for a in actions]
-            state.pending = list(state.shown_today)
-            for a in actions:
-                self._log(user_id, day, EventType.action_shown, action_id=a.id)
+            state.shown_today = [(s.action.id, s.time_window, s.hour) for s in scheduled]
+            state.pending = [s.action.id for s in scheduled]
+            for s in scheduled:
+                self._log(
+                    user_id,
+                    day,
+                    EventType.action_shown,
+                    action_id=s.action.id,
+                    payload={"window": s.time_window.value, "hour": s.hour},
+                )
         else:
-            actions = [self._by_id[i] for i in state.shown_today]
+            scheduled = [
+                ScheduledAction(action=self._by_id[i], time_window=w, hour=h, explanation_id=i)
+                for i, w, h in state.shown_today
+            ]
         self.store.save_state(state)
         return TodayResult(
             day=day,
-            actions=[
-                ScheduledAction(action=a, time_window=action_window(state, a.behaviour), explanation_id=a.id)
-                for a in actions
-            ],
+            actions=scheduled,
             message_keys=self._message_keys(profile, state),
             channel=state.channel,
             checkin_due=state.checkin_due,
@@ -195,7 +247,12 @@ class Engine:
             return CheckinResult(barrier=primary, adjusted_actions=[], message_key="seek_care", red_flag=True)
         barrier = primary or Barrier.other
         message_key = apply_barrier(profile, state, barrier)
-        actions = choose_actions(profile, state, library=self.library, bandit=self.bandit)
+        if self.policy_mode == "bandit" and barrier in (Barrier.forgot, Barrier.schedule_change):
+            # The bandit owns the window: count one failure against every arm in the last movement window.
+            window = next((w for i, w, _ in state.shown_today if self._by_id[i].behaviour == Behaviour.movement), None)
+            for key in [k for k in state.bandit_params if window and k.endswith(f"@{window.value}")]:
+                state.bandit_params[key][1] += 1
+        actions = [s.action for s in choose_actions(profile, state, library=self.library, bandit=self.bandit)]
         state.checkin_due = False
         self._log(
             user_id,
@@ -230,9 +287,8 @@ class Engine:
     def _load(self, user_id: str) -> tuple[UserProfile, UserState]:
         return self.store.get_profile(user_id), self.store.get_state(user_id)
 
-    @staticmethod
     def _apply_outcome(
-        profile: UserProfile, state: UserState, action: Action, outcome: DayOutcome, day: int
+        self, profile: UserProfile, state: UserState, action: Action, outcome: DayOutcome, day: int
     ) -> None:
         if ContextFlag.paused in state.context_flags:
             outcome = DayOutcome.paused
@@ -244,9 +300,15 @@ class Engine:
         if outcome == DayOutcome.completed:
             state.last_barrier = None  # temporary adjustments (low energy) end here
         update_tier_counters(state, b, action.tier, outcome, tier_cap(profile, b))
+        if self.policy_mode == "bandit" and outcome in config.OUTCOME_VALUE:
+            window = next((w for i, w, _ in state.shown_today if i == action.id), None)
+            if window is not None:
+                update_arm(state, arm_key(action.id, window), config.OUTCOME_VALUE[outcome])
 
     def _end_day(self, profile: UserProfile, state: UserState) -> None:
         """All of the day's actions have an outcome: update engagement, shrink tiers on a slip."""
+        keep_from = state.day - config.HISTORY_KEEP_DAYS
+        state.history = [d for d in state.history if d.day > keep_from]
         new = compute_engagement_state(state.history, state.engagement_state)
         if new == state.engagement_state:
             return

@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from rebound_engine.engine import Engine, InMemoryStore, NoCopyStore
 from rebound_engine.models import OnboardingPayload, UserProfile
 from rebound_engine.safety import SCREENING_QUESTIONS
 
@@ -39,3 +40,9 @@ def make_profile():
     return lambda **groups: UserProfile.model_validate(
         {**_data(**groups), "user_id": "test-user", "created_at": datetime(2026, 1, 1, tzinfo=UTC)}
     )
+
+
+@pytest.fixture(params=[InMemoryStore, NoCopyStore], ids=["in_memory", "no_copy"])
+def make_engine(request):
+    """Every engine test runs against both stores, so the simulator's fast store behaves the same."""
+    return lambda **kw: Engine(store=request.param(), **kw)

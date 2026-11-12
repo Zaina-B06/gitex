@@ -1,3 +1,5 @@
+from itertools import pairwise
+
 from rebound_engine.actions import filter_actions
 from rebound_engine.demo import LAPSE_DAYS, run
 from rebound_engine.engine import Engine
@@ -75,7 +77,7 @@ def test_step_up_never_jumps_two_tiers(make_payload):
     for day in range(1, 20):
         _complete_day(engine, uid, day)
         tiers.append(engine.get_state(uid).current_tier[Behaviour.movement])
-    assert all(b - a in (0, 1) for a, b in zip(tiers, tiers[1:]))
+    assert all(b - a in (0, 1) for a, b in pairwise(tiers))
     assert tiers[-1] == 4
 
 

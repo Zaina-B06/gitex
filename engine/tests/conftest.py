@@ -1,5 +1,5 @@
 import copy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -37,5 +37,5 @@ def make_payload():
 @pytest.fixture
 def make_profile():
     return lambda **groups: UserProfile.model_validate(
-        {**_data(**groups), "user_id": "test-user", "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc)}
+        {**_data(**groups), "user_id": "test-user", "created_at": datetime(2026, 1, 1, tzinfo=UTC)}
     )

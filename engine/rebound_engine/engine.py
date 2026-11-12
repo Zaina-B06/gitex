@@ -1,6 +1,6 @@
 """Engine facade used by both the simulator and the API."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -97,7 +97,7 @@ class Engine:
             {
                 **payload.model_dump(),
                 "user_id": user_id or uuid4().hex,
-                "created_at": datetime.now(timezone.utc),
+                "created_at": datetime.now(UTC),
             }
         )
         screening = screening_flags(profile)

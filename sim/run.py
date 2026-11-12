@@ -1,21 +1,24 @@
 """Run the simulation.
 
 python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --scenario baseline --out sim/out/run_001 --sensitivity
+python -m sim.run ... --all-scenarios --out sim/out/run_004      # one sub-folder per scenario
 """
 
 import argparse
 import json
 import os
+import signal
 import sys
 import time
-from multiprocessing import Pool
+from multiprocessing import Pool, TimeoutError
 from pathlib import Path
 
 import pandas as pd
 import yaml
+from rebound_engine import config as engine_config
 from rebound_engine.safety import SCREENING_QUESTIONS
 
-from . import load_config
+from . import SIM_DIR, load_config
 from .arms import run_persona
 from .metrics import aggregate, persona_table, seed_metrics
 from .personas import SEGMENTS, generate_personas
@@ -29,13 +32,29 @@ def parse_seeds(text: str) -> list[int]:
     return seeds
 
 
+def _engine_overrides(cfg: dict) -> dict:
+    overrides = cfg.get("engine_overrides") or {}
+    unknown = [k for k in overrides if not hasattr(engine_config, k)]
+    if unknown:
+        raise ValueError(f"unknown engine config names in engine_overrides: {unknown}")
+    return overrides
+
+
 def run_seed(args: tuple) -> tuple[int, pd.DataFrame, pd.DataFrame, dict]:
     seed, n, days, arms, cfg = args
+    overrides = _engine_overrides(cfg)
+    saved = {k: getattr(engine_config, k) for k in overrides}
     personas = generate_personas(n, seed, cfg)
     rows = []
-    for arm in arms:
-        for payload, traits in personas:
-            rows.extend(run_persona(arm, payload, traits, cfg, days, seed))
+    try:  # sweep only: engine constants (e.g. STEP_UP_SUCCESSES) changed for this run, always restored
+        for k, v in overrides.items():
+            setattr(engine_config, k, v)
+        for arm in arms:
+            for payload, traits in personas:
+                rows.extend(run_persona(arm, payload, traits, cfg, days, seed))
+    finally:
+        for k, v in saved.items():
+            setattr(engine_config, k, v)
     events = pd.DataFrame(rows)
     persona_df = pd.DataFrame(
         [
@@ -53,27 +72,56 @@ def run_seed(args: tuple) -> tuple[int, pd.DataFrame, pd.DataFrame, dict]:
     return seed, events, persona_df, seed_metrics(persona_table(events, persona_df, days), days)
 
 
+def _ignore_sigint() -> None:
+    """Workers ignore Ctrl+C; the main process catches it and terminates the pool (otherwise every worker
+    prints its own traceback on Windows)."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _interrupted(pool) -> None:
+    if pool is not None:
+        pool.terminate()
+        pool.join()
+    print("\ninterrupted: all workers stopped, nothing written for this run", file=sys.stderr)
+    sys.exit(130)
+
+
 def simulate(n: int, days: int, seeds: list[int], arms: list[str], cfg: dict, workers: int = 0, quiet: bool = False):
     """Returns (events, personas, metrics). workers=0 -> one process per seed (capped at CPU count)."""
     cfg = {**cfg, "days": days}
     jobs = [(s, n, days, arms, cfg) for s in seeds]
     results = []
     started = time.perf_counter()
-    if workers == 1 or len(seeds) == 1:
-        iterator = map(run_seed, jobs)
-        pool = None
-    else:
-        pool = Pool(workers or min(len(seeds), os.cpu_count() or 1))
-        iterator = pool.imap_unordered(run_seed, jobs)
+    pool = None
+
+    def progress() -> None:
+        if not quiet:
+            i = len(results)
+            bar = "#" * i + "." * (len(jobs) - i)
+            print(f"\r[{bar}] {i}/{len(jobs)} seeds  {time.perf_counter() - started:5.1f}s", end="", flush=True)
+
     try:
-        for i, res in enumerate(iterator, 1):
-            results.append(res)
-            if not quiet:
-                bar = "#" * i + "." * (len(jobs) - i)
-                print(f"\r[{bar}] {i}/{len(jobs)} seeds  {time.perf_counter() - started:5.1f}s", end="", flush=True)
-    finally:
-        if pool is not None:
+        if workers == 1 or len(seeds) == 1:
+            for job in jobs:
+                results.append(run_seed(job))
+                progress()
+        else:
+            pool = Pool(workers or min(len(seeds), os.cpu_count() or 1), initializer=_ignore_sigint)
+            iterator = pool.imap_unordered(run_seed, jobs)
+            while len(results) < len(jobs):
+                try:  # short timeouts so Ctrl+C is noticed on Windows (a blocking wait ignores it)
+                    results.append(iterator.next(timeout=0.5))
+                except TimeoutError:
+                    continue
+                progress()
             pool.close()
+            pool.join()
+            pool = None
+    except KeyboardInterrupt:
+        _interrupted(pool)
+    finally:
+        if pool is not None:  # a worker raised: don't leave processes behind
+            pool.terminate()
             pool.join()
     if not quiet:
         print()
@@ -93,6 +141,38 @@ def _write_table(df: pd.DataFrame, path: Path) -> Path:
         return path.with_suffix(".csv")
 
 
+def run_scenario(scenario: str, args: argparse.Namespace, arms: list[str], out: Path) -> bool:
+    """Run one scenario and write its outputs. Returns False if the safety audit failed."""
+    cfg = load_config(scenario)
+    seeds = parse_seeds(args.seeds)
+    print(f"scenario={scenario} n={args.n} days={args.days} seeds={seeds} arms={arms}")
+    events, personas, metrics = simulate(args.n, args.days, seeds, arms, cfg, args.workers)
+
+    out.mkdir(parents=True, exist_ok=True)
+    ev_path = _write_table(events, out / "events")
+    _write_table(personas, out / "personas")
+    metrics["run"] = {"scenario": scenario, "n": args.n, "days": args.days, "arms": arms}
+    (out / "metrics.json").write_text(json.dumps(metrics, indent=1, sort_keys=True), encoding="utf-8")
+    (out / "config_snapshot.yaml").write_text(
+        yaml.safe_dump({"scenario": scenario, **cfg, "days": args.days}, sort_keys=True), encoding="utf-8"
+    )
+    print(f"wrote {ev_path}, metrics.json and config_snapshot.yaml to {out}")
+
+    # Fail loudly: the engine arms must never show an unsafe action or message in quiet hours.
+    ok = True
+    for arm in ("B", "C"):
+        if arm in metrics["arms"]:
+            bad = metrics["arms"][arm]["safety_violations"]["max"] or 0
+            quiet = metrics["arms"][arm]["quiet_messages"]["max"] or 0
+            if bad or quiet:
+                print(f"FAIL [{scenario}]: arm {arm} has {bad:.0f} safety violations / {quiet:.0f} quiet-hour "
+                      f"messages (see the 'violation' and 'quiet' columns in {ev_path.name})")
+                ok = False
+    if ok:
+        print(f"safety audit [{scenario}]: 0 violations and 0 quiet-hour messages in B and C")
+    return ok
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Rebound synthetic-population simulation")
     ap.add_argument("--n", type=int, default=300)
@@ -100,40 +180,27 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--seeds", default="1-10")
     ap.add_argument("--arms", nargs="+", default=["A", "B", "C"])
     ap.add_argument("--scenario", default="baseline")
-    ap.add_argument("--all-scenarios", action="store_true", help="Drop 2")
+    ap.add_argument("--all-scenarios", action="store_true", help="run every scenario in scenarios.yaml")
     ap.add_argument("--sensitivity", action="store_true", help="also run A with streak_sensitivity = 0 (arm A0)")
     ap.add_argument("--workers", type=int, default=0)
     ap.add_argument("--out", default="sim/out/run_001")
     args = ap.parse_args(argv)
-    if args.all_scenarios:
-        sys.exit("--all-scenarios comes in Drop 2; only 'baseline' exists for now.")
+    try:
+        _main(args)
+    except KeyboardInterrupt:  # outside simulate(), e.g. while writing outputs
+        _interrupted(None)
 
+
+def _main(args: argparse.Namespace) -> None:
     arms = list(dict.fromkeys(args.arms + (["A0"] if args.sensitivity else [])))
-    cfg = load_config(args.scenario)
-    seeds = parse_seeds(args.seeds)
-    print(f"scenario={args.scenario} n={args.n} days={args.days} seeds={seeds} arms={arms}")
-    events, personas, metrics = simulate(args.n, args.days, seeds, arms, cfg, args.workers)
-
     out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    ev_path = _write_table(events, out / "events")
-    _write_table(personas, out / "personas")
-    metrics["run"] = {"scenario": args.scenario, "n": args.n, "days": args.days, "arms": arms}
-    (out / "metrics.json").write_text(json.dumps(metrics, indent=1, sort_keys=True), encoding="utf-8")
-    (out / "config_snapshot.yaml").write_text(
-        yaml.safe_dump({"scenario": args.scenario, **cfg, "days": args.days}, sort_keys=True), encoding="utf-8"
-    )
-    print(f"wrote {ev_path}, metrics.json and config_snapshot.yaml to {out}")
-
-    # Fail loudly: the engine arms must never show an unsafe action or message in quiet hours.
-    for arm in ("B", "C"):
-        if arm in metrics["arms"]:
-            bad = metrics["arms"][arm]["safety_violations"]["max"] or 0
-            quiet = metrics["arms"][arm]["quiet_messages"]["max"] or 0
-            if bad or quiet:
-                sys.exit(f"FAIL: arm {arm} has {bad:.0f} safety violations / {quiet:.0f} quiet-hour messages "
-                         f"(see the 'violation' and 'quiet' columns in {ev_path.name})")
-    print("safety audit: 0 violations and 0 quiet-hour messages in B and C")
+    if args.all_scenarios:
+        names = list(yaml.safe_load((SIM_DIR / "scenarios.yaml").read_text(encoding="utf-8")))
+        failed = [name for name in names if not run_scenario(name, args, arms, out / name)]
+    else:
+        failed = [] if run_scenario(args.scenario, args, arms, out) else [args.scenario]
+    if failed:
+        sys.exit(f"FAIL: safety audit failed in {failed}")
 
 
 if __name__ == "__main__":

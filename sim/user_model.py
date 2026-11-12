@@ -24,11 +24,18 @@ def _episodes(rng: np.random.Generator, rate: float, length: list[int], days: in
 
 class PersonaSim:
     def __init__(
-        self, traits: HiddenTraits, cfg: dict, days: int, rng: np.random.Generator, day_rng: np.random.Generator
+        self,
+        traits: HiddenTraits,
+        cfg: dict,
+        days: int,
+        rng: np.random.Generator,
+        day_rng: np.random.Generator,
+        shock_rng: np.random.Generator | None = None,
     ) -> None:
         """rng: disruption schedule, outcome draws, check-in answers.
         day_rng: motivation noise and the app-open draw only, one fixed pair of draws per day, so the daily
-        process is identical in every arm unless the arm itself moves motivation (arm A's streak penalty)."""
+        process is identical in every arm unless the arm itself moves motivation (arm A's streak penalty).
+        shock_rng: unlabelled life shocks (own stream, so adding them doesn't reshuffle anything else)."""
         self.t = traits
         self.b = cfg["behaviour"]
         self.d = cfg["disruptions"]
@@ -37,6 +44,7 @@ class PersonaSim:
         self.phi = cfg["traits"]["motivation_ar1"]
         self.tau = cfg["traits"]["novelty_tau_days"]
         self.feedback = cfg["traits"]["success_feedback"]
+        self.answer_rate = min(1.0, traits.checkin_answer_rate * cfg["traits"].get("checkin_rate_multiplier", 1.0))
         self.motivation = traits.motivation_mean
         self.habit = dict(traits.habit0)
         self.silent_days = 0
@@ -51,6 +59,18 @@ class PersonaSim:
         self.ramadan = set(range(r0, r1 + 1)) if traits.fasting else set()
         h0, h1 = self.d["heat_days"]
         self.heat = set(range(h0, h1 + 1))
+        # Unlabelled shocks (family emergency, job change, low mood): the engine is never told; it can only see
+        # the behaviour they cause. day -> motivation drop (overlapping shocks add up).
+        self.shocks: dict[int, float] = {}
+        sc = self.d.get("shocks")
+        if sc and sc["rate"] > 0:
+            srng = shock_rng if shock_rng is not None else rng
+            for _ in range(srng.poisson(sc["rate"] * days / 90)):
+                start = int(srng.integers(1, days + 1))
+                length = int(srng.integers(sc["length"][0], sc["length"][1] + 1))
+                drop = float(srng.uniform(*sc["motivation_drop"]))
+                for d in range(start, start + length):
+                    self.shocks[d] = self.shocks.get(d, 0.0) + drop
 
     # ---------- daily dynamics ----------
 
@@ -65,7 +85,15 @@ class PersonaSim:
 
     def motivation_today(self) -> float:
         drop = self.d["workload"]["motivation_drop"] if self.day in self.workload else 0.0
-        return self.motivation - drop
+        return self.motivation - drop - self.shocks.get(self.day, 0.0)
+
+    def labelled_today(self) -> bool:
+        """A disruption the engine can learn about (calendar, or a check-in answer). Heat is left out: it covers
+        everyone for a month, so it can't single out a lapse."""
+        return any(self.day in s for s in (self.illness, self.travel, self.workload, self.ramadan))
+
+    def shock_today(self) -> bool:
+        return self.day in self.shocks
 
     def outcome(self, action: Action, window: str, hour: int) -> str:
         b, t, day = self.b, self.t, self.day
@@ -146,7 +174,7 @@ class PersonaSim:
 
     def answer_checkin(self) -> str | None:
         """None = not answered today. Otherwise the true barrier with p = 0.8, else a random one."""
-        if self.rng.random() >= self.t.checkin_answer_rate:
+        if self.rng.random() >= self.answer_rate:
             return None
         if self.rng.random() < 0.8:
             return self.true_barrier()

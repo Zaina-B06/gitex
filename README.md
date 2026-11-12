@@ -39,6 +39,13 @@ python -m rebound_engine.demo --days 30 --seed 1   # 30-day single-user demo
 # Simulation (from the repo root): 300 personas x 90 days x 10 seeds, arms A/B/C + sensitivity arm A0
 python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --scenario baseline --out sim/out/run_001 --sensitivity
 python -m sim.report --run sim/out/run_001     # charts in sim/out/run_001/charts + summary.md
+
+# Every scenario (one sub-folder each) + an overview table in scenarios.md
+python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --all-scenarios --sensitivity --out sim/out/run_004
+python -m sim.report --run sim/out/run_004
+
+# Sensitivity sweep + tornado chart (arms A, A0, C; 5 seeds per setting)
+python -m sim.sweep --out sim/out/sweep_001
 ```
 
 The demo prints one row per day: action, outcome, habit strength (H) per behaviour and engagement

@@ -81,7 +81,8 @@ class _Day:
         self.rows: list[dict] = []
 
     def action(
-        self, day: int, action: Action, window: str, hour: int, outcome: str, quiet: bool, violation: str, app_open: bool
+        self, day: int, action: Action, window: str, hour: int, outcome: str, quiet: bool, violation: str,
+        sim: PersonaSim,
     ):
         self.rows.append(
             self.base
@@ -99,7 +100,10 @@ class _Day:
                 "outcome": outcome,
                 "quiet": quiet,
                 "violation": violation,
-                "app_open": app_open,
+                "app_open": sim.app_open,
+                # Ground truth for metrics only (lapse attribution); never passed to the engine.
+                "labelled": sim.labelled_today(),
+                "shock": sim.shock_today(),
             }
         )
         self.history.append(DayLog(day=day, outcome=DayOutcome(outcome)))
@@ -139,7 +143,7 @@ def _run_static(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
                 sim.streak_reset(sensitivity)
                 log.event(day, "streak_reset", b)
             outcomes.append(o)
-            log.action(day, s.action, s.time_window.value, s.hour, o, in_quiet_hours(s.hour, payload), "", sim.app_open)
+            log.action(day, s.action, s.time_window.value, s.hour, o, in_quiet_hours(s.hour, payload), "", sim)
         sim.end_day(outcomes)
         log.close(day)
         if sim.churned_on is not None:
@@ -180,7 +184,7 @@ def _run_engine(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
             outcomes.append(o)
             violation = audit(s.action, s.hour, payload, flags)
             log.action(
-                day, s.action, s.time_window.value, s.hour, o, in_quiet_hours(s.hour, payload), violation, sim.app_open
+                day, s.action, s.time_window.value, s.hour, o, in_quiet_hours(s.hour, payload), violation, sim
             )
             engine.record(Event(user_id=uid, day=day, type=EventType(o), action_id=s.action.id))
         sim.end_day(outcomes)
@@ -197,7 +201,8 @@ def run_persona(arm: str, payload, traits: HiddenTraits, cfg: dict, days: int, s
     # Same stream per persona in every arm (common random numbers): identical disruption schedule.
     rng = np.random.default_rng([seed, traits.persona_id, 11])
     day_rng = np.random.default_rng([seed, traits.persona_id, 13])  # motivation + app-open: arm-independent
-    sim = PersonaSim(traits, cfg, days, rng, day_rng)
+    shock_rng = np.random.default_rng([seed, traits.persona_id, 17])  # unlabelled shocks: arm-independent
+    sim = PersonaSim(traits, cfg, days, rng, day_rng, shock_rng)
     log = _Day(seed, arm, traits.persona_id)
     if arm in ("A", "A0"):
         _run_static(arm, payload, traits, sim, days, log)

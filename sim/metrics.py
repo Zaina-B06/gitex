@@ -9,6 +9,8 @@ import pandas as pd
 from .personas import SEGMENTS
 
 RECOVERY_WINDOW = 14
+CAUSE_LOOKBACK = 7  # a lapse is attributed to a disruption active on the onset day or the 7 days before
+CAUSES = ("shock", "labelled", "none")
 MIN_SEGMENT_SIZE = 5  # smaller segments are left out of the best-worst gap (too noisy)
 
 # name -> (label, unit). pct metrics are stored as 0-1 and shown as percentages / points.
@@ -18,6 +20,9 @@ METRICS = {
     "persistence_w12": ("Persistence, week 12", "pct"),
     "persistence_all": ("Persistence, weeks 4+8+12", "pct"),
     "recovery_rate": ("Recovery within 14 days", "pct"),
+    "recovery_labelled": ("Recovery within 14 days, after a labelled disruption", "pct"),
+    "recovery_shock": ("Recovery within 14 days, after an unlabelled shock", "pct"),
+    "recovery_none": ("Recovery within 14 days, no disruption nearby", "pct"),
     "days_to_active": ("Median days from lapse to active", "days"),
     "time_to_recover": ("Median days from lapse to recovering", "days"),
     "delta_minutes": ("Δ weekly active minutes (wk1→wk12)", "min"),
@@ -30,8 +35,8 @@ METRICS = {
     "safety_violations": ("Safety violations", "count"),
 }
 EQUITY_METRICS = ("persistence_w12", "recovery_rate", "retention", "delta_minutes")
-COMPARE_METRICS = ("persistence_w12", "persistence_all", "recovery_rate", "days_to_active", "retention",
-                   "delta_minutes", "delta_sleep_effort")  # raw sleep share is in the table only (biased)
+COMPARE_METRICS = ("persistence_w12", "persistence_all", "recovery_rate", "recovery_labelled", "recovery_shock",
+                   "days_to_active", "retention", "delta_minutes", "delta_sleep_effort")  # raw sleep share is in the table only (biased)
 COMPARISONS = (("C", "A"), ("B", "A"), ("C", "B"), ("C", "A0"))
 
 _T95 = {1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57, 6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23,
@@ -56,6 +61,16 @@ def summarise(values: list[float]) -> dict:
 # ---------- per persona ----------
 
 
+def onset_cause(day: int, shock_days: set[int], labelled_days: set[int]) -> str:
+    """What preceded a lapse: an unlabelled shock wins over a labelled disruption if both were active."""
+    window = range(day - CAUSE_LOOKBACK, day + 1)
+    if any(d in shock_days for d in window):
+        return "shock"
+    if any(d in labelled_days for d in window):
+        return "labelled"
+    return "none"
+
+
 def persona_table(events: pd.DataFrame, personas: pd.DataFrame, days: int) -> pd.DataFrame:
     """One row per (seed, arm, persona) with everything the metrics need."""
     weeks = days // 7
@@ -73,15 +88,22 @@ def persona_table(events: pd.DataFrame, personas: pd.DataFrame, days: int) -> pd
                 week_active[(d - 1) // 7 + 1] += 1
 
         states = g.groupby("day")["state"].first().sort_index()
+        flags = g.groupby("day")[["shock", "labelled"]].any().astype(bool) if "shock" in g else None
+        shock_days = set(flags.index[flags["shock"]]) if flags is not None else set()
+        labelled_days = set(flags.index[flags["labelled"]]) if flags is not None else set()
+        by_cause = {c: [0, 0] for c in CAUSES}  # cause -> [onsets, recovered]
         onsets, recovered, times, to_active = 0, 0, [], []
         prev = None
         days_list, state_list = list(states.index), list(states.values)
         for i, (d, s) in enumerate(zip(days_list, state_list, strict=True)):
             if s == "lapsed" and prev != "lapsed" and d <= days - RECOVERY_WINDOW:
                 onsets += 1
+                cause = onset_cause(int(d), shock_days, labelled_days)
+                by_cause[cause][0] += 1
                 later = list(zip(days_list[i + 1 :], state_list[i + 1 :], strict=True))
                 if any(s2 == "active" and d2 - d <= RECOVERY_WINDOW for d2, s2 in later):
                     recovered += 1
+                    by_cause[cause][1] += 1
                 back = next((d2 for d2, s2 in later if s2 in ("recovering", "active")), None)
                 if back is not None:
                     times.append(int(back - d))
@@ -110,6 +132,8 @@ def persona_table(events: pd.DataFrame, personas: pd.DataFrame, days: int) -> pd
             "seed": seed, "arm": arm, "persona_id": pid,
             **{f"active_w{k}": week_active[k] for k in range(1, weeks + 1)},
             "lapse_onsets": onsets, "lapses_recovered": recovered, "recovery_times": times, "to_active": to_active,
+            **{f"onsets_{c}": by_cause[c][0] for c in CAUSES},
+            **{f"recovered_{c}": by_cause[c][1] for c in CAUSES},
             "has_movement": len(mv) > 0, "has_sleep": len(slp) > 0,
             "minutes_w1": float(minutes[mv_week == 1].sum()), "minutes_w12": float(minutes[mv_week == 12].sum()),
             "sleep_w1": float(slp_done[slp_week == 1].sum()) / 7, "sleep_w12": float(slp_done[slp_week == 12].sum()) / 7,
@@ -136,6 +160,9 @@ def _group_metrics(t: pd.DataFrame, days: int) -> dict:
         out["persistence_all"] = float("nan")
     onsets = t["lapse_onsets"].sum()
     out["recovery_rate"] = float(t["lapses_recovered"].sum() / onsets) if onsets else float("nan")
+    for c in CAUSES:
+        n_c = t[f"onsets_{c}"].sum()
+        out[f"recovery_{c}"] = float(t[f"recovered_{c}"].sum() / n_c) if n_c else float("nan")
     times = [x for ts in t["recovery_times"] for x in ts]
     out["time_to_recover"] = float(statistics.median(times)) if times else float("nan")
     to_active = [x for ts in t["to_active"] for x in ts]

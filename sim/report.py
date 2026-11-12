@@ -109,6 +109,44 @@ def chart_sensitivity(m: dict, out: Path) -> None:
     plt.close(fig)
 
 
+def headline_cells(m: dict, name: str) -> list[str]:
+    cells = []
+    for k in HEADLINE_METRICS:
+        s = m["comparisons"][name][k]
+        if s["ci_low"] is not None and s["ci_low"] > 0:
+            verdict = "helps"
+        elif s["ci_high"] is not None and s["ci_high"] < 0:
+            verdict = "worse"  # whole interval below zero: shown, not hidden under "not shown"
+        else:
+            verdict = "not shown"
+        cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({verdict})")
+    return cells
+
+
+def scenarios_markdown(by_scenario: dict[str, dict]) -> str:
+    """Pre-registered headline for every scenario in one table."""
+    lines = ["## Pre-registered headline across scenarios", "",
+             ("\"helps\" = whole 95% interval of the difference above zero; \"worse\" = whole interval below zero; "
+              "otherwise \"not shown\"."), "",
+             "| Scenario | Comparison | " + " | ".join(METRICS[k][0] for k in HEADLINE_METRICS) + " |",
+             "|---|---|" + "---|" * len(HEADLINE_METRICS)]
+    for scenario, m in by_scenario.items():
+        for name in HEADLINE_COMPARISONS:
+            if name in m["comparisons"]:
+                lines.append(f"| {scenario} | {name.replace('_vs_', ' vs ')} | " + " | ".join(headline_cells(m, name)) + " |")
+    lines += ["", "Recovery after unlabelled shocks vs labelled disruptions (C vs A, C vs A0):", ""]
+    for scenario, m in by_scenario.items():
+        parts = []
+        for name in ("C_vs_A", "C_vs_A0"):
+            comp = m["comparisons"].get(name, {})
+            for k in ("recovery_labelled", "recovery_shock"):
+                if k in comp:
+                    parts.append(f"{name.replace('_vs_', ' vs ')} {METRICS[k][0].split(', ')[1]}: "
+                                 f"{fmt(comp[k], 'pct', signed=True)}")
+        lines.append(f"- {scenario}: " + "; ".join(parts))
+    return "\n".join(lines) + "\n"
+
+
 def summary_markdown(m: dict) -> str:
     arms = _arms(m)
     run = m.get("run", {})
@@ -124,28 +162,27 @@ def summary_markdown(m: dict) -> str:
         "|---|" + "---|" * len(arms),
     ]
     for key, (label, unit) in METRICS.items():
-        lines.append(f"| {label} | " + " | ".join(fmt(m["arms"][a][key], unit) for a in arms) + " |")
+        if any(key in m["arms"][a] for a in arms):  # older runs lack newer metrics
+            lines.append(f"| {label} | " + " | ".join(fmt(m["arms"][a].get(key), unit) for a in arms) + " |")
     lines += ["", ("Raw Δ sleep nights completed favours arms that ask for less (A keeps the easiest sleep "
                    "action), so the comparisons use the tier-weighted version."),
               "", "### Pre-registered headline (docs/ASSUMPTIONS.md, commit dc054ab)", "",
-              "Rebound \"helps\" on a measure only if the whole 95% interval of the difference is above zero.", "",
+              ("Rebound \"helps\" on a measure only if the whole 95% interval of the difference is above zero; "
+               "\"worse\" if it is entirely below zero; otherwise \"not shown\"."), "",
               "| Comparison | " + " | ".join(METRICS[k][0] for k in HEADLINE_METRICS) + " |",
               "|---|" + "---|" * len(HEADLINE_METRICS)]
     for name in HEADLINE_COMPARISONS:
         if name in m["comparisons"]:
-            cells = []
-            for k in HEADLINE_METRICS:
-                s = m["comparisons"][name][k]
-                verdict = "helps" if s["ci_low"] is not None and s["ci_low"] > 0 else "not shown"
-                cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({verdict})")
-            lines.append(f"| {name.replace('_vs_', ' vs ')} | " + " | ".join(cells) + " |")
+            lines.append(f"| {name.replace('_vs_', ' vs ')} | " + " | ".join(headline_cells(m, name)) + " |")
     lines += ["", "### All arm comparisons (difference, 95% interval)", ""]
     doesnt_help = []
     for name, comp in m["comparisons"].items():
         a, b = name.split("_vs_")
         for key in COMPARE_METRICS:
             label, unit = METRICS[key]
-            s = comp[key]
+            s = comp.get(key)
+            if s is None:
+                continue
             lines.append(f"- {a} vs {b}, {label.lower()}: {fmt(s, unit, signed=True)}")
             if a == "C" and b in ("A", "A0") and s["mean"] is not None:
                 lower_is_better = key in ("time_to_recover", "days_to_active")
@@ -171,11 +208,7 @@ def summary_markdown(m: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Charts + summary for a simulation run")
-    ap.add_argument("--run", required=True)
-    args = ap.parse_args(argv)
-    run = Path(args.run)
+def report_run(run: Path) -> tuple[dict, str]:
     m = json.loads((run / "metrics.json").read_text(encoding="utf-8"))
     charts = run / "charts"
     charts.mkdir(exist_ok=True)
@@ -185,9 +218,28 @@ def main(argv: list[str] | None = None) -> None:
     chart_sensitivity(m, charts)
     md = summary_markdown(m)
     (run / "summary.md").write_text(md, encoding="utf-8")
+    return m, md
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description="Charts + summary for a simulation run (or an --all-scenarios folder)")
+    ap.add_argument("--run", required=True)
+    args = ap.parse_args(argv)
+    run = Path(args.run)
     sys.stdout.reconfigure(encoding="utf-8")  # Windows uses cp1252 when output is redirected; Δ/× would crash
+    if (run / "metrics.json").exists():
+        _, md = report_run(run)
+        print(md)
+        print(f"charts in {run / 'charts'}, summary in {run / 'summary.md'}")
+        return
+    subs = sorted(d for d in run.iterdir() if (d / "metrics.json").exists())
+    if not subs:
+        sys.exit(f"no metrics.json in {run} or its sub-folders")
+    by_scenario = {d.name: report_run(d)[0] for d in subs}
+    md = scenarios_markdown(by_scenario)
+    (run / "scenarios.md").write_text(md, encoding="utf-8")
     print(md)
-    print(f"charts in {charts}, summary in {run / 'summary.md'}")
+    print(f"per-scenario charts and summary.md in each sub-folder; overview in {run / 'scenarios.md'}")
 
 
 if __name__ == "__main__":

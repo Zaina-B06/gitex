@@ -145,9 +145,9 @@ Chest pain, fainting, severe breathlessness, self-harm language, disordered-eati
 
 ```
 POST   /users                         body: OnboardingPayload  → { user_id, state, today }
-GET    /users/{id}/today              → { action, explanation_id, state_summary }
+GET    /users/{id}/today              → { actions: [{ action, time_window, explanation_id }], message_keys, channel, checkin_due, state_summary }   (one per goal: movement, then sleep)
 POST   /users/{id}/events             body: { action_id, type: completed|partial|skipped } → { state }
-POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_action, message, red_flag: bool }
+POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
 GET    /actions/{id}/explain          → { bct_code, bct_name, rationale, limits, how_to_turn_off }
 PATCH  /users/{id}/settings           body: partial preferences/consents

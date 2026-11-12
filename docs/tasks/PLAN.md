@@ -5,8 +5,9 @@ Do the tasks **in this order**. Each one ends with something that runs. Don't st
 | Day | Task file | Outcome |
 |---|---|---|
 | Fri 13 | `TASK_01_A_engine_core.md` | Engine package + rules + tests + 30-day CLI demo |
-| Sat 14 | Task 02 (written after Task 01 works): simulator + bandit + metrics | 90-day A/B/C comparison with curves |
-| Sun 15 | Task 03: thin FastAPI wrapper + SQLite event log + **lean** LLM layer (barrier classifier + red-flag keywords + ~6 templates, EN/AR) | Full flow works over HTTP |
+| Sat 14 | `TASK_02_simulator_bandit.md`: simulator + bandit + metrics + scenarios + uncertainty | A/B/C comparison across scenarios, with intervals |
+| Sun 15 (morning) | `TASK_02b_lapse_risk_model.md`: lapse-risk predictor + arm D | Predictive model with AUROC, calibration, model card |
+| Sun 15 (afternoon) | Task 03: thin FastAPI wrapper + SQLite event log + **lean** LLM layer (barrier classifier + red-flag keywords + ~6 templates, EN/AR) | Full flow works over HTTP |
 | Mon 16 | `TASK_01_B_frontend_shell.md` (lean version, see cuts) wired to the real API | Clickable journey on a phone |
 | Tue 17 | Task 05: demo time-travel + outcome dashboard + simple employer page | Judges can watch a lapse and a recovery |
 | Wed 18 | Polish + deploy (Vercel + Render/Fly) + Arabic pass | Public links work |
@@ -18,7 +19,7 @@ Do the tasks **in this order**. Each one ends with something that runs. Don't st
 - **LLM layer is lean:** buttons are the main check-in input, LLM only for the free-text box; red flags = keyword list (guaranteed) + LLM (bonus). Eval set of ~40 examples, not 80.
 - **Languages:** English + Arabic only. No third language, no voice notes (show a disabled "coming soon" button).
 - **Employer view:** one page with aggregate numbers and the k ≥ 10 rule, no filters.
-- **If behind schedule, cut next:** bandit → keep rules-only in the app, show the bandit only in the simulation results.
+- **If behind schedule, cut next:** Task 02b's arm D (keep the trained model + metrics, skip the engine hook) → bandit → keep rules-only in the app, show the bandit only in the simulation results.
 
 ## Never cut
 Lapse → check-in → smaller action → recovery flow · simulator results · safety screening + red flags · documentation.

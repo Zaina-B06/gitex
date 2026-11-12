@@ -1,10 +1,11 @@
 """30-day demo for one synthetic user: python -m rebound_engine.demo --days 30 --seed 1
 
-Outcome generator (simple, seeded):
+Each day the user gets one movement and one sleep action. Outcome generator (simple, seeded, per action):
   - days 11-14: motivation dip, 25% full completion
   - days 15-18: forced lapse, no response at all
   - other days: 80% full (minus 5% per tier above 1), 10% partial, 5% no response, rest skipped
-When a check-in is due and the user is responding, they answer it with a random barrier.
+A check-in is sent when the state enters drifting or lapsed; the user answers it (random barrier)
+the next day they respond, i.e. not during the lapse.
 """
 
 import argparse
@@ -67,32 +68,33 @@ def run(days: int = 30, seed: int = 1) -> list[dict]:
     engine = Engine()
     uid = engine.onboard(demo_payload(), user_id="demo-user").user_id
     rows = []
+    prev_state = engine.get_state(uid).engagement_state
     for day in range(1, days + 1):
-        note = ""
+        notes = []
         if engine.get_state(uid).checkin_due and day not in LAPSE_DAYS:
             barrier = rng.choice(DEMO_BARRIERS)
             engine.checkin(uid, [barrier])
-            note = f"check-in: {barrier.value}"
-        action = engine.today(uid, day).action
-        if action is None:
-            state = engine.get_state(uid)
-            outcome = "-"
-        else:
-            outcome = simulate_outcome(rng, day, action.tier)
-            state = engine.record(Event(user_id=uid, day=day, type=outcome, action_id=action.id))
-        rows.append(
-            {
-                "day": day,
-                "behaviour": action.behaviour.value if action else "-",
-                "tier": action.tier if action else "-",
-                "action": action.id if action else "-",
-                "outcome": str(outcome),
-                "h_move": state.habit_strength[Behaviour.movement],
-                "h_sleep": state.habit_strength[Behaviour.sleep],
-                "state": state.engagement_state.value,
-                "note": note,
-            }
-        )
+            notes.append(f"check-in answered: {barrier.value}")
+        row: dict = {"day": day}
+        for b in Behaviour:
+            row[b.value] = row[f"{b.value}_outcome"] = "-"
+        state = engine.get_state(uid)
+        for scheduled in engine.today(uid, day).actions:
+            a = scheduled.action
+            outcome = simulate_outcome(rng, day, a.tier)
+            state = engine.record(Event(user_id=uid, day=day, type=outcome, action_id=a.id))
+            row[a.behaviour.value] = a.id
+            row[f"{a.behaviour.value}_outcome"] = outcome.value
+        if state.engagement_state != prev_state and state.checkin_due:
+            notes.append("check-in sent")
+        prev_state = state.engagement_state
+        row |= {
+            "h_move": state.habit_strength[Behaviour.movement],
+            "h_sleep": state.habit_strength[Behaviour.sleep],
+            "state": state.engagement_state.value,
+            "note": "; ".join(notes),
+        }
+        rows.append(row)
     return rows
 
 
@@ -101,13 +103,16 @@ def main() -> None:
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
-    header = f"{'day':>3}  {'behaviour':<9} {'tier':>4}  {'action':<26} {'outcome':<12} {'H_move':>6} {'H_sleep':>7}  {'state':<10} note"
+    header = (
+        f"{'day':>3}  {'movement':<26} {'outcome':<11}  {'sleep':<26} {'outcome':<11}"
+        f" {'H_move':>6} {'H_sleep':>7}  {'state':<10} note"
+    )
     print(header)
     print("-" * len(header))
     for r in run(args.days, args.seed):
         print(
-            f"{r['day']:>3}  {r['behaviour']:<9} {r['tier']!s:>4}  {r['action']:<26} {r['outcome']:<12}"
-            f" {r['h_move']:>6.3f} {r['h_sleep']:>7.3f}  {r['state']:<10} {r['note']}"
+            f"{r['day']:>3}  {r['movement']:<26} {r['movement_outcome']:<11}  {r['sleep']:<26}"
+            f" {r['sleep_outcome']:<11} {r['h_move']:>6.3f} {r['h_sleep']:>7.3f}  {r['state']:<10} {r['note']}"
         )
 
 

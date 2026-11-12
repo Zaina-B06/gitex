@@ -2,8 +2,9 @@ import random
 
 import pytest
 
-from rebound_engine.models import DayLog, DayOutcome, EngagementState
-from rebound_engine.state import compute_engagement_state, update_habit_strength
+from rebound_engine.models import Behaviour, DayLog, DayOutcome, EngagementState
+from rebound_engine.safety import screening_flags
+from rebound_engine.state import compute_engagement_state, initial_state, update_habit_strength
 
 CODES = {
     "C": DayOutcome.completed,
@@ -96,6 +97,33 @@ def test_three_consecutive_no_responses_is_lapsed():
 def test_paused_and_illness_days_dont_count():
     assert states_for("C" * 7 + "P" * 5)[-1] == EngagementState.active
     assert states_for("C" * 7 + "I" * 5)[-1] == EngagementState.active
+
+
+def test_two_goals_count_each_action():
+    # Movement done, sleep skipped every day: 7/14 = 0.5 < 4/7 -> drifting.
+    history = [DayLog(day=d, outcome=o) for d in range(1, 8) for o in (DayOutcome.completed, DayOutcome.skipped)]
+    assert compute_engagement_state(history, EngagementState.active) == EngagementState.drifting
+
+
+def test_silent_day_needs_every_action_unanswered():
+    history = [DayLog(day=d, outcome=DayOutcome.completed) for d in range(1, 8)]
+    for d in (8, 9, 10):
+        history += [DayLog(day=d, outcome=DayOutcome.no_response), DayLog(day=d, outcome=DayOutcome.skipped)]
+    assert compute_engagement_state(history, EngagementState.active) != EngagementState.lapsed
+    for d in (8, 9, 10):
+        history.append(DayLog(day=d + 3, outcome=DayOutcome.no_response))
+    assert compute_engagement_state(history, EngagementState.active) == EngagementState.lapsed
+
+
+@pytest.mark.parametrize(
+    ("active_days", "quality", "h_move", "h_sleep"),
+    [(0, 1, 0.0, 0.0), (7, 5, 0.5, 0.5), (2, 3, 0.5 * 2 / 7, 0.25)],
+)
+def test_initial_h_from_baseline(make_profile, active_days, quality, h_move, h_sleep):
+    profile = make_profile(baseline={"active_days_per_week": active_days, "sleep_quality_self": quality})
+    state = initial_state(profile, screening_flags(profile))
+    assert state.habit_strength[Behaviour.movement] == pytest.approx(h_move)
+    assert state.habit_strength[Behaviour.sleep] == pytest.approx(h_sleep)
 
 
 def test_lapsed_user_needs_two_of_four_to_recover():

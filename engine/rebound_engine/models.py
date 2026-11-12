@@ -147,6 +147,7 @@ class EventType(StrEnum):
     skipped = "skipped"
     no_response = "no_response"
     checkin = "checkin"
+    checkin_sent = "checkin_sent"
     pause = "pause"
     screening_flag = "screening_flag"
     red_flag = "red_flag"
@@ -316,14 +317,16 @@ class UserState(BaseModel):
     day: int = 0
     habit_strength: dict[Behaviour, float]
     current_tier: dict[Behaviour, int]
-    successes_at_tier: dict[Behaviour, int]
+    successes_at_tier: dict[Behaviour, int]  # consecutive full completions at the current tier
+    fails_at_tier: dict[Behaviour, int]  # consecutive skipped/no_response at the current tier
     engagement_state: EngagementState = EngagementState.active
     checkin_due: bool = False
     context_flags: set[ContextFlag] = Field(default_factory=set)
     bandit_params: dict[str, list[float]] = Field(default_factory=dict)  # Task 02
     last_barrier: Barrier | None = None  # cleared by the next full completion
-    last_behaviour: Behaviour | None = None
-    time_window: TimeWindow = TimeWindow.morning
+    shown_today: list[str] = Field(default_factory=list)  # action ids shown on `day`
+    pending: list[str] = Field(default_factory=list)  # shown on `day`, no outcome yet
+    time_window: TimeWindow = TimeWindow.morning  # movement prompt window; sleep is always evening
     channel: Channel = Channel.app
     prefer_indoor: bool = False
     red_flag: bool = False
@@ -360,12 +363,16 @@ class OnboardResult(BaseModel):
     red_flag: bool = False  # motivation_reason contained red-flag language
 
 
+class ScheduledAction(BaseModel):
+    action: Action
+    time_window: TimeWindow
+    explanation_id: str  # GET /actions/{id}/explain
+
+
 class TodayResult(BaseModel):
     day: int
-    action: Action | None
-    explanation_id: str | None
+    actions: list[ScheduledAction]  # one per goal, movement first
     message_keys: list[str]
-    time_window: TimeWindow
     channel: Channel
     checkin_due: bool
     state_summary: StateSummary
@@ -373,6 +380,6 @@ class TodayResult(BaseModel):
 
 class CheckinResult(BaseModel):
     barrier: Barrier | None
-    adjusted_action: Action | None
+    adjusted_actions: list[Action]
     message_key: str
     red_flag: bool

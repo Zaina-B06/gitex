@@ -4,6 +4,8 @@
 HABIT_LAMBDA = 0.9
 # a_t per outcome; paused/illness days are skipped entirely, not scored.
 OUTCOME_VALUE = {"completed": 1.0, "partial": 0.5, "skipped": 0.0, "no_response": 0.0}
+# H_0 = scale x baseline fraction (active days / 7, or (sleep quality - 1) / 4).
+HABIT_START_SCALE = 0.5
 
 # --- Engagement state (AGENTS.md §6.1) ---
 ENGAGEMENT_WINDOW_DAYS = 7
@@ -19,7 +21,9 @@ MIN_TIER = 1
 MAX_TIER = 4
 SCREENING_TIER_CAP = 2  # any "yes" on screening Q1-Q7
 GENTLE_TIER_CAP = 1  # chest pain or dizziness/fainting: gentle movement only
-STEP_UP_SUCCESSES = 3
+STEP_UP_SUCCESSES = 3  # consecutive full completions at the current tier
+STEP_DOWN_FAILURES = 2  # consecutive skipped/no_response at the current tier, while active
+DRIFT_TIER_DROP = 1  # entering drifting; entering lapsed resets to MIN_TIER
 # Starting movement tier from active_days_per_week: first (max_days, tier) that fits.
 START_TIER_BY_ACTIVE_DAYS = ((2, 1), (4, 2), (7, 3))
 SENIOR_AGE = 65

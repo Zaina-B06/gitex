@@ -1,4 +1,4 @@
-"""Policy: safety filter -> rules layer -> (bandit) -> step-up. AGENTS.md §6.3."""
+"""Policy: safety filter -> rules layer -> (bandit) -> tier changes. AGENTS.md §6.3."""
 
 from typing import Protocol
 
@@ -12,6 +12,8 @@ from .models import (
     Channel,
     Context,
     ContextFlag,
+    DayOutcome,
+    EngagementState,
     PlaceSetting,
     TimeWindow,
     UserProfile,
@@ -31,7 +33,6 @@ BARRIER_MESSAGE = {
     Barrier.forgot: "new_reminder",
     Barrier.other: "thanks_for_sharing",
 }
-
 
 # When several barriers are given, the first one in this order is applied (safety-relevant first).
 BARRIER_PRIORITY = (
@@ -68,6 +69,10 @@ def tier_cap(profile: UserProfile, behaviour: Behaviour) -> int:
     return config.MAX_TIER
 
 
+def action_window(state: UserState, behaviour: Behaviour) -> TimeWindow:
+    return state.time_window if behaviour == Behaviour.movement else TimeWindow.evening
+
+
 def window_hour(profile: UserProfile, window: TimeWindow) -> int:
     if window == TimeWindow.morning:
         return (profile.basics.usual_wake_time.hour + config.MORNING_OFFSET_H) % 24
@@ -81,20 +86,73 @@ def _next_window(w: TimeWindow) -> TimeWindow:
     return order[(order.index(w) + 1) % len(order)]
 
 
-def _tier_down(state: UserState, b: Behaviour) -> None:
+# ---------- tier changes ----------
+
+
+def _set_tier(state: UserState, b: Behaviour, tier: int) -> None:
+    state.current_tier[b] = tier
+    state.successes_at_tier[b] = 0
+    state.fails_at_tier[b] = 0
+
+
+def _tier_down(state: UserState, b: Behaviour, by: int = 1) -> None:
     if b in state.current_tier:
-        state.current_tier[b] = max(config.MIN_TIER, state.current_tier[b] - 1)
+        _set_tier(state, b, max(config.MIN_TIER, state.current_tier[b] - by))
+
+
+def shrink_on_slip(state: UserState, new_state: EngagementState) -> None:
+    """Entering drifting -> every tier -1; entering lapsed -> every tier back to 1."""
+    for b in list(state.current_tier):
+        if new_state == EngagementState.drifting:
+            _tier_down(state, b, config.DRIFT_TIER_DROP)
+        elif new_state == EngagementState.lapsed:
+            _set_tier(state, b, config.MIN_TIER)
+
+
+def update_tier_counters(
+    state: UserState, behaviour: Behaviour, action_tier: int, outcome: DayOutcome, cap: int
+) -> None:
+    """Step-up after consecutive full completions, step-down after consecutive misses (while active)."""
+    if outcome in (DayOutcome.paused, DayOutcome.illness):
+        return
+    if action_tier != state.current_tier[behaviour]:
+        return  # a context fallback (e.g. Ramadan) to a lower tier doesn't move the tier
+    b = behaviour
+    if outcome == DayOutcome.completed:
+        state.fails_at_tier[b] = 0
+        state.successes_at_tier[b] += 1
+        # No step-up while drifting or lapsed: after a lapse, only once recovering/active.
+        if (
+            state.successes_at_tier[b] >= config.STEP_UP_SUCCESSES
+            and state.engagement_state in (EngagementState.active, EngagementState.recovering)
+            and state.current_tier[b] < cap
+        ):
+            _set_tier(state, b, state.current_tier[b] + 1)
+    elif outcome == DayOutcome.partial:
+        state.fails_at_tier[b] = 0  # a response breaks the run of misses; doesn't count toward step-up
+    else:
         state.successes_at_tier[b] = 0
+        state.fails_at_tier[b] += 1
+        if (
+            state.fails_at_tier[b] >= config.STEP_DOWN_FAILURES
+            and state.engagement_state == EngagementState.active
+        ):
+            _tier_down(state, b)
+
+
+# ---------- rules layer ----------
 
 
 def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> str:
-    """Rules layer: adjust the plan for a barrier. Mutates state; returns the message template id."""
+    """Adjust the plan for a barrier. Mutates state; returns the message template id."""
     state.last_barrier = barrier
-    focus = state.last_behaviour or profile.basics.goals[0]
     if barrier == Barrier.time:
-        _tier_down(state, focus)
+        for b in list(state.current_tier):
+            _tier_down(state, b)
     elif barrier == Barrier.energy_fatigue:
-        _tier_down(state, Behaviour.movement if Behaviour.movement in state.current_tier else focus)
+        # Movement gets smaller; sleep actions stay as they are (and only low-energy actions show).
+        target = Behaviour.movement if Behaviour.movement in state.current_tier else Behaviour.sleep
+        _tier_down(state, target)
     elif barrier in (Barrier.schedule_change, Barrier.forgot):
         state.time_window = _next_window(state.time_window)
         if barrier == Barrier.forgot:
@@ -105,16 +163,6 @@ def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> s
     elif barrier == Barrier.environment:
         state.prefer_indoor = True
     return BARRIER_MESSAGE[barrier]
-
-
-def _pick_behaviour(profile: UserProfile, state: UserState, allowed: list[Action]) -> Behaviour | None:
-    available = [b for b in profile.basics.goals if any(a.behaviour == b for a in allowed)]
-    if not available:
-        return None
-    if state.last_barrier == Barrier.energy_fatigue and Behaviour.sleep in available:
-        return Behaviour.sleep
-    others = [b for b in available if b != state.last_behaviour]
-    return others[0] if others else available[0]
 
 
 def _setting_rank(profile: UserProfile, a: Action) -> int:
@@ -131,22 +179,19 @@ def _setting_rank(profile: UserProfile, a: Action) -> int:
 def choose_action(
     profile: UserProfile,
     state: UserState,
-    barrier: Barrier | None = None,
+    behaviour: Behaviour,
     hour: int | None = None,
     library: list[Action] | tuple[Action, ...] | None = None,
     bandit: Bandit | None = None,
 ) -> Action | None:
-    """Pick today's action. Applies `barrier` to the plan first (mutating state). None = nothing to show."""
-    if barrier is not None:
-        apply_barrier(profile, state, barrier)
-    if ContextFlag.paused in state.context_flags:
+    """Today's action for one behaviour. None = nothing safe to show (or paused / not a goal)."""
+    if ContextFlag.paused in state.context_flags or behaviour not in state.current_tier:
         return None
-    hour = window_hour(profile, state.time_window) if hour is None else hour
+    hour = window_hour(profile, action_window(state, behaviour)) if hour is None else hour
     allowed = filter_actions(profile, state, Context(flags=state.context_flags, hour=hour), library)
-    behaviour = _pick_behaviour(profile, state, allowed)
-    if behaviour is None:
-        return None
     pool = [a for a in allowed if a.behaviour == behaviour]
+    if not pool:
+        return None
     target = min(state.current_tier[behaviour], tier_cap(profile, behaviour))
     at_or_below = [a for a in pool if a.tier <= target]
     best = max(a.tier for a in at_or_below) if at_or_below else min(a.tier for a in pool)
@@ -154,14 +199,14 @@ def choose_action(
     return (bandit or RulesBandit()).select(ranked, state)
 
 
-def register_success(state: UserState, behaviour: Behaviour, action_tier: int, cap: int) -> None:
-    """Step-up: 3 full completions at the current tier -> up one tier, never past the cap."""
-    if action_tier != state.current_tier[behaviour]:
-        return  # a context fallback (e.g. Ramadan) to a lower tier doesn't earn a step-up
-    state.successes_at_tier[behaviour] += 1
-    if (
-        state.successes_at_tier[behaviour] >= config.STEP_UP_SUCCESSES
-        and state.current_tier[behaviour] < cap
-    ):
-        state.current_tier[behaviour] += 1
-        state.successes_at_tier[behaviour] = 0
+def choose_actions(
+    profile: UserProfile,
+    state: UserState,
+    library: list[Action] | tuple[Action, ...] | None = None,
+    bandit: Bandit | None = None,
+) -> list[Action]:
+    """One action per goal (movement first), each at its own prompt window."""
+    picks = (
+        choose_action(profile, state, b, library=library, bandit=bandit) for b in Behaviour
+    )
+    return [a for a in picks if a is not None]

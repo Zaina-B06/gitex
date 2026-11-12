@@ -42,7 +42,7 @@ def test_chest_pain_gives_sleep_or_gentle_actions_only(make_profile):
     allowed = filter_actions(profile, state, MORNING)
     assert allowed
     assert all(a.behaviour == Behaviour.sleep or a.tier == 1 for a in allowed)
-    assert choose_action(profile, state).behaviour == Behaviour.sleep  # starts with sleep
+    assert choose_action(profile, state, Behaviour.movement).tier == 1
 
 
 @pytest.mark.parametrize("question", SCREENING_QUESTIONS)

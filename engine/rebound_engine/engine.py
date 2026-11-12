@@ -17,6 +17,7 @@ from .models import (
     EventType,
     OnboardingPayload,
     OnboardResult,
+    ScheduledAction,
     StateSummary,
     TodayResult,
     UserProfile,
@@ -26,10 +27,13 @@ from .policy import (
     BARRIER_MESSAGE,
     Bandit,
     RulesBandit,
-    choose_action,
+    action_window,
+    apply_barrier,
+    choose_actions,
     primary_barrier,
-    register_success,
+    shrink_on_slip,
     tier_cap,
+    update_tier_counters,
 )
 from .safety import detect_red_flags, screening_flags
 from .state import compute_engagement_state, initial_state, update_habit_strength
@@ -123,19 +127,32 @@ class Engine:
         )
 
     def today(self, user_id: str, day: int, hour: int | None = None) -> TodayResult:
+        """Today's actions, one per goal. A new day first closes the previous one:
+        anything still unanswered is recorded as no_response."""
         profile, state = self._load(user_id)
-        action = choose_action(profile, state, hour=hour, library=self.library, bandit=self.bandit)
-        state.day = day
-        if action is not None:
-            state.last_behaviour = action.behaviour
-            self._log(user_id, day, EventType.action_shown, action_id=action.id)
+        if day > state.day:
+            for action_id in list(state.pending):
+                self._apply_outcome(profile, state, self._by_id[action_id], DayOutcome.no_response, state.day)
+                self._log(user_id, state.day, EventType.no_response, action_id=action_id)
+            if state.pending:
+                state.pending = []
+                self._end_day(profile, state)
+            actions = choose_actions(profile, state, library=self.library, bandit=self.bandit)
+            state.day = day
+            state.shown_today = [a.id for a in actions]
+            state.pending = list(state.shown_today)
+            for a in actions:
+                self._log(user_id, day, EventType.action_shown, action_id=a.id)
+        else:
+            actions = [self._by_id[i] for i in state.shown_today]
         self.store.save_state(state)
         return TodayResult(
             day=day,
-            action=action,
-            explanation_id=action.id if action else None,
+            actions=[
+                ScheduledAction(action=a, time_window=action_window(state, a.behaviour), explanation_id=a.id)
+                for a in actions
+            ],
             message_keys=self._message_keys(profile, state),
-            time_window=state.time_window,
             channel=state.channel,
             checkin_due=state.checkin_due,
             state_summary=self._summary(state),
@@ -154,23 +171,12 @@ class Engine:
         if action is None or action.behaviour not in state.current_tier:
             raise ValueError(f"unknown action {event.action_id!r} for this user")
 
-        outcome = DayOutcome(event.type)
-        if ContextFlag.paused in state.context_flags:
-            outcome = DayOutcome.paused
-        elif ContextFlag.illness in state.context_flags:
-            outcome = DayOutcome.illness
-        b = action.behaviour
-        state.habit_strength[b] = update_habit_strength(state.habit_strength[b], outcome)
-        state.history.append(DayLog(day=event.day, behaviour=b, action_id=action.id, outcome=outcome))
-        if outcome == DayOutcome.completed:
-            state.last_barrier = None  # temporary adjustments (low energy, sleep first) end here
-            register_success(state, b, action.tier, tier_cap(profile, b))
-
-        new = compute_engagement_state(state.history, state.engagement_state)
-        if new != state.engagement_state:
-            state.checkin_due = new in (EngagementState.drifting, EngagementState.lapsed)
-            state.engagement_state = new
+        self._apply_outcome(profile, state, action, DayOutcome(event.type), event.day)
         self.store.append_event(event)
+        if action.id in state.pending:
+            state.pending.remove(action.id)
+            if not state.pending:
+                self._end_day(profile, state)
         self.store.save_state(state)
         return state
 
@@ -186,11 +192,10 @@ class Engine:
             state.checkin_due = False
             self._log(user_id, state.day, EventType.red_flag, payload={"source": "keyword"})
             self.store.save_state(state)
-            return CheckinResult(
-                barrier=primary, adjusted_action=None, message_key="seek_care", red_flag=True
-            )
+            return CheckinResult(barrier=primary, adjusted_actions=[], message_key="seek_care", red_flag=True)
         barrier = primary or Barrier.other
-        action = choose_action(profile, state, barrier=barrier, library=self.library, bandit=self.bandit)
+        message_key = apply_barrier(profile, state, barrier)
+        actions = choose_actions(profile, state, library=self.library, bandit=self.bandit)
         state.checkin_due = False
         self._log(
             user_id,
@@ -200,10 +205,7 @@ class Engine:
         )
         self.store.save_state(state)
         return CheckinResult(
-            barrier=barrier,
-            adjusted_action=action,
-            message_key=BARRIER_MESSAGE[barrier],
-            red_flag=False,
+            barrier=barrier, adjusted_actions=actions, message_key=message_key, red_flag=False
         )
 
     def set_context(self, user_id: str, flag: ContextFlag, on: bool) -> UserState:
@@ -227,6 +229,32 @@ class Engine:
 
     def _load(self, user_id: str) -> tuple[UserProfile, UserState]:
         return self.store.get_profile(user_id), self.store.get_state(user_id)
+
+    @staticmethod
+    def _apply_outcome(
+        profile: UserProfile, state: UserState, action: Action, outcome: DayOutcome, day: int
+    ) -> None:
+        if ContextFlag.paused in state.context_flags:
+            outcome = DayOutcome.paused
+        elif ContextFlag.illness in state.context_flags:
+            outcome = DayOutcome.illness
+        b = action.behaviour
+        state.habit_strength[b] = update_habit_strength(state.habit_strength[b], outcome)
+        state.history.append(DayLog(day=day, behaviour=b, action_id=action.id, outcome=outcome))
+        if outcome == DayOutcome.completed:
+            state.last_barrier = None  # temporary adjustments (low energy) end here
+        update_tier_counters(state, b, action.tier, outcome, tier_cap(profile, b))
+
+    def _end_day(self, profile: UserProfile, state: UserState) -> None:
+        """All of the day's actions have an outcome: update engagement, shrink tiers on a slip."""
+        new = compute_engagement_state(state.history, state.engagement_state)
+        if new == state.engagement_state:
+            return
+        shrink_on_slip(state, new)
+        state.checkin_due = new in (EngagementState.drifting, EngagementState.lapsed)
+        if state.checkin_due:
+            self._log(state.user_id, state.day, EventType.checkin_sent, payload={"state": new.value})
+        state.engagement_state = new
 
     def _log(
         self,

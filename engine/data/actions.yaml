@@ -1,0 +1,307 @@
+# Rebound action library. BCT codes/names from the BCT Taxonomy v1 (Michie et al., 2013).
+# Arabic titles are first drafts: ar_reviewed: false until a native speaker checks them.
+# contraindications use screening question names (see rebound_engine/safety.py).
+
+actions:
+  # ---------------- movement, tier 1 ----------------
+  - id: mv_t1_home_walk
+    behaviour: movement
+    tier: 1
+    title:
+      en: "Walk around your home for 5 minutes"
+      ar: "امشِ في منزلك لمدة 5 دقائق"
+      ar_reviewed: false
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "Starting very small makes the habit easy to begin; we build up from here."
+    limits: "Go at a comfortable pace. Stop if you feel pain, dizziness or chest discomfort."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    seated_variant_id: mv_t1_seated
+    duration_min: 5
+
+  - id: mv_t1_outdoor_walk
+    behaviour: movement
+    tier: 1
+    title:
+      en: "Take a 5-minute walk outside"
+      ar: "تمشَّ في الخارج لمدة 5 دقائق"
+      ar_reviewed: false
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "A short, easy walk is a first step you can repeat every day."
+    limits: "Avoid the hottest part of the day. Stop if you feel pain, dizziness or chest discomfort."
+    setting: outdoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    seated_variant_id: mv_t1_seated
+    duration_min: 5
+
+  - id: mv_t1_balance
+    behaviour: movement
+    tier: 1
+    title:
+      en: "Balance practice: stand on one foot holding a chair, 3 times each side"
+      ar: "تمرين توازن: قف على قدم واحدة مع الإمساك بكرسي، 3 مرات لكل جهة"
+      ar_reviewed: false
+    bct_code: "8.1"
+    bct_name: "Behavioral practice/rehearsal"
+    rationale: "Practising balance a little each day keeps everyday movement steady and safe."
+    limits: "Always hold on to something stable. Stop if you feel unsteady or dizzy."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    contraindications: [dizziness_or_fainting]
+    duration_min: 3
+
+  - id: mv_t1_seated
+    behaviour: movement
+    tier: 1
+    title:
+      en: "Seated arm and leg raises for 5 minutes"
+      ar: "ارفع ذراعيك وساقيك وأنت جالس لمدة 5 دقائق"
+      ar_reviewed: false
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "Movement you can do from a chair still builds the habit and your strength."
+    limits: "Move within a comfortable range. Stop if anything hurts."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    seated: true
+    duration_min: 5
+
+  # ---------------- movement, tier 2 ----------------
+  - id: mv_t2_march_in_place
+    behaviour: movement
+    tier: 2
+    title:
+      en: "March in place for 10 minutes, right after something you already do daily"
+      ar: "سِر في مكانك لمدة 10 دقائق بعد شيء تفعله يوميًا"
+      ar_reviewed: false
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Deciding exactly when and where you'll move makes it far more likely to happen."
+    limits: "Keep a pace where you can still talk. Stop if you feel pain, dizziness or chest discomfort."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: false
+    pregnancy_safe: true
+    seated_variant_id: mv_t2_seated
+    duration_min: 10
+
+  - id: mv_t2_brisk_walk
+    behaviour: movement
+    tier: 2
+    title:
+      en: "Go for a 10-minute brisk walk at a time you choose now"
+      ar: "امشِ بخطى سريعة لمدة 10 دقائق في وقت تحدده الآن"
+      ar_reviewed: false
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Planning the time in advance turns a good intention into a plan."
+    limits: "Avoid the hottest part of the day. Keep a pace where you can still talk."
+    setting: outdoor
+    fasting_safe: true
+    low_energy_ok: false
+    pregnancy_safe: true
+    seated_variant_id: mv_t2_seated
+    duration_min: 10
+
+  - id: mv_t2_seated
+    behaviour: movement
+    tier: 2
+    title:
+      en: "10 minutes of seated cardio: arm punches and leg extensions"
+      ar: "10 دقائق من التمارين وأنت جالس: لكمات بالذراعين ومدّ الساقين"
+      ar_reviewed: false
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "A slightly longer seated session is the next small step up."
+    limits: "Move within a comfortable range. Stop if anything hurts."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: false
+    pregnancy_safe: true
+    seated: true
+    duration_min: 10
+
+  # ---------------- movement, tier 3 ----------------
+  - id: mv_t3_home_workout
+    behaviour: movement
+    tier: 3
+    title:
+      en: "20-minute low-impact home workout, then tick it off"
+      ar: "تمرين منزلي خفيف التأثير لمدة 20 دقيقة، ثم سجّله"
+      ar_reviewed: false
+    bct_code: "2.3"
+    bct_name: "Self-monitoring of behaviour"
+    rationale: "Recording what you did helps you see your progress build over time."
+    limits: "Low impact only. Stop if you feel pain, dizziness or chest discomfort."
+    setting: indoor
+    fasting_safe: false
+    low_energy_ok: false
+    pregnancy_safe: false
+    contraindications: [bone_joint_muscle_problem]
+    duration_min: 20
+
+  - id: mv_t3_brisk_walk
+    behaviour: movement
+    tier: 3
+    title:
+      en: "20-minute brisk walk with 3 faster minutes, then tick it off"
+      ar: "مشي سريع لمدة 20 دقيقة مع 3 دقائق أسرع، ثم سجّله"
+      ar_reviewed: false
+    bct_code: "2.3"
+    bct_name: "Self-monitoring of behaviour"
+    rationale: "Tracking your walks shows you how far you've come."
+    limits: "Avoid the hottest part of the day. Slow down if you can't talk."
+    setting: outdoor
+    fasting_safe: false
+    low_energy_ok: false
+    pregnancy_safe: false
+    duration_min: 20
+
+  - id: mv_t3_easy_indoor_walk
+    behaviour: movement
+    tier: 3
+    title:
+      en: "20-minute easy-pace indoor walk, e.g. in a mall or corridor"
+      ar: "مشي بوتيرة هادئة لمدة 20 دقيقة في مكان مغلق، مثل مركز تسوق"
+      ar_reviewed: false
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "A longer walk at an easy pace builds endurance without strain."
+    limits: "Keep an easy pace and stay hydrated. Stop if you feel pain or dizziness."
+    setting: indoor
+    fasting_safe: false
+    low_energy_ok: false
+    pregnancy_safe: true
+    duration_min: 20
+
+  # ---------------- movement, tier 4 ----------------
+  - id: mv_t4_home_workout
+    behaviour: movement
+    tier: 4
+    title:
+      en: "30-minute moderate home workout at your usual time"
+      ar: "تمرين منزلي معتدل لمدة 30 دقيقة في وقتك المعتاد"
+      ar_reviewed: false
+    bct_code: "8.3"
+    bct_name: "Habit formation"
+    rationale: "Same time, same place: repetition in a stable context makes it automatic."
+    limits: "Warm up first. Stop if you feel pain, dizziness or chest discomfort."
+    setting: indoor
+    fasting_safe: false
+    low_energy_ok: false
+    pregnancy_safe: false
+    contraindications: [bone_joint_muscle_problem]
+    duration_min: 30
+
+  - id: mv_t4_brisk_walk_or_cycle
+    behaviour: movement
+    tier: 4
+    title:
+      en: "30-minute brisk walk or bike ride at your usual time"
+      ar: "مشي سريع أو ركوب دراجة لمدة 30 دقيقة في وقتك المعتاد"
+      ar_reviewed: false
+    bct_code: "8.3"
+    bct_name: "Habit formation"
+    rationale: "Repeating the same routine in the same context turns it into a habit."
+    limits: "Avoid the hottest part of the day. Slow down if you can't talk."
+    setting: outdoor
+    fasting_safe: false
+    low_energy_ok: false
+    pregnancy_safe: false
+    duration_min: 30
+
+  # ---------------- sleep, tiers 1-4 ----------------
+  - id: sl_t1_fixed_wake
+    behaviour: sleep
+    tier: 1
+    title:
+      en: "Set an alarm to get up at the same time tomorrow (within 30 minutes)"
+      ar: "اضبط منبهًا لتستيقظ غدًا في نفس الوقت (بفارق لا يزيد عن 30 دقيقة)"
+      ar_reviewed: false
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "A steady wake time is the simplest anchor for better sleep."
+    limits: "This is about routine, not sleep problems. Talk to a doctor if poor sleep persists."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: sl_t2_wind_down
+    behaviour: sleep
+    tier: 2
+    title:
+      en: "Start a 15-minute wind-down routine before bed"
+      ar: "ابدأ روتينًا للاسترخاء لمدة 15 دقيقة قبل النوم"
+      ar_reviewed: false
+    bct_code: "8.3"
+    bct_name: "Habit formation"
+    rationale: "Doing the same calm steps each night tells your body it's time to sleep."
+    limits: "Pick calm activities you enjoy. Talk to a doctor if poor sleep persists."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 15
+
+  - id: sl_t2_morning_light
+    behaviour: sleep
+    tier: 2
+    title:
+      en: "Get 10 minutes of daylight within an hour of waking"
+      ar: "تعرّض لضوء النهار 10 دقائق خلال ساعة من استيقاظك"
+      ar_reviewed: false
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Morning light helps set your body clock, which makes evenings easier."
+    limits: "Early morning only in hot weather. Never look directly at the sun."
+    setting: outdoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10
+
+  - id: sl_t3_screen_curfew
+    behaviour: sleep
+    tier: 3
+    title:
+      en: "No screens for 30 minutes before bed; set a phone reminder as your cue"
+      ar: "لا شاشات قبل النوم بـ30 دقيقة؛ اضبط تذكيرًا على هاتفك"
+      ar_reviewed: false
+    bct_code: "7.1"
+    bct_name: "Prompts/cues"
+    rationale: "A reminder at the right moment makes the switch-off easier to remember."
+    limits: "Talk to a doctor if poor sleep persists."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 30
+
+  - id: sl_t4_consistent_schedule
+    behaviour: sleep
+    tier: 4
+    title:
+      en: "Keep the same bed and wake time on 6 of 7 nights; tick each night"
+      ar: "حافظ على نفس وقت النوم والاستيقاظ 6 ليالٍ من 7، وسجّل كل ليلة"
+      ar_reviewed: false
+    bct_code: "2.3"
+    bct_name: "Self-monitoring of behaviour"
+    rationale: "Tracking your schedule helps you keep it steady, the core of good sleep."
+    limits: "One flexible night a week is fine. Talk to a doctor if poor sleep persists."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1

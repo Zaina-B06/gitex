@@ -37,6 +37,7 @@ traits:
   motivation_ar1: 0.85  # day-to-day persistence of motivation
   novelty_drop: [0.0, 2.0]  # uniform per persona: how far the motivation mean falls as novelty wears off
   novelty_tau_days: 21  # time constant of that fall: ~63% of it by day 21
+  success_feedback: 0.05  # pre-registered (ASSUMPTIONS.md): +d per completion, +d/2 partial, -d per miss, open days only
   capacity_extra_p: [0.25, 0.45, 0.30]  # P(-1, 0, +1) around the baseline-implied capacity
   bct_responsiveness_sd: 0.5
   preferred_window:

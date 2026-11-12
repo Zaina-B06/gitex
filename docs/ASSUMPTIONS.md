@@ -165,6 +165,41 @@ where nearly everyone leaves.
   In this model persistence and retention move together, so we kept the retention target and accepted lower
   persistence.
 
+### Success feedback: pre-registered before any run (committed on its own, before the code)
+**Why it's added.** In the calibrated no-feedback model (run_002) only motivation decides whether a persona opens
+the app, and nothing an arm does changes motivation, except arm A's streak penalty. So persistence, recovery and
+retention were identical in A0, B and C *by construction*. Real people aren't like that: succeeding at a task builds
+the belief that you can do it, and failing erodes it (self-efficacy; mastery experiences are its strongest source,
+Bandura 1977/1997). A good plan should be *able* to keep someone engaged, and a bad one to lose them.
+
+**The rule (identical in every arm, A included).** After each action on a day the persona opened the app:
+- completed: motivation + δ
+- partial: motivation + δ/2
+- skipped or no response: motivation − δ
+
+Closed-app days give no feedback: not opening isn't a failed attempt. The change carries into the next day through
+the AR(1) motivation process.
+
+**δ = 0.05 (logit scale), fixed now and not tuned.** Reasoning:
+- **Small per event.** It's well below the daily motivation noise (sd 0.2–0.8) and far below arm A's streak penalty
+  (0.3–1.0 per reset). One success or failure barely matters; only patterns do.
+- **Bounded when it compounds.** With AR(1) persistence 0.85, a constant daily input x settles at x ÷ 0.15. Two
+  actions a day, all succeeding, gives +0.10/day → about +0.67 at most; all failing gives about −0.67. That's the same
+  size as the spread between low and high health literacy (0.6), a plausible ceiling for how much success alone moves
+  someone.
+- **A realistic gap is modest.** If one arm's completion share is 20 points higher than another's, the steady-state
+  difference is about 2 × 0.2 × 2δ ÷ 0.15 ≈ 0.27 logit.
+
+**Headline comparisons (fixed now).** C vs A, C vs A0, C vs B on **recovery within 14 days**, **persistence at
+week 12** and **retention at day 90**: 9 differences, reported with their 95% intervals whatever the direction. We
+say Rebound "helps" on a measure only if the interval for the difference is entirely above zero. Everything else
+in the report is secondary.
+
+**What happens next, in this order:** (1) commit this section and the config value alone; (2) implement;
+(3) recalibrate arm A on seed 101 only, changing `open_base` (and `b0` only if needed) to the same targets, never
+δ; (4) run seeds 1–10 once (run_003). In Drop 2 the sensitivity sweep includes δ = 0, 0.025, 0.05 and 0.1, so it
+shows how the advantage over A0 depends on this assumption.
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|

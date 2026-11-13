@@ -92,11 +92,13 @@ _RED_FLAG_PHRASES = (
     "إغماء", "أغمي علي", "فقدت الوعي",
     # severe breathlessness
     "can't breathe", "cannot breathe", "couldn't breathe", "struggling to breathe",
+    "can't breath", "cant breath",  # common misspelling of "breathe"
     "severe breathlessness", "short of breath", "gasping",
     "لا أستطيع التنفس", "ما أقدر أتنفس", "صعوبة شديدة في التنفس", "ضيق تنفس شديد",
     # self-harm
     "kill myself", "killing myself", "suicide", "suicidal", "end my life", "hurt myself",
     "harm myself", "self-harm", "self harm", "want to die", "don't want to live", "better off dead",
+    "end it all", "ending my life", "no reason to live", "can't go on", "don't want to be here",
     "انتحار", "أنتحر", "أقتل نفسي", "أنهي حياتي", "أؤذي نفسي", "إيذاء النفس", "أريد أن أموت",
     "أبي أموت", "ابغى اموت",
     # disordered eating
@@ -107,12 +109,15 @@ _RED_FLAG_PHRASES = (
 
 _AR_MARKS = re.compile("[ً-ْـ]")  # harakat + tatweel
 _ALEF = re.compile("[أإآ]")
+_APOSTROPHES = re.compile("['’]")
 _NON_WORD = re.compile(r"[^\w\s]")
 
 
 def _normalise(text: str) -> str:
+    """Apostrophes are deleted, not spaced, so "can't", "can’t" and "cant" all become "cant"."""
     t = _AR_MARKS.sub("", text.lower())
     t = _ALEF.sub("ا", t).replace("ى", "ي").replace("ة", "ه")
+    t = _APOSTROPHES.sub("", t)
     return " ".join(_NON_WORD.sub(" ", t).split())
 
 

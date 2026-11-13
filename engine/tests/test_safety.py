@@ -3,7 +3,13 @@ import pytest
 from rebound_engine.actions import default_library, filter_actions
 from rebound_engine.models import ActionSetting, Behaviour, Context, ContextFlag
 from rebound_engine.policy import choose_action
-from rebound_engine.safety import SCREENING_QUESTIONS, context_filter, detect_red_flags, screening_flags
+from rebound_engine.safety import (
+    _RED_FLAG_PHRASES,
+    SCREENING_QUESTIONS,
+    context_filter,
+    detect_red_flags,
+    screening_flags,
+)
 from rebound_engine.state import initial_state
 
 MORNING = Context(flags=set(), hour=9)
@@ -119,6 +125,50 @@ def test_illness_flag_removes_movement():
 )
 def test_red_flags_detected(text):
     assert detect_red_flags(text)
+
+
+_APOSTROPHE_PHRASES = [p for p in _RED_FLAG_PHRASES if "'" in p]
+
+
+@pytest.mark.parametrize("phrase", _APOSTROPHE_PHRASES)
+@pytest.mark.parametrize("form", ["straight", "curly", "none"])
+def test_red_flags_match_with_or_without_apostrophe(phrase, form):
+    text = {"straight": phrase, "curly": phrase.replace("'", "’"), "none": phrase.replace("'", "")}[form]
+    assert detect_red_flags(f"Honestly I {text} anymore")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I just want to end it all",
+        "I keep thinking about ending my life",
+        "there's no reason to live",
+        "I cant go on like this",
+        "I can’t go on like this",
+        "i dont want to be here anymore",
+        "I don’t want to be here",
+    ],
+)
+def test_new_self_harm_phrases(text):
+    assert detect_red_flags(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I cant breathe",
+        "cant breath",
+        "i dont want to live anymore",
+        "I want to end it all",
+        "thinking of ending my life",
+    ],
+)
+def test_code_review_examples(text):
+    assert detect_red_flags(text)
+
+
+def test_apostrophe_phrases_are_covered():
+    assert {"can't go on", "don't want to be here", "can't breathe", "don't want to live"} <= set(_APOSTROPHE_PHRASES)
 
 
 @pytest.mark.parametrize(

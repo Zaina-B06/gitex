@@ -15,30 +15,34 @@ Read `AGENTS.md` (identical to `CLAUDE.md`) first: product spec, rules and conve
 | **Task 02b: lapse-risk model** | Drop A: engine-visible features (`engine/rebound_engine/risk/`), training + evaluation (`sim/train_risk.py`), plain-language alert reasons, model card. Drop B: `Engine(risk_model=...)` hook and arms D / D50, tested as pre-registered (run_008): **decision "keep the hook out of the app"**. The hook is **disabled by default** (`Engine()` without a model is the shipped engine); the model stays as a tested component. | `644b54f` (pre-registration), `c46b25a`, `23a0663`, `ec5f211`, `ee05a3e`, `760ce45`, `ca2440d` |
 
 All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot of the reviewed outputs is in
-`docs/results/` (index: `docs/results/README.md`). **Report run_007**: the shipped engine, seeds 1–10, all scenarios.
+`docs/results/` (index: `docs/results/README.md`). **Report run_011**: the shipped engine, seeds 1–10, all scenarios,
+check-ins answered only on days the app is open. run_007 is the earlier world (check-ins answered on any day).
 
-## Key findings (run_007, shipped engine; simulation, so relative, not real-world effect sizes)
+## Key findings (run_011, shipped engine; simulation, so relative, not real-world effect sizes)
 
 - **Against a streak app that penalises misses, Rebound improves recovery (+13 to +19 pts), week-12 persistence
   (+17 to +25 pts) and retention (+13 to +19 pts) in all 7 scenarios, and people do more** (+16.9 active min/week,
   +13.9 pts tier-weighted sleep in baseline). Safety audit: 0 unsafe actions and 0 quiet-hour messages everywhere.
 - **That engagement advantage depends entirely on the abstinence-violation assumption** (missing a day on a streak
   app lowers motivation). With no such effect it disappears: C vs A persistence −1.0 pts [−3.0, +1.0] (sweep_002).
-- **Against a static plan without that penalty (A0), engagement is about equal, recovery is small (~1–2 pts) but
-  consistent** (clear in 5/7 scenarios in run_007, 7/7 for C4 in run_006), **and people do more:** +8.7 active
-  min/week and +10.4 pts tier-weighted sleep in baseline. Three small "worse" results out of 63 pre-registered
-  intervals (≤ 1.1 pts; listed in `docs/ASSUMPTIONS.md`).
+- **Against a kind fixed plan (A0): about equal on engagement, no reliable recovery edge, and people do more:**
+  +8.7 active min/week and +10.4 pts tier-weighted sleep in baseline (helps in 7/7). Recovery vs A0 is "helps" in
+  1/7 scenarios in run_011, 5/7 in run_007 and 7/7 in run_010 (other seeds), so it isn't robust across seed sets.
+  Four small "worse" results of 105 (≤ 1.0 pt): persistence wk 12 vs A0 in baseline, high_dropout and shock_heavy;
+  retention vs B in ramadan_heavy (`docs/ASSUMPTIONS.md`, "Reported results … run_011").
+- **Check-ins only count on days the app is open** (pre-registered, adopted whatever the result): answered check-ins
+  fall from 84% to 60% in baseline. C vs A is unchanged; the recovery edge over A0 is what moved.
 - **The per-user bandit adds no measurable benefit over rules** at 90 days with people opening the app on ~40% of days.
 - **Step-up after 4 (not 3) was adopted by a pre-registered test:** seeds 1–5 informed it (sweep_003), seeds 11–20
   confirmed it (run_006: about +2 active min/week vs step-up 3 in every scenario, no engagement cost), seeds 1–10
-  re-report the shipped engine (run_007).
+  re-report the shipped engine (run_007, now run_011).
 - **Lapse prediction works; the in-app hook doesn't.** The model flags 93% of upcoming lapses in the prior week vs 62%
   for the drifting rule, at a similar alert rate (`docs/MODEL_CARD.md`). But offering a lighter option on alert didn't
   lower the lapse rate (run_008, D vs C ≈ 0). 46% of alert days with an option were closed-app days, and most at-risk
   users were already at tier 1. Pilot recommendation: trigger *out-of-app* support (WhatsApp-style nudge, buddy) from
   the risk score.
-- **Rebound vs a static easy plan (A0): lapse rate is slightly higher (+0.4 to +1.4 pts) while recovery is better**,
-  consistent with Rebound asking for more.
+- **Rebound vs a static easy plan (A0): lapse rate is slightly higher** (baseline +1.3 pts [+0.8, +1.8] in run_011),
+  consistent with Rebound asking for more; with no reliable recovery edge, that's a cost to state plainly.
 
 ## Next, in order (see `docs/tasks/PLAN.md`)
 

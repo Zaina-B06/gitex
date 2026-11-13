@@ -643,11 +643,10 @@ B and C in both runs. Copies: `docs/results/run_009/`, `docs/results/run_010/`.
 **The rule bites:** the share of sent check-ins that get answered (B and C) falls from 84% to 60% in baseline, and
 from 63% to 39% in low_checkin.
 
-**Our prediction was wrong.** We expected C's recovery edge over A0 to shrink. It didn't: recovery within 14 days,
+**Our prediction was wrong on these seeds.** We expected C's recovery edge over A0 to shrink. It didn't: recovery within 14 days,
 C vs A0, is **helps in 6/7 scenarios in run_009 and 7/7 in run_010** (baseline +1.4 [+0.4, +2.4] → +1.7 [+0.3, +3.2];
-shock_heavy +0.7 [−0.1, +1.5] → +0.9 [+0.1, +1.7]). With about a quarter fewer answered check-ins and no loss of
-recovery, the edge over a static plan looks driven mostly by shrink-on-slip and step-down, which need no answer, rather
-than by check-in answers. That reading is an inference, not something this test was designed to show.
+shock_heavy +0.7 [−0.1, +1.5] → +0.9 [+0.1, +1.7]). **On the evaluation seeds 1–10 it did shrink** (run_011
+below: 5/7 → 1/7). So the recovery edge over A0 isn't robust across seed sets, and this test can't say what drives it.
 
 Verdicts by comparison (5 measures × 7 scenarios each, both runs):
 
@@ -676,6 +675,38 @@ rules-only (B), by under 1.5 active minutes a week. That is not established. "Th
 **Adoption, as pre-registered:** `traits.checkin_needs_open_app` is now `true`. The reported results are re-run on
 seeds 1–10 (run_011). run_007 stays documented as the earlier world, "check-ins answered on any day". To reproduce it,
 add `--set traits.checkin_needs_open_app=false`.
+
+### Reported results: check-ins answered only on open days (run_011)
+Seeds 1–10, 300 personas, 90 days, all 7 scenarios, arms A, A0, B, C; shipped engine (rules + bandit, step-up 4, no
+risk hook). Copy: `docs/results/run_011/`.
+
+**Validity:** A and A0 match run_007 on every shared metric in all 7 scenarios. They send no check-ins, so they must;
+the only difference is `lapse_rate`, a metric added after run_007. Safety audit 0 for B and C in every scenario.
+run_007 and run_011 differ only in the check-in rule, on the same seeds.
+
+**C vs A (streak app): unchanged.** Helps on all 35 (5 measures × 7 scenarios): recovery +12.8 to +18.6 pts,
+persistence wk 12 +17.0 to +25.2 pts, retention +13.1 to +18.5 pts. Baseline +16.9 active min/week
+[+15.6, +18.2] and +13.9 pts tier-weighted sleep [+12.8, +15.0]. This still depends on the abstinence-violation
+assumption (sweep_002).
+
+**C vs A0 (kind fixed plan): about equal on engagement, no reliable recovery edge, more activity.**
+- Recovery within 14 days: **helps in 1/7** (low_checkin +1.5 [+0.5, +2.6]). It was 5/7 in run_007 (any-day check-ins,
+  same seeds) and 7/7 in run_010 (open days only, seeds 31–40). Across seed sets and both check-in rules, the edge
+  over a static plan is not robust; we no longer report it as a finding.
+- Persistence and retention: not shown, or slightly worse (below).
+- Activity: helps in 7/7 on both: baseline +8.7 active min/week [+7.3, +10.1], +10.4 pts tier-weighted sleep
+  [+9.3, +11.5].
+
+**C vs B (bandit vs rules): nothing reliable.** One "helps" (ramadan_heavy recovery +0.5 [+0.05, +1.0]) and one
+"worse" (below), both borderline among 35; active minutes helps only in hot_summer. "The bandit adds nothing
+measurable at 90 days" stands.
+
+**"Worse" results (4 of 105, all ≤ 1.0 pt):**
+- C vs A0, persistence week 12: baseline −0.5 [−0.9, −0.1], high_dropout −1.0 [−1.6, −0.4], shock_heavy −0.8 [−1.7, −0.0].
+- C vs B, retention: ramadan_heavy −0.3 [−0.7, −0.0].
+
+The persistence results fit Rebound asking for more than a static easy plan (lapse rate vs A0 baseline +1.3 pts
+[+0.8, +1.8]): a few more people stop by week 12.
 
 ### Disruptions (labelled)
 | Parameter | Value | Why |

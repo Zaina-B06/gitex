@@ -1,0 +1,2483 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Rebound API",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/users": {
+   "post": {
+    "summary": "Onboard",
+    "operationId": "onboard_users_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OnboardIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OnboardOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/today": {
+   "get": {
+    "summary": "Today",
+    "operationId": "today_users__user_id__today_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TodayOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/events": {
+   "post": {
+    "summary": "Record",
+    "operationId": "record_users__user_id__events_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EventIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StateResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/checkin": {
+   "post": {
+    "summary": "Checkin",
+    "operationId": "checkin_users__user_id__checkin_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CheckinIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CheckinOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/state": {
+   "get": {
+    "summary": "Get State",
+    "operationId": "get_state_users__user_id__state_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StateOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/settings": {
+   "patch": {
+    "summary": "Settings",
+    "operationId": "settings_users__user_id__settings_patch",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SettingsOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/export": {
+   "get": {
+    "summary": "Export",
+    "operationId": "export_users__user_id__export_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExportOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}": {
+   "delete": {
+    "summary": "Delete User",
+    "operationId": "delete_user_users__user_id__delete",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/actions/{action_id}/explain": {
+   "get": {
+    "summary": "Explain",
+    "operationId": "explain_actions__action_id__explain_get",
+    "parameters": [
+     {
+      "name": "action_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Action Id"
+      }
+     },
+     {
+      "name": "lang",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "$ref": "#/components/schemas/Language",
+       "default": "en"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExplainOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/dashboard/outcomes": {
+   "get": {
+    "summary": "Outcomes",
+    "description": "Simulation results by arm and scenario (docs/results/dashboard.json, from sim.export_dashboard).",
+    "operationId": "outcomes_dashboard_outcomes_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Outcomes Dashboard Outcomes Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/dashboard/employer": {
+   "get": {
+    "summary": "Employer",
+    "operationId": "employer_dashboard_employer_get",
+    "parameters": [
+     {
+      "name": "org_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Org Id"
+      }
+     },
+     {
+      "name": "x-org-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Org-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EmployerOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/demo/users/{user_id}/advance": {
+   "post": {
+    "summary": "Advance",
+    "operationId": "advance_demo_users__user_id__advance_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AdvanceIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdvanceOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/demo/seed": {
+   "post": {
+    "summary": "Seed",
+    "operationId": "seed_demo_seed_post",
+    "parameters": [
+     {
+      "name": "x-demo-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Demo-Key"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SeedOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Accessibility": {
+    "type": "string",
+    "enum": [
+     "large_text",
+     "high_contrast",
+     "screen_reader"
+    ],
+    "title": "Accessibility"
+   },
+   "Action": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "behaviour": {
+      "$ref": "#/components/schemas/Behaviour"
+     },
+     "tier": {
+      "type": "integer",
+      "maximum": 4.0,
+      "minimum": 1.0,
+      "title": "Tier"
+     },
+     "title": {
+      "$ref": "#/components/schemas/LocalizedText"
+     },
+     "bct_code": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Bct Code"
+     },
+     "bct_name": {
+      "type": "string",
+      "title": "Bct Name"
+     },
+     "rationale": {
+      "type": "string",
+      "title": "Rationale"
+     },
+     "limits": {
+      "type": "string",
+      "title": "Limits"
+     },
+     "setting": {
+      "$ref": "#/components/schemas/ActionSetting"
+     },
+     "fasting_safe": {
+      "type": "boolean",
+      "title": "Fasting Safe"
+     },
+     "low_energy_ok": {
+      "type": "boolean",
+      "title": "Low Energy Ok"
+     },
+     "pregnancy_safe": {
+      "type": "boolean",
+      "title": "Pregnancy Safe"
+     },
+     "seated": {
+      "type": "boolean",
+      "title": "Seated",
+      "default": false
+     },
+     "seated_variant_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seated Variant Id"
+     },
+     "contraindications": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Contraindications"
+     },
+     "duration_min": {
+      "type": "integer",
+      "exclusiveMinimum": 0.0,
+      "title": "Duration Min"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "id",
+     "behaviour",
+     "tier",
+     "title",
+     "bct_code",
+     "bct_name",
+     "rationale",
+     "limits",
+     "setting",
+     "fasting_safe",
+     "low_energy_ok",
+     "pregnancy_safe",
+     "duration_min"
+    ],
+    "title": "Action"
+   },
+   "ActionSetting": {
+    "type": "string",
+    "enum": [
+     "indoor",
+     "outdoor",
+     "any"
+    ],
+    "title": "ActionSetting"
+   },
+   "AdvanceIn": {
+    "properties": {
+     "days": {
+      "type": "integer",
+      "maximum": 60.0,
+      "minimum": 1.0,
+      "title": "Days"
+     },
+     "pattern": {
+      "type": "string",
+      "enum": [
+       "good",
+       "lapse",
+       "mixed"
+      ],
+      "title": "Pattern"
+     },
+     "scenario": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "ramadan",
+         "heat"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scenario"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "days",
+     "pattern"
+    ],
+    "title": "AdvanceIn"
+   },
+   "AdvanceOut": {
+    "properties": {
+     "state": {
+      "$ref": "#/components/schemas/StateOut"
+     },
+     "today": {
+      "$ref": "#/components/schemas/TodayOut"
+     },
+     "log": {
+      "items": {
+       "$ref": "#/components/schemas/DayRow"
+      },
+      "type": "array",
+      "title": "Log"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state",
+     "today",
+     "log"
+    ],
+    "title": "AdvanceOut"
+   },
+   "Barrier": {
+    "type": "string",
+    "enum": [
+     "time",
+     "energy_fatigue",
+     "illness_pain",
+     "schedule_change",
+     "environment",
+     "low_motivation",
+     "social_family",
+     "forgot",
+     "other"
+    ],
+    "title": "Barrier"
+   },
+   "BarrierCount": {
+    "properties": {
+     "barrier": {
+      "$ref": "#/components/schemas/Barrier"
+     },
+     "count": {
+      "type": "integer",
+      "title": "Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "barrier",
+     "count"
+    ],
+    "title": "BarrierCount"
+   },
+   "Baseline": {
+    "properties": {
+     "active_days_per_week": {
+      "type": "integer",
+      "maximum": 7.0,
+      "minimum": 0.0,
+      "title": "Active Days Per Week"
+     },
+     "typical_daily_steps": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 100000.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Typical Daily Steps"
+     },
+     "sleep_hours_typical": {
+      "type": "number",
+      "maximum": 24.0,
+      "minimum": 0.0,
+      "title": "Sleep Hours Typical"
+     },
+     "sleep_quality_self": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "Sleep Quality Self"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "active_days_per_week",
+     "sleep_hours_typical",
+     "sleep_quality_self"
+    ],
+    "title": "Baseline"
+   },
+   "Basics": {
+    "properties": {
+     "language": {
+      "$ref": "#/components/schemas/Language"
+     },
+     "age_years": {
+      "type": "integer",
+      "maximum": 100.0,
+      "minimum": 18.0,
+      "title": "Age Years"
+     },
+     "sex": {
+      "$ref": "#/components/schemas/Sex"
+     },
+     "goals": {
+      "items": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Goals"
+     },
+     "schedule_type": {
+      "$ref": "#/components/schemas/ScheduleType"
+     },
+     "usual_wake_time": {
+      "type": "string",
+      "format": "time",
+      "title": "Usual Wake Time"
+     },
+     "usual_sleep_time": {
+      "type": "string",
+      "format": "time",
+      "title": "Usual Sleep Time"
+     },
+     "work_hours": {
+      "items": {
+       "$ref": "#/components/schemas/TimeRange"
+      },
+      "type": "array",
+      "title": "Work Hours"
+     },
+     "shift_cycle": {
+      "anyOf": [
+       {
+        "items": {
+         "items": {
+          "$ref": "#/components/schemas/TimeRange"
+         },
+         "type": "array"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Shift Cycle"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "language",
+     "age_years",
+     "sex",
+     "goals",
+     "schedule_type",
+     "usual_wake_time",
+     "usual_sleep_time"
+    ],
+    "title": "Basics"
+   },
+   "Behaviour": {
+    "type": "string",
+    "enum": [
+     "movement",
+     "sleep"
+    ],
+    "title": "Behaviour"
+   },
+   "Body": {
+    "properties": {
+     "height_cm": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 250.0,
+        "minimum": 100.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Height Cm"
+     },
+     "weight_kg": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 300.0,
+        "minimum": 30.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Weight Kg"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "Body",
+    "description": "Used only to set a safe starting intensity, never shown as a target."
+   },
+   "Channel": {
+    "type": "string",
+    "enum": [
+     "app",
+     "whatsapp_style",
+     "voice_note"
+    ],
+    "title": "Channel"
+   },
+   "CheckinIn": {
+    "properties": {
+     "barriers": {
+      "items": {
+       "$ref": "#/components/schemas/Barrier"
+      },
+      "type": "array",
+      "title": "Barriers"
+     },
+     "free_text": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Free Text"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "CheckinIn"
+   },
+   "CheckinOut": {
+    "properties": {
+     "barrier": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Barrier"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "adjusted_actions": {
+      "items": {
+       "$ref": "#/components/schemas/Action"
+      },
+      "type": "array",
+      "title": "Adjusted Actions"
+     },
+     "message_key": {
+      "type": "string",
+      "title": "Message Key"
+     },
+     "red_flag": {
+      "type": "boolean",
+      "title": "Red Flag"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     }
+    },
+    "type": "object",
+    "required": [
+     "barrier",
+     "adjusted_actions",
+     "message_key",
+     "red_flag",
+     "message"
+    ],
+    "title": "CheckinOut"
+   },
+   "ConsentGroup": {
+    "type": "string",
+    "enum": [
+     "body",
+     "screening",
+     "history",
+     "preferences"
+    ],
+    "title": "ConsentGroup"
+   },
+   "ContextFlag": {
+    "type": "string",
+    "enum": [
+     "ramadan",
+     "heat",
+     "shift_pattern",
+     "travel",
+     "illness",
+     "paused"
+    ],
+    "title": "ContextFlag"
+   },
+   "DayLog": {
+    "properties": {
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "behaviour": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Behaviour"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "action_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Action Id"
+     },
+     "outcome": {
+      "$ref": "#/components/schemas/DayOutcome"
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "outcome"
+    ],
+    "title": "DayLog"
+   },
+   "DayOutcome": {
+    "type": "string",
+    "enum": [
+     "completed",
+     "partial",
+     "skipped",
+     "no_response",
+     "paused",
+     "illness"
+    ],
+    "title": "DayOutcome"
+   },
+   "DayRow": {
+    "properties": {
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "outcomes": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Outcomes"
+     },
+     "engagement_state": {
+      "$ref": "#/components/schemas/EngagementState"
+     },
+     "habit_strength": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Habit Strength"
+     },
+     "checkin_due": {
+      "type": "boolean",
+      "title": "Checkin Due"
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "outcomes",
+     "engagement_state",
+     "habit_strength",
+     "checkin_due"
+    ],
+    "title": "DayRow"
+   },
+   "EmployerOut": {
+    "properties": {
+     "org_id": {
+      "type": "string",
+      "title": "Org Id"
+     },
+     "group_size": {
+      "type": "integer",
+      "title": "Group Size"
+     },
+     "active_share": {
+      "type": "number",
+      "title": "Active Share"
+     },
+     "average_habit_strength": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Average Habit Strength"
+     },
+     "top_barriers": {
+      "items": {
+       "$ref": "#/components/schemas/BarrierCount"
+      },
+      "type": "array",
+      "title": "Top Barriers"
+     }
+    },
+    "type": "object",
+    "required": [
+     "org_id",
+     "group_size",
+     "active_share",
+     "average_habit_strength",
+     "top_barriers"
+    ],
+    "title": "EmployerOut",
+    "description": "Aggregates for one org; only returned for groups of at least EMPLOYER_MIN_GROUP (AGENTS.md \u00a72.6)."
+   },
+   "EngagementState": {
+    "type": "string",
+    "enum": [
+     "active",
+     "drifting",
+     "lapsed",
+     "recovering"
+    ],
+    "title": "EngagementState"
+   },
+   "Event": {
+    "properties": {
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "day": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Day"
+     },
+     "type": {
+      "$ref": "#/components/schemas/EventType"
+     },
+     "action_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Action Id"
+     },
+     "payload": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Payload"
+     }
+    },
+    "type": "object",
+    "required": [
+     "user_id",
+     "day",
+     "type"
+    ],
+    "title": "Event"
+   },
+   "EventIn": {
+    "properties": {
+     "action_id": {
+      "type": "string",
+      "title": "Action Id"
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "completed",
+       "partial",
+       "skipped"
+      ],
+      "title": "Type"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "action_id",
+     "type"
+    ],
+    "title": "EventIn"
+   },
+   "EventType": {
+    "type": "string",
+    "enum": [
+     "action_shown",
+     "completed",
+     "partial",
+     "skipped",
+     "no_response",
+     "checkin",
+     "checkin_sent",
+     "pause",
+     "screening_flag",
+     "red_flag",
+     "context_change",
+     "risk_alert"
+    ],
+    "title": "EventType"
+   },
+   "ExplainOut": {
+    "properties": {
+     "bct_code": {
+      "type": "string",
+      "title": "Bct Code"
+     },
+     "bct_name": {
+      "type": "string",
+      "title": "Bct Name"
+     },
+     "rationale": {
+      "type": "string",
+      "title": "Rationale"
+     },
+     "limits": {
+      "type": "string",
+      "title": "Limits"
+     },
+     "how_to_turn_off": {
+      "type": "string",
+      "title": "How To Turn Off"
+     }
+    },
+    "type": "object",
+    "required": [
+     "bct_code",
+     "bct_name",
+     "rationale",
+     "limits",
+     "how_to_turn_off"
+    ],
+    "title": "ExplainOut"
+   },
+   "ExportOut": {
+    "properties": {
+     "account": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Account"
+     },
+     "profile": {
+      "$ref": "#/components/schemas/UserProfile"
+     },
+     "state": {
+      "$ref": "#/components/schemas/UserState"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/Event"
+      },
+      "type": "array",
+      "title": "Events"
+     }
+    },
+    "type": "object",
+    "required": [
+     "account",
+     "profile",
+     "state",
+     "events"
+    ],
+    "title": "ExportOut",
+    "description": "Everything stored about the user (AGENTS.md \u00a74.7), except the token hash."
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "History": {
+    "properties": {
+     "tried_before": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tried Before"
+     },
+     "past_helpers": {
+      "items": {
+       "$ref": "#/components/schemas/PastHelper"
+      },
+      "type": "array",
+      "title": "Past Helpers"
+     },
+     "past_stop_reasons": {
+      "items": {
+       "$ref": "#/components/schemas/Barrier"
+      },
+      "type": "array",
+      "title": "Past Stop Reasons"
+     },
+     "smoking_status": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SmokingStatus"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "motivation_reason": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Motivation Reason"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "History"
+   },
+   "Language": {
+    "type": "string",
+    "enum": [
+     "en",
+     "ar"
+    ],
+    "title": "Language"
+   },
+   "LocalizedText": {
+    "properties": {
+     "en": {
+      "type": "string",
+      "minLength": 1,
+      "title": "En"
+     },
+     "ar": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Ar"
+     },
+     "ar_reviewed": {
+      "type": "boolean",
+      "title": "Ar Reviewed",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "en",
+     "ar"
+    ],
+    "title": "LocalizedText"
+   },
+   "MobilityLimitation": {
+    "type": "string",
+    "enum": [
+     "none",
+     "some",
+     "mobility_aid"
+    ],
+    "title": "MobilityLimitation"
+   },
+   "OnboardIn": {
+    "properties": {
+     "basics": {
+      "$ref": "#/components/schemas/Basics"
+     },
+     "body": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Body"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "screening": {
+      "$ref": "#/components/schemas/Screening"
+     },
+     "baseline": {
+      "$ref": "#/components/schemas/Baseline"
+     },
+     "history": {
+      "$ref": "#/components/schemas/History"
+     },
+     "preferences": {
+      "$ref": "#/components/schemas/Preferences"
+     },
+     "consents": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/ConsentGroup"
+      },
+      "type": "object",
+      "title": "Consents"
+     },
+     "timezone": {
+      "type": "string",
+      "title": "Timezone",
+      "default": "Asia/Dubai"
+     },
+     "org_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 64,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Org Id"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "basics",
+     "screening",
+     "baseline"
+    ],
+    "title": "OnboardIn",
+    "description": "OnboardingPayload (AGENTS.md \u00a74) plus API-only fields the engine never sees."
+   },
+   "OnboardOut": {
+    "properties": {
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "token": {
+      "type": "string",
+      "title": "Token"
+     },
+     "screening": {
+      "$ref": "#/components/schemas/ScreeningResult"
+     },
+     "red_flag": {
+      "type": "boolean",
+      "title": "Red Flag"
+     },
+     "state": {
+      "$ref": "#/components/schemas/StateOut"
+     },
+     "today": {
+      "$ref": "#/components/schemas/TodayOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "user_id",
+     "token",
+     "screening",
+     "red_flag",
+     "state",
+     "today"
+    ],
+    "title": "OnboardOut"
+   },
+   "PastHelper": {
+    "type": "string",
+    "enum": [
+     "small_steps",
+     "reminders",
+     "buddy",
+     "tracking",
+     "rewards",
+     "routine_anchor",
+     "other"
+    ],
+    "title": "PastHelper"
+   },
+   "PlaceSetting": {
+    "type": "string",
+    "enum": [
+     "indoor",
+     "outdoor",
+     "either"
+    ],
+    "title": "PlaceSetting"
+   },
+   "Preferences": {
+    "properties": {
+     "setting": {
+      "$ref": "#/components/schemas/PlaceSetting",
+      "default": "either"
+     },
+     "social": {
+      "$ref": "#/components/schemas/SocialPreference",
+      "default": "either"
+     },
+     "space_preference": {
+      "$ref": "#/components/schemas/SpacePreference",
+      "default": "any"
+     },
+     "fasting_ramadan": {
+      "type": "boolean",
+      "title": "Fasting Ramadan",
+      "default": false
+     },
+     "notification_window": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TimeRange"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "quiet_hours": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TimeRange"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "channel": {
+      "$ref": "#/components/schemas/Channel",
+      "default": "app"
+     },
+     "accessibility": {
+      "items": {
+       "$ref": "#/components/schemas/Accessibility"
+      },
+      "type": "array",
+      "title": "Accessibility"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "Preferences"
+   },
+   "PregnancyAnswer": {
+    "type": "string",
+    "enum": [
+     "yes",
+     "no",
+     "prefer_not_to_say"
+    ],
+    "title": "PregnancyAnswer"
+   },
+   "ScheduleType": {
+    "type": "string",
+    "enum": [
+     "office",
+     "shift",
+     "outdoor_manual",
+     "home_caregiver",
+     "student",
+     "other"
+    ],
+    "title": "ScheduleType"
+   },
+   "ScheduledAction": {
+    "properties": {
+     "action": {
+      "$ref": "#/components/schemas/Action"
+     },
+     "time_window": {
+      "$ref": "#/components/schemas/TimeWindow"
+     },
+     "hour": {
+      "type": "integer",
+      "title": "Hour"
+     },
+     "explanation_id": {
+      "type": "string",
+      "title": "Explanation Id"
+     },
+     "lighter": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Action"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "action",
+     "time_window",
+     "hour",
+     "explanation_id"
+    ],
+    "title": "ScheduledAction"
+   },
+   "Screening": {
+    "properties": {
+     "heart_condition_or_high_bp": {
+      "type": "boolean",
+      "title": "Heart Condition Or High Bp"
+     },
+     "chest_pain": {
+      "type": "boolean",
+      "title": "Chest Pain"
+     },
+     "dizziness_or_fainting": {
+      "type": "boolean",
+      "title": "Dizziness Or Fainting"
+     },
+     "other_long_term_condition": {
+      "type": "boolean",
+      "title": "Other Long Term Condition"
+     },
+     "prescribed_medication": {
+      "type": "boolean",
+      "title": "Prescribed Medication"
+     },
+     "bone_joint_muscle_problem": {
+      "type": "boolean",
+      "title": "Bone Joint Muscle Problem"
+     },
+     "supervised_exercise_only": {
+      "type": "boolean",
+      "title": "Supervised Exercise Only"
+     },
+     "pregnant": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PregnancyAnswer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "mobility_limitation": {
+      "$ref": "#/components/schemas/MobilityLimitation"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "heart_condition_or_high_bp",
+     "chest_pain",
+     "dizziness_or_fainting",
+     "other_long_term_condition",
+     "prescribed_medication",
+     "bone_joint_muscle_problem",
+     "supervised_exercise_only",
+     "mobility_limitation"
+    ],
+    "title": "Screening",
+    "description": "PAR-Q+-style yes/no questions (paraphrased), plus pregnancy and mobility."
+   },
+   "ScreeningResult": {
+    "properties": {
+     "flag": {
+      "type": "boolean",
+      "title": "Flag"
+     },
+     "positive": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Positive"
+     },
+     "movement_tier_cap": {
+      "type": "integer",
+      "title": "Movement Tier Cap"
+     },
+     "see_doctor": {
+      "type": "boolean",
+      "title": "See Doctor"
+     },
+     "pregnancy_safe_only": {
+      "type": "boolean",
+      "title": "Pregnancy Safe Only"
+     },
+     "seated_only": {
+      "type": "boolean",
+      "title": "Seated Only"
+     }
+    },
+    "type": "object",
+    "required": [
+     "flag",
+     "positive",
+     "movement_tier_cap",
+     "see_doctor",
+     "pregnancy_safe_only",
+     "seated_only"
+    ],
+    "title": "ScreeningResult"
+   },
+   "SeedOut": {
+    "properties": {
+     "personas": {
+      "items": {
+       "$ref": "#/components/schemas/SeedPersona"
+      },
+      "type": "array",
+      "title": "Personas"
+     },
+     "org_id": {
+      "type": "string",
+      "title": "Org Id"
+     },
+     "org_size": {
+      "type": "integer",
+      "title": "Org Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "personas",
+     "org_id",
+     "org_size"
+    ],
+    "title": "SeedOut"
+   },
+   "SeedPersona": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "token": {
+      "type": "string",
+      "title": "Token"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "user_id",
+     "token"
+    ],
+    "title": "SeedPersona"
+   },
+   "SettingsIn": {
+    "properties": {
+     "preferences": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Preferences"
+     },
+     "consents": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "boolean"
+        },
+        "propertyNames": {
+         "$ref": "#/components/schemas/ConsentGroup"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Consents"
+     },
+     "context": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "boolean"
+        },
+        "propertyNames": {
+         "$ref": "#/components/schemas/ContextFlag"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Context"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "SettingsIn"
+   },
+   "SettingsOut": {
+    "properties": {
+     "preferences": {
+      "$ref": "#/components/schemas/Preferences"
+     },
+     "consents": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/ConsentGroup"
+      },
+      "type": "object",
+      "title": "Consents"
+     },
+     "state": {
+      "$ref": "#/components/schemas/StateOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "preferences",
+     "consents",
+     "state"
+    ],
+    "title": "SettingsOut"
+   },
+   "Sex": {
+    "type": "string",
+    "enum": [
+     "female",
+     "male",
+     "prefer_not_to_say"
+    ],
+    "title": "Sex"
+   },
+   "SmokingStatus": {
+    "type": "string",
+    "enum": [
+     "never",
+     "former",
+     "current",
+     "prefer_not_to_say"
+    ],
+    "title": "SmokingStatus"
+   },
+   "SocialPreference": {
+    "type": "string",
+    "enum": [
+     "alone",
+     "with_others",
+     "either"
+    ],
+    "title": "SocialPreference"
+   },
+   "SpacePreference": {
+    "type": "string",
+    "enum": [
+     "home",
+     "women_only_spaces",
+     "any"
+    ],
+    "title": "SpacePreference"
+   },
+   "StateOut": {
+    "properties": {
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "habit_strength": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Habit Strength"
+     },
+     "engagement_state": {
+      "$ref": "#/components/schemas/EngagementState"
+     },
+     "tiers": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Tiers"
+     },
+     "context_flags": {
+      "items": {
+       "$ref": "#/components/schemas/ContextFlag"
+      },
+      "type": "array",
+      "uniqueItems": true,
+      "title": "Context Flags"
+     },
+     "checkin_due": {
+      "type": "boolean",
+      "title": "Checkin Due"
+     },
+     "history": {
+      "items": {
+       "$ref": "#/components/schemas/DayLog"
+      },
+      "type": "array",
+      "title": "History"
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "habit_strength",
+     "engagement_state",
+     "tiers",
+     "context_flags",
+     "checkin_due",
+     "history"
+    ],
+    "title": "StateOut"
+   },
+   "StateResponse": {
+    "properties": {
+     "state": {
+      "$ref": "#/components/schemas/StateOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state"
+    ],
+    "title": "StateResponse"
+   },
+   "StateSummary": {
+    "properties": {
+     "habit_strength": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Habit Strength"
+     },
+     "engagement_state": {
+      "$ref": "#/components/schemas/EngagementState"
+     },
+     "tiers": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Tiers"
+     }
+    },
+    "type": "object",
+    "required": [
+     "habit_strength",
+     "engagement_state",
+     "tiers"
+    ],
+    "title": "StateSummary"
+   },
+   "TimeRange": {
+    "properties": {
+     "start": {
+      "type": "string",
+      "format": "time",
+      "title": "Start"
+     },
+     "end": {
+      "type": "string",
+      "format": "time",
+      "title": "End"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "start",
+     "end"
+    ],
+    "title": "TimeRange"
+   },
+   "TimeWindow": {
+    "type": "string",
+    "enum": [
+     "morning",
+     "afternoon",
+     "evening"
+    ],
+    "title": "TimeWindow"
+   },
+   "TodayOut": {
+    "properties": {
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "actions": {
+      "items": {
+       "$ref": "#/components/schemas/ScheduledAction"
+      },
+      "type": "array",
+      "title": "Actions"
+     },
+     "message_keys": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Message Keys"
+     },
+     "channel": {
+      "$ref": "#/components/schemas/Channel"
+     },
+     "checkin_due": {
+      "type": "boolean",
+      "title": "Checkin Due"
+     },
+     "state_summary": {
+      "$ref": "#/components/schemas/StateSummary"
+     },
+     "risk": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Risk"
+     },
+     "risk_reasons": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Risk Reasons"
+     },
+     "messages": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Messages"
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "actions",
+     "message_keys",
+     "channel",
+     "checkin_due",
+     "state_summary",
+     "messages"
+    ],
+    "title": "TodayOut"
+   },
+   "UserProfile": {
+    "properties": {
+     "basics": {
+      "$ref": "#/components/schemas/Basics"
+     },
+     "body": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Body"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "screening": {
+      "$ref": "#/components/schemas/Screening"
+     },
+     "baseline": {
+      "$ref": "#/components/schemas/Baseline"
+     },
+     "history": {
+      "$ref": "#/components/schemas/History"
+     },
+     "preferences": {
+      "$ref": "#/components/schemas/Preferences"
+     },
+     "consents": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/ConsentGroup"
+      },
+      "type": "object",
+      "title": "Consents"
+     },
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "basics",
+     "screening",
+     "baseline",
+     "user_id",
+     "created_at"
+    ],
+    "title": "UserProfile"
+   },
+   "UserState": {
+    "properties": {
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "day": {
+      "type": "integer",
+      "title": "Day",
+      "default": 0
+     },
+     "habit_strength": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Habit Strength"
+     },
+     "current_tier": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Current Tier"
+     },
+     "successes_at_tier": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Successes At Tier"
+     },
+     "fails_at_tier": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "Fails At Tier"
+     },
+     "engagement_state": {
+      "$ref": "#/components/schemas/EngagementState",
+      "default": "active"
+     },
+     "checkin_due": {
+      "type": "boolean",
+      "title": "Checkin Due",
+      "default": false
+     },
+     "context_flags": {
+      "items": {
+       "$ref": "#/components/schemas/ContextFlag"
+      },
+      "type": "array",
+      "uniqueItems": true,
+      "title": "Context Flags"
+     },
+     "bandit_params": {
+      "additionalProperties": {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      "type": "object",
+      "title": "Bandit Params"
+     },
+     "last_barrier": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Barrier"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "shown_today": {
+      "items": {
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "$ref": "#/components/schemas/TimeWindow"
+        },
+        {
+         "type": "integer"
+        }
+       ],
+       "type": "array",
+       "maxItems": 3,
+       "minItems": 3
+      },
+      "type": "array",
+      "title": "Shown Today"
+     },
+     "pending": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Pending"
+     },
+     "time_window": {
+      "$ref": "#/components/schemas/TimeWindow",
+      "default": "morning"
+     },
+     "channel": {
+      "$ref": "#/components/schemas/Channel",
+      "default": "app"
+     },
+     "prefer_indoor": {
+      "type": "boolean",
+      "title": "Prefer Indoor",
+      "default": false
+     },
+     "red_flag": {
+      "type": "boolean",
+      "title": "Red Flag",
+      "default": false
+     },
+     "history": {
+      "items": {
+       "$ref": "#/components/schemas/DayLog"
+      },
+      "type": "array",
+      "title": "History"
+     },
+     "h_daily": {
+      "additionalProperties": {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      "propertyNames": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "object",
+      "title": "H Daily"
+     },
+     "lighter_offers": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Lighter Offers"
+     },
+     "last_risk": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Risk"
+     },
+     "last_risk_reasons": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Last Risk Reasons"
+     },
+     "last_risk_checkin_day": {
+      "type": "integer",
+      "title": "Last Risk Checkin Day",
+      "default": -999
+     },
+     "last_checkin_sent_day": {
+      "type": "integer",
+      "title": "Last Checkin Sent Day",
+      "default": -999
+     }
+    },
+    "type": "object",
+    "required": [
+     "user_id",
+     "habit_strength",
+     "current_tier",
+     "successes_at_tier",
+     "fails_at_tier"
+    ],
+    "title": "UserState"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  },
+  "securitySchemes": {
+   "HTTPBearer": {
+    "type": "http",
+    "scheme": "bearer"
+   }
+  }
+ }
+}

@@ -165,6 +165,7 @@ GET    /dashboard/employer?org_id=    → aggregates only; 403 if group < 10
 - Write a short note in `docs/ASSUMPTIONS.md` whenever you choose a number or rule we haven't justified.
 - **The developer runs commands themselves.** Don't run long scripts, servers or test suites and summarise the output. Give the exact commands to run (and what output to expect); the developer will run them in their own terminal and paste back anything that fails.
 - Never commit `.env`. Only `.env.example` (empty keys) is in the repo.
+- Commit messages carry no tool attribution: no `Co-Authored-By`, "Generated with Claude Code" or `Claude-Session` lines (the project's `.claude/settings.json` sets `"includeCoAuthoredBy": false`).
 - Agents: make edits that contain escape sequences (`\n`, `\r`, `\"`) with an editor tool, not shell heredoc scripts. On Windows Git Bash a `\\n` in a heredoc reached Python as a real line break and broke a file.
 
 ## 9. Evaluation rules (simulator)

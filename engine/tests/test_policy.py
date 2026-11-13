@@ -205,6 +205,33 @@ def test_no_step_up_after_lapse_until_recovering_and_n_completions(make_engine, 
     assert engine.get_state(uid).engagement_state in (EngagementState.recovering, EngagementState.active)
 
 
+def test_checkin_can_replace_todays_open_actions(make_engine, make_payload):
+    engine = make_engine()
+    uid = engine.onboard(make_payload(baseline={"active_days_per_week": 7}), user_id="u1").user_id
+    shown = {s.action.behaviour: s.action for s in engine.today(uid, 1).actions}
+    assert shown[M].tier == 3
+    result = engine.checkin(uid, [Barrier.time], replace_pending=True)
+    adjusted = {a.behaviour: a for a in result.adjusted_actions}
+    assert adjusted[M].tier == 2
+    state = engine.get_state(uid)
+    assert adjusted[M].id in state.pending and shown[M].id not in state.pending
+    assert [s.action.id for s in engine.today(uid, 1).actions] == [a.id for a in result.adjusted_actions]
+    swaps = [e for e in engine.events(uid) if e.type == EventType.action_shown and "replaces" in e.payload]
+    assert any(e.action_id == adjusted[M].id and e.payload["replaces"] == shown[M].id for e in swaps)
+    engine.record(Event(user_id=uid, day=1, type=EventType.completed, action_id=adjusted[M].id))
+    assert adjusted[M].id not in engine.get_state(uid).pending
+
+
+def test_checkin_keeps_todays_actions_by_default(make_engine, make_payload):
+    """The simulator's behaviour: adjusted actions start tomorrow."""
+    engine = make_engine()
+    uid = engine.onboard(make_payload(baseline={"active_days_per_week": 7}), user_id="u1").user_id
+    shown = [s.action.id for s in engine.today(uid, 1).actions]
+    engine.checkin(uid, [Barrier.time])
+    assert engine.get_state(uid).pending == shown
+    assert not any("replaces" in e.payload for e in engine.events(uid))
+
+
 # ---------- red flags ----------
 
 

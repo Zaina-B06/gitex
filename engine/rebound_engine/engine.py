@@ -249,8 +249,10 @@ class Engine:
         return state
 
     def checkin(
-        self, user_id: str, barriers: list[Barrier], free_text: str | None = None
+        self, user_id: str, barriers: list[Barrier], free_text: str | None = None, replace_pending: bool = False
     ) -> CheckinResult:
+        """replace_pending=True (the API): today's still-open action of each behaviour is swapped for its adjusted
+        action, so the user can do the smaller step today. The simulator keeps False (adjusted from tomorrow)."""
         profile, state = self._load(user_id)
         primary = primary_barrier(barriers)
         # Free text isn't stored (data minimisation); only whether it raised a red flag.
@@ -268,7 +270,7 @@ class Engine:
             window = next((w for i, w, _ in state.shown_today if self._by_id[i].behaviour == Behaviour.movement), None)
             for key in [k for k in state.bandit_params if window and k.endswith(f"@{window.value}")]:
                 state.bandit_params[key][1] += 1
-        actions = [s.action for s in choose_actions(profile, state, library=self.library, bandit=self.bandit)]
+        scheduled = choose_actions(profile, state, library=self.library, bandit=self.bandit)
         state.checkin_due = False
         self._log(
             user_id,
@@ -276,7 +278,10 @@ class Engine:
             EventType.checkin,
             payload={"barriers": [b.value for b in barriers], "primary": barrier.value},
         )
+        if replace_pending:
+            self._replace_pending(state, scheduled)
         self.store.save_state(state)
+        actions = [s.action for s in scheduled]
         return CheckinResult(
             barrier=barrier, adjusted_actions=actions, message_key=message_key, red_flag=False
         )
@@ -320,6 +325,21 @@ class Engine:
             window = next((w for i, w, _ in state.shown_today if i == action.id), None)
             if window is not None:
                 update_arm(state, arm_key(action.id, window), config.OUTCOME_VALUE[outcome])
+
+    def _replace_pending(self, state: UserState, scheduled: list[ScheduledAction]) -> None:
+        for s in scheduled:
+            old = next((i for i in state.pending if self._by_id[i].behaviour == s.action.behaviour), None)
+            if old is None or old == s.action.id:
+                continue
+            state.pending[state.pending.index(old)] = s.action.id
+            state.shown_today = [
+                (s.action.id, s.time_window, s.hour) if i == old else (i, w, h) for i, w, h in state.shown_today
+            ]
+            state.lighter_offers.pop(old, None)
+            self._log(
+                state.user_id, state.day, EventType.action_shown, action_id=s.action.id,
+                payload={"window": s.time_window.value, "hour": s.hour, "replaces": old},
+            )
 
     def _risk_hook(self, profile: UserProfile, state: UserState, scheduled: list[ScheduledAction], day: int) -> None:
         """Task 02b. Runs before today's actions are logged. Never punitive: it only adds a lighter option to each

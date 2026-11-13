@@ -2,9 +2,9 @@
 
 ## Lapse-risk model (Task 02b)
 
-**Status:** Drop A, training and evaluation only. Results come from `python -m sim.train_risk --run sim/out/risk_001`
-(`sim/out/risk_001/risk/summary.md` and `metrics_risk.json`) and are copied into this section after review. The
-engine hook and simulator arm D are Drop B, pre-registered in `docs/ASSUMPTIONS.md` ("Arm D").
+**Status:** trained and evaluated (Drop A, `python -m sim.train_risk --run sim/out/risk_001`). The engine hook and
+simulator arms D / D50 (Drop B) are pre-registered in `docs/ASSUMPTIONS.md` ("Arm D"); their results go below once
+run.
 
 ### Intended use
 Predict, for a user who isn't lapsed today, the probability that the engine's engagement state becomes `lapsed`
@@ -59,7 +59,50 @@ Measures, with 95% persona-bootstrap intervals where noted:
   the lapse), for the model and each baseline.
 - AUROC and recall by `schedule_type`, `language` and `mobility_limitation`.
 
-*Results: to be filled in from `sim/out/risk_001/risk/summary.md` after the Drop A run.*
+#### Results (`sim/out/risk_001`; test seeds 29–30, 36,207 test person-days; copy in `docs/results/risk_001/`)
+
+**Headline:** the model flags **93% of upcoming lapses at least once in the prior week, vs 62% for the current
+drifting rule, at a similar alert rate** (15.5% vs 13.7% of days). The median warning is **3 days**, no earlier than
+the completion heuristic (4 days).
+
+Logistic regression was chosen (validation AUROC 0.776 vs 0.768 for gradient boosting).
+
+| Predictor | AUROC [95% CI] | PR-AUC | Brier | Alert rate | Recall at alert rate [95% CI] | Precision | Lapses caught (prior 7 days) | Median warning |
+|---|---|---|---|---|---|---|---|---|
+| **Logistic (chosen)** | **0.769 [0.756, 0.782]** | 0.524 | 0.149 | 15.5% | **0.377 [0.359, 0.395]** | 0.579 | **1,396 / 1,495 (93%)** | 3 days |
+| Gradient boosting | 0.761 [0.748, 0.772] | 0.513 | 0.151 | 15.2% | 0.371 [0.353, 0.386] | 0.582 | 1,439 / 1,495 (96%) | 3 days |
+| Drifting rule (current engine) | 0.596 [0.588, 0.605] | 0.311 | n/a | 13.7% | 0.284 [0.269, 0.301] | 0.493 | 932 / 1,495 (62%) | 3 days |
+| Completion heuristic (7-day rate) | 0.726 [0.709, 0.741] | 0.422 | n/a | 17.1% | 0.350 [0.330, 0.369] | 0.489 | 1,068 / 1,495 (71%) | 4 days |
+
+- **Better ranking than both baselines:** model minus heuristic AUROC is +0.035 to +0.052 (95% persona bootstrap).
+  Recall at the alert rate is modestly higher (0.377 vs 0.350 for the heuristic, 0.284 for the drifting rule).
+- **Recall vs "lapses caught" are two different questions.** Recall is per day: of all days followed by a lapse,
+  what share were flagged (about 38%). Lapses caught is per lapse: was there *any* alert in the week before (93%).
+  Since an alert prompts one lighter option and at most one check-in a week, the per-lapse number is the one that
+  matters for the app.
+- **Warning time:** 3 days for the model, the same as the drifting rule and a day *later* than the heuristic. The
+  model catches more lapses but doesn't catch them earlier.
+- **Calibration:** Brier 0.149; see `calibration.png`.
+
+**What drives it** (standardised logistic coefficients): share of unanswered actions in the last 2 weeks (+0.74),
+habit strength (movement −0.39, sleep −0.28), consecutive misses (+0.35), recent drop in completions, and the last
+check-in barrier (tired, illness/pain, time, family). The 14-day completion rate has a *positive* coefficient,
+which is collinearity with the other completion features, not a real effect. Explanations therefore only show
+features in their intuitive direction, as plain phrases (e.g. "fewer replies in the last 2 weeks", "a few missed
+days in a row", "you said you've been tired"); see `REASONS` in `engine/rebound_engine/risk/features.py`. The risk
+score itself is unchanged by this.
+
+**Fairness (test seeds):**
+
+| Segment | AUROC range (model) | Recall range (model) | Notes |
+|---|---|---|---|
+| schedule_type | 0.755–0.792 | 0.332–0.413 | lowest recall: outdoor/manual; highest: students |
+| language | 0.762–0.776 | 0.364–0.387 | even across Arabic, English and South Asian |
+| mobility_limitation | 0.758–0.790 | **0.250** (mobility aid) – 0.398 | **weaker recall for mobility-aid users** |
+
+Mobility-aid users have the weakest recall (0.250 vs 0.379 for no limitation), though AUROC is similar (0.790). It's
+a small group (988 test days, 236 lapse-ahead days), so the number is noisy, but it should be watched in a pilot.
+The model beats the completion heuristic in every segment.
 
 ### Known limitations
 - **Simulated data only.** It shows the pipeline and the engine hook work. It says nothing about real-world accuracy.
@@ -67,8 +110,12 @@ Measures, with 95% persona-bootstrap intervals where noted:
 - **Trained on arm C behaviour.** Once the hook changes what people are shown (arm D), the data the model sees shifts
   away from its training data. In a pilot it would need retraining on data collected with the hook on, and
   monitoring for drift.
-- **Partly circular target.** The label is the engine's own lapse rule, and the drifting state is one of the features.
-  The model predicts the engine's rule a week early; it isn't an independent measure of disengagement.
+- **It predicts the engine's own lapse rule.** The label is the engine's `lapsed` state, and the drifting state is one
+  of the features. The model predicts the engine's rule up to a week early; it isn't an independent measure of
+  disengagement, and its accuracy is only as meaningful as that rule.
+- **No earlier warning than a simple heuristic.** It catches more lapses but with a median 3-day warning, a day
+  less than the 7-day completion heuristic.
+- **Weaker recall for mobility-aid users** (0.25 vs 0.38) in a small group; noisy, to be re-checked on real data.
 - **Small, synthetic segments.** Mobility-aid and some language groups are small, so their fairness numbers are noisy.
 - The boosting explanations are approximate (see Model).
 

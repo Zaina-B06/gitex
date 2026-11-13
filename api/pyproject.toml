@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rebound_api"
+version = "0.1.0"
+description = "FastAPI wrapper around the Rebound engine, with a SQLite store"
+requires-python = ">=3.11"
+# rebound_engine is installed separately from ../engine (pip install -e "engine[dev]").
+# tzdata: Windows has no system time-zone database for zoneinfo.
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "python-dotenv>=1.0", "tzdata>=2024.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.4"]
+
+[tool.setuptools]
+packages = ["api"]
+package-dir = { "api" = "." }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]  # so `import api` works from the repo root without installing
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"

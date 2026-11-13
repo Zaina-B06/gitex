@@ -22,6 +22,7 @@ models/*.joblib
 
 # Data
 *.sqlite
+*.db
 
 # Frontend
 node_modules/

@@ -553,6 +553,17 @@ for lapse rate, "helps" means the whole interval of D − C is below zero and "w
 
 Otherwise the hook stays out of the app, and the model is shown only as a prediction result (PLAN.md cut list).
 
+**How the hook was built (Drop B, decided before running D):**
+| Choice | Value | Why |
+|---|---|---|
+| When risk is computed | at the start of each day, from everything up to the end of yesterday | The lighter option has to be there when today's actions are shown. |
+| Lighter option | same behaviour, the highest allowed tier below the shown one, at the same hour, through the same safety filter | Never a different or riskier kind of action; quiet hours unaffected. None if the shown action is already the smallest allowed. |
+| What the hook doesn't change | the shown action, the tier, the bandit's choice | It's an *option*; the plan itself is unchanged (tested). |
+| Taking the lighter option | answers the shown action for the day; no bandit reward (the bandit didn't choose it) and no step-up credit (it's below the current tier) | Same rule as other lower-tier fallbacks. |
+| Gentle check-in | only if none is already due, at most once per 7 days, and never two check-in messages on one day (any kind) | Your burden answer (6). Answering it applies the usual barrier rules. |
+| Explanations | `RiskModel.reasons`: plain phrases, intuitive direction only | Shown in the app as "We noticed …". |
+| Model used by D / D50 | `models/lapse_risk.joblib` from risk_001, frozen | Pre-registered. |
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|

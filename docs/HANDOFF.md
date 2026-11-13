@@ -35,10 +35,12 @@ All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot
 ## Next, in order
 
 1. **Task 02b: lapse-risk model** (`docs/tasks/TASK_02b_lapse_risk_model.md`), in two drops:
-   - **Drop A (code written):** engine-visible features (`engine/rebound_engine/risk/`), training + evaluation vs
-     the drifting rule and a completion heuristic (`sim/train_risk.py`), model card (`docs/MODEL_CARD.md`). Run:
-     `python -m sim.train_risk --run sim/out/risk_001`, then fill the model card's results.
-   - **Drop B:** `Engine(risk_model=...)` hook and arms D / D50, pre-registered in `docs/ASSUMPTIONS.md` ("Arm D").
+   - **Drop A (done):** engine-visible features (`engine/rebound_engine/risk/`), training + evaluation vs the
+     drifting rule and a completion heuristic (`sim/train_risk.py`), model card with results (`docs/MODEL_CARD.md`):
+     flags 93% of upcoming lapses in the prior week vs 62% for the drifting rule.
+   - **Drop B (code written):** `Engine(risk_model=...)` hook and arms D / D50, pre-registered in
+     `docs/ASSUMPTIONS.md` ("Arm D"). Run run_008 (seeds 1–10, all scenarios, arms A C D D50 + A0); the report
+     applies the ship rule automatically.
 2. **Task 03: API + lean LLM layer** (FastAPI wrapper, SQLite event log, barrier classifier, red-flag keywords,
    templates EN/AR). The API contract is `AGENTS.md` §7.
 

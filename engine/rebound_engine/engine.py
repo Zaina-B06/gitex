@@ -35,12 +35,15 @@ from .policy import (
     arm_key,
     choose_actions,
     init_bandit_params,
+    lighter_option,
     primary_barrier,
     shrink_on_slip,
     tier_cap,
     update_arm,
     update_tier_counters,
 )
+from .risk.features import compute_features
+from .risk.model import RiskModel
 from .safety import detect_red_flags, screening_flags
 from .state import compute_engagement_state, initial_state, update_habit_strength
 
@@ -122,9 +125,13 @@ class Engine:
         bandit: Bandit | None = None,
         policy_mode: PolicyMode = "rules",
         rng: random.Random | None = None,
+        risk_model: RiskModel | None = None,
     ) -> None:
         """policy_mode="rules": deterministic choice, default window (Task 01 behaviour).
-        policy_mode="bandit": Thompson sampling over (action, window) arms, seeded by `rng`."""
+        policy_mode="bandit": Thompson sampling over (action, window) arms, seeded by `rng`.
+        risk_model: optional lapse-risk model (Task 02b). When risk is above its threshold and the user is still
+        active, each action comes with a lighter option, plus a gentle check-in at most once per 7 days."""
+        self.risk_model = risk_model
         if policy_mode not in ("rules", "bandit"):
             raise ValueError(f"unknown policy_mode {policy_mode!r}")
         self.store = store or InMemoryStore()
@@ -186,20 +193,21 @@ class Engine:
             for b, h in state.habit_strength.items():
                 state.h_daily[b] = [*state.h_daily.get(b, []), h][-config.H_DAILY_KEEP :]
             scheduled = choose_actions(profile, state, library=self.library, bandit=self.bandit)
+            self._risk_hook(profile, state, scheduled, day)
             state.day = day
             state.shown_today = [(s.action.id, s.time_window, s.hour) for s in scheduled]
             state.pending = [s.action.id for s in scheduled]
             for s in scheduled:
-                self._log(
-                    user_id,
-                    day,
-                    EventType.action_shown,
-                    action_id=s.action.id,
-                    payload={"window": s.time_window.value, "hour": s.hour},
-                )
+                payload = {"window": s.time_window.value, "hour": s.hour}
+                if s.lighter is not None:
+                    payload["lighter"] = s.lighter.id
+                self._log(user_id, day, EventType.action_shown, action_id=s.action.id, payload=payload)
         else:
             scheduled = [
-                ScheduledAction(action=self._by_id[i], time_window=w, hour=h, explanation_id=i)
+                ScheduledAction(
+                    action=self._by_id[i], time_window=w, hour=h, explanation_id=i,
+                    lighter=self._by_id.get(state.lighter_offers.get(i, "")),
+                )
                 for i, w, h in state.shown_today
             ]
         self.store.save_state(state)
@@ -210,6 +218,8 @@ class Engine:
             channel=state.channel,
             checkin_due=state.checkin_due,
             state_summary=self._summary(state),
+            risk=state.last_risk,
+            risk_reasons=state.last_risk_reasons,
         )
 
     def record(self, event: Event) -> UserState:
@@ -227,8 +237,12 @@ class Engine:
 
         self._apply_outcome(profile, state, action, DayOutcome(event.type), event.day)
         self.store.append_event(event)
-        if action.id in state.pending:
-            state.pending.remove(action.id)
+        # The user may have taken today's lighter option instead of the shown action: it answers that action.
+        answered = action.id
+        if answered not in state.pending:
+            answered = next((shown for shown, lighter in state.lighter_offers.items() if lighter == action.id), answered)
+        if answered in state.pending:
+            state.pending.remove(answered)
             if not state.pending:
                 self._end_day(profile, state)
         self.store.save_state(state)
@@ -307,6 +321,31 @@ class Engine:
             if window is not None:
                 update_arm(state, arm_key(action.id, window), config.OUTCOME_VALUE[outcome])
 
+    def _risk_hook(self, profile: UserProfile, state: UserState, scheduled: list[ScheduledAction], day: int) -> None:
+        """Task 02b. Runs before today's actions are logged. Never punitive: it only adds a lighter option to each
+        action (same safety filter, same hour) and, at most once per 7 days, a gentle check-in. Doesn't change the
+        tier, the shown action, or anything else."""
+        state.lighter_offers, state.last_risk, state.last_risk_reasons = {}, None, []
+        if self.risk_model is None or not scheduled:
+            return
+        features = compute_features(profile, state, self.store.events(state.user_id), day - 1)
+        risk = self.risk_model.predict(features)
+        state.last_risk = risk
+        if risk < self.risk_model.threshold or state.engagement_state != EngagementState.active:
+            return
+        for s in scheduled:
+            s.lighter = lighter_option(profile, state, s, self.library)
+            if s.lighter is not None:
+                state.lighter_offers[s.action.id] = s.lighter.id
+        state.last_risk_reasons = self.risk_model.reasons(features)
+        self._log(state.user_id, day, EventType.risk_alert,
+                  payload={"risk": risk, "reasons": state.last_risk_reasons, "offers": dict(state.lighter_offers)})
+        recent = day - state.last_risk_checkin_day < config.RISK_CHECKIN_EVERY_DAYS
+        if not state.checkin_due and not recent and state.last_checkin_sent_day != day:
+            state.checkin_due = True
+            state.last_risk_checkin_day = state.last_checkin_sent_day = day
+            self._log(state.user_id, day, EventType.checkin_sent, payload={"state": "at_risk"})
+
     def _end_day(self, profile: UserProfile, state: UserState) -> None:
         """All of the day's actions have an outcome: update engagement, shrink tiers on a slip."""
         keep_from = state.day - config.HISTORY_KEEP_DAYS
@@ -316,8 +355,9 @@ class Engine:
             return
         shrink_on_slip(state, new)
         state.checkin_due = new in (EngagementState.drifting, EngagementState.lapsed)
-        if state.checkin_due:
+        if state.checkin_due and state.last_checkin_sent_day != state.day:  # at most one check-in message a day
             self._log(state.user_id, state.day, EventType.checkin_sent, payload={"state": new.value})
+            state.last_checkin_sent_day = state.day
         state.engagement_state = new
 
     def _log(
@@ -355,6 +395,8 @@ class Engine:
             keys.append(BARRIER_MESSAGE[state.last_barrier])
             if state.last_barrier == Barrier.low_motivation:
                 keys.append("buddy_offer")
+        if state.lighter_offers:
+            keys.append("lighter_option")  # "Busy week ahead? Here's a lighter version"
         return keys
 
     @staticmethod

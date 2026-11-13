@@ -49,6 +49,7 @@ H_DAILY_KEEP = 15  # daily H values kept for the lapse-risk 7-day slope (Task 02
 
 # --- Lapse-risk model (Task 02b) ---
 RISK_ALERT_RATE = 0.15  # the alert threshold flags this share of validation days (frozen into the model file)
+RISK_CHECKIN_EVERY_DAYS = 7  # a risk-triggered check-in at most once per this many days
 
 # --- Bandit (Task 02) ---
 BANDIT_PRIOR = (1.0, 1.0)  # Beta(alpha, beta) for every arm

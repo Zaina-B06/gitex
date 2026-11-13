@@ -293,3 +293,23 @@ def choose_actions(
     """One action per goal (movement first), each with its prompt window and hour."""
     picks = (choose_action(profile, state, b, library=library, bandit=bandit) for b in Behaviour)
     return [a for a in picks if a is not None]
+
+
+def lighter_option(
+    profile: UserProfile,
+    state: UserState,
+    scheduled: ScheduledAction,
+    library: list[Action] | tuple[Action, ...] | None = None,
+) -> Action | None:
+    """A smaller action of the same behaviour, at the same hour, through the same safety filter (risk hook).
+    None if the shown action is already the smallest that's allowed."""
+    behaviour = scheduled.action.behaviour
+    target = scheduled.action.tier - 1
+    if target < config.MIN_TIER:
+        return None
+    allowed = filter_actions(profile, state, Context(flags=state.context_flags, hour=scheduled.hour), library)
+    pool = [a for a in allowed if a.behaviour == behaviour and a.tier <= target]
+    if not pool:
+        return None
+    best = max(a.tier for a in pool)
+    return min((a for a in pool if a.tier == best), key=lambda a: _setting_rank(profile, a))

@@ -152,6 +152,7 @@ class EventType(StrEnum):
     screening_flag = "screening_flag"
     red_flag = "red_flag"
     context_change = "context_change"
+    risk_alert = "risk_alert"
 
 
 class DayOutcome(StrEnum):
@@ -333,6 +334,12 @@ class UserState(BaseModel):
     history: list[DayLog] = Field(default_factory=list)
     # H at the start of each recent day, oldest first (observation only; used by lapse-risk features).
     h_daily: dict[Behaviour, list[float]] = Field(default_factory=dict)
+    # Lapse-risk hook (Task 02b): today's lighter offers (shown action id -> lighter action id) and message pacing.
+    lighter_offers: dict[str, str] = Field(default_factory=dict)
+    last_risk: float | None = None
+    last_risk_reasons: list[str] = Field(default_factory=list)
+    last_risk_checkin_day: int = -999
+    last_checkin_sent_day: int = -999  # at most one check-in message per day, of any kind
 
 
 class Context(BaseModel):
@@ -370,6 +377,7 @@ class ScheduledAction(BaseModel):
     time_window: TimeWindow
     hour: int  # prompt hour; never inside quiet hours unless every window is
     explanation_id: str  # GET /actions/{id}/explain
+    lighter: Action | None = None  # "Busy week ahead? Here's a lighter version" (risk hook), same safety filter
 
 
 class TodayResult(BaseModel):
@@ -379,6 +387,8 @@ class TodayResult(BaseModel):
     channel: Channel
     checkin_due: bool
     state_summary: StateSummary
+    risk: float | None = None  # lapse risk for the next 7 days, if a risk model is loaded
+    risk_reasons: list[str] = Field(default_factory=list)  # plain-language, only when an alert fired
 
 
 class CheckinResult(BaseModel):

@@ -1,0 +1,313 @@
+"""Rebound API: a thin FastAPI wrapper. It calls Engine methods and never reimplements engine logic.
+
+Auth is prototype-grade (see docs/ASSUMPTIONS.md, Limitations): POST /users returns a random bearer token once;
+only its sha256 is stored, and every /users/{id}/* route requires it."""
+
+import hashlib
+import hmac
+import secrets
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from rebound_engine.engine import Engine
+from rebound_engine.models import (
+    Barrier,
+    Behaviour,
+    CheckinResult,
+    ConsentGroup,
+    ContextFlag,
+    DayLog,
+    EngagementState,
+    Event,
+    EventType,
+    History,
+    Language,
+    OnboardingPayload,
+    Preferences,
+    ScreeningResult,
+    TodayResult,
+    UserProfile,
+    UserState,
+)
+from rebound_engine.safety import detect_red_flags
+
+from .llm_client import BarrierClassifier, default_classifier
+from .messages import HOW_TO_TURN_OFF, render
+from .store import SQLiteStore, UserMeta, sqlite_path
+
+DEFAULT_TIMEZONE = "Asia/Dubai"
+LOCAL_FRONTEND = "http://localhost:5173"
+
+
+# ---------- request / response shapes ----------
+
+
+class OnboardIn(OnboardingPayload):
+    """OnboardingPayload (AGENTS.md §4) plus API-only fields the engine never sees."""
+
+    timezone: str = DEFAULT_TIMEZONE
+    org_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError(f"unknown time zone {v!r}") from None
+        return v
+
+
+class StateOut(BaseModel):
+    day: int
+    habit_strength: dict[Behaviour, float]
+    engagement_state: EngagementState
+    tiers: dict[Behaviour, int]
+    context_flags: set[ContextFlag]
+    checkin_due: bool
+    history: list[DayLog]  # recent days only (engine keeps HISTORY_KEEP_DAYS)
+
+
+class TodayOut(TodayResult):
+    messages: list[str]  # message_keys rendered in the user's language
+
+
+class OnboardOut(BaseModel):
+    user_id: str
+    token: str  # shown once; send as "Authorization: Bearer <token>"
+    screening: ScreeningResult
+    red_flag: bool
+    state: StateOut
+    today: TodayOut
+
+
+class EventIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action_id: str
+    type: Literal["completed", "partial", "skipped"]
+
+
+class StateResponse(BaseModel):
+    state: StateOut
+
+
+class CheckinIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    barriers: list[Barrier] = Field(default_factory=list)
+    free_text: str | None = Field(default=None, max_length=500)
+
+
+class CheckinOut(CheckinResult):
+    message: str
+
+
+class ExplainOut(BaseModel):
+    bct_code: str
+    bct_name: str
+    rationale: str
+    limits: str
+    how_to_turn_off: str
+
+
+class SettingsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preferences: dict[str, Any] | None = None  # partial Preferences, merged then validated
+    consents: dict[ConsentGroup, bool] | None = None
+    context: dict[ContextFlag, bool] | None = None  # e.g. {"heat": true}, {"illness": false} = "I'm OK now"
+
+
+class SettingsOut(BaseModel):
+    preferences: Preferences
+    consents: dict[ConsentGroup, bool]
+    state: StateOut
+
+
+class ExportOut(BaseModel):
+    """Everything stored about the user (AGENTS.md §4.7), except the token hash."""
+
+    account: dict[str, Any]  # time zone, org, onboarding date, demo day offset
+    profile: UserProfile
+    state: UserState
+    events: list[Event]
+
+
+# What a group goes back to when its consent is withdrawn. Screening can't be withdrawn (needed for safety).
+_EMPTY_GROUP: dict[ConsentGroup, Callable[[], Any]] = {
+    ConsentGroup.body: lambda: None,
+    ConsentGroup.history: History,
+    ConsentGroup.preferences: Preferences,
+}
+
+
+def _withdrawn(consents: dict[ConsentGroup, bool]) -> dict[str, Any]:
+    """Groups whose consent is withdrawn, set back to empty: their answers are deleted, and stay deleted on
+    every later save until consent is given again."""
+    return {g.value: _EMPTY_GROUP[g]() for g, ok in consents.items() if not ok and g in _EMPTY_GROUP}
+
+
+def _state_out(s: UserState) -> StateOut:
+    return StateOut(
+        day=s.day, habit_strength=s.habit_strength, engagement_state=s.engagement_state, tiers=s.current_tier,
+        context_flags=s.context_flags, checkin_due=s.checkin_due, history=s.history,
+    )
+
+
+def _hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+# ---------- app ----------
+
+
+def create_app(
+    database_url: str = "sqlite:///rebound.db",
+    frontend_url: str | None = None,
+    demo_mode: bool = False,
+    clock: Callable[[], datetime] | None = None,
+    classifier: BarrierClassifier | None = None,
+) -> FastAPI:
+    store = SQLiteStore(sqlite_path(database_url))
+    engine = Engine(store=store)  # rules mode, no risk model (hook off: ASSUMPTIONS.md, "Arm D")
+    classifier = classifier or default_classifier()
+
+    app = FastAPI(title="Rebound API", version="0.1.0")
+    app.state.store, app.state.engine, app.state.demo_mode = store, engine, demo_mode
+    app.state.clock = clock or (lambda: datetime.now(UTC))  # tests swap this
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o for o in (LOCAL_FRONTEND, frontend_url) if o],
+        allow_methods=["*"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+    bearer = HTTPBearer(auto_error=False)
+
+    def authed(
+        user_id: str, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
+    ) -> UserMeta:
+        try:
+            meta = store.get_meta(user_id)
+        except KeyError:
+            meta = None  # same answer as a wrong token, so user ids can't be probed
+        if meta is None or creds is None or not hmac.compare_digest(meta.token_hash, _hash(creds.credentials)):
+            raise HTTPException(401, "invalid or missing token", headers={"WWW-Authenticate": "Bearer"})
+        return meta
+
+    Authed = Annotated[UserMeta, Depends(authed)]
+
+    def current_day(meta: UserMeta) -> int:
+        """Calendar days in the user's time zone; the onboarding day is engine day 1."""
+        local = app.state.clock().astimezone(ZoneInfo(meta.timezone)).date()
+        return max(1, (local - meta.onboard_date).days + 1 + meta.day_offset)
+
+    def open_day(meta: UserMeta) -> TodayResult:
+        """Bring the engine up to today, one day at a time. A day the app wasn't opened is a day the action was
+        shown and got no response, exactly as in the simulator."""
+        day, start = current_day(meta), engine.get_state(meta.user_id).day + 1
+        for d in range(start, day):
+            engine.today(meta.user_id, d)
+        return engine.today(meta.user_id, day)
+
+    def today_out(meta: UserMeta, result: TodayResult) -> TodayOut:
+        profile = store.get_profile(meta.user_id)
+        return TodayOut.model_validate(
+            {**result.model_dump(), "messages": [render(k, profile) for k in result.message_keys]}
+        )
+
+    @app.post("/users", status_code=201, response_model=OnboardOut)
+    def onboard(body: OnboardIn) -> OnboardOut:
+        # Answers for a group given without consent are dropped before the engine sees them.
+        payload = OnboardingPayload.model_validate(
+            {**body.model_dump(exclude={"timezone", "org_id"}), **_withdrawn(body.consents)}
+        )
+        result = engine.onboard(payload)
+        token = secrets.token_urlsafe(32)
+        meta = UserMeta(
+            user_id=result.user_id, timezone=body.timezone, org_id=body.org_id, token_hash=_hash(token),
+            onboard_date=app.state.clock().astimezone(ZoneInfo(body.timezone)).date(),
+        )
+        store.save_meta(meta)
+        today = today_out(meta, open_day(meta))
+        return OnboardOut(
+            user_id=result.user_id, token=token, screening=result.screening, red_flag=result.red_flag,
+            state=_state_out(engine.get_state(result.user_id)), today=today,
+        )
+
+    @app.get("/users/{user_id}/today", response_model=TodayOut)
+    def today(meta: Authed) -> TodayOut:
+        return today_out(meta, open_day(meta))
+
+    @app.post("/users/{user_id}/events", response_model=StateResponse)
+    def record(body: EventIn, meta: Authed) -> StateResponse:
+        open_day(meta)
+        state = engine.get_state(meta.user_id)
+        if body.action_id not in state.pending:
+            raise HTTPException(409, "not one of today's open actions (unknown, or already answered)")
+        event = Event(user_id=meta.user_id, day=state.day, type=EventType(body.type), action_id=body.action_id)
+        return StateResponse(state=_state_out(engine.record(event)))
+
+    @app.post("/users/{user_id}/checkin", response_model=CheckinOut)
+    def checkin(body: CheckinIn, meta: Authed) -> CheckinOut:
+        barriers = list(body.barriers)  # buttons decide; free text only fills in when none were pressed
+        # The engine's red-flag keywords run first (inside checkin); red-flag text never goes to the classifier.
+        if not barriers and body.free_text and not detect_red_flags(body.free_text):
+            guess = classifier.classify_barrier(body.free_text)
+            barriers = [guess] if guess else []
+        result = engine.checkin(meta.user_id, barriers, free_text=body.free_text)
+        profile = store.get_profile(meta.user_id)
+        return CheckinOut.model_validate({**result.model_dump(), "message": render(result.message_key, profile)})
+
+    @app.get("/users/{user_id}/state", response_model=StateOut)
+    def get_state(meta: Authed) -> StateOut:
+        return _state_out(engine.get_state(meta.user_id))
+
+    @app.patch("/users/{user_id}/settings", response_model=SettingsOut)
+    def settings(body: SettingsIn, meta: Authed) -> SettingsOut:
+        uid = meta.user_id
+        profile = store.get_profile(uid)
+        if body.context and body.context.get(ContextFlag.paused) is False and engine.get_state(uid).red_flag:
+            raise HTTPException(409, "coaching stays paused after a safety concern until a person has checked in")
+        if (body.consents or {}).get(ConsentGroup.screening) is False:
+            raise HTTPException(409, "the health check is needed for a safe plan; delete your account instead")
+        try:
+            prefs = Preferences.model_validate({**profile.preferences.model_dump(), **(body.preferences or {})})
+        except ValidationError as e:
+            raise RequestValidationError(e.errors(include_url=False)) from None
+        consents = {**profile.consents, **(body.consents or {})}
+        profile = profile.model_copy(update={"preferences": prefs, "consents": consents, **_withdrawn(consents)})
+        store.save_profile(profile)
+        for flag, on in (body.context or {}).items():
+            engine.set_context(uid, flag, on)
+        return SettingsOut(preferences=profile.preferences, consents=profile.consents,
+                           state=_state_out(engine.get_state(uid)))
+
+    @app.get("/users/{user_id}/export", response_model=ExportOut)
+    def export(meta: Authed) -> ExportOut:
+        uid = meta.user_id
+        return ExportOut(
+            account=meta.model_dump(exclude={"token_hash"}), profile=store.get_profile(uid),
+            state=engine.get_state(uid), events=engine.events(uid),
+        )
+
+    @app.delete("/users/{user_id}", status_code=204)
+    def delete_user(meta: Authed) -> Response:
+        engine.delete_user(meta.user_id)  # SQLiteStore also removes user_meta
+        return Response(status_code=204)
+
+    @app.get("/actions/{action_id}/explain", response_model=ExplainOut)
+    def explain(action_id: str, lang: Language = Language.en) -> ExplainOut:
+        action = next((a for a in engine.library if a.id == action_id), None)
+        if action is None:
+            raise HTTPException(404, "unknown action")
+        return ExplainOut(
+            bct_code=action.bct_code, bct_name=action.bct_name, rationale=action.rationale, limits=action.limits,
+            how_to_turn_off=HOW_TO_TURN_OFF["ar" if lang == Language.ar else "en"],
+        )
+
+    return app

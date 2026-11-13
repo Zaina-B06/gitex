@@ -640,15 +640,43 @@ come back.
 | Engagement inputs (§6.1) | completions, check-in responses and app opens | action outcomes only |
 | Actions per day (§2) | one | one per goal |
 
+## API (Task 03)
+
+| Choice | Value | Why |
+|---|---|---|
+| Engine day | calendar days in the user's time zone; the onboarding day is day 1 (+ `day_offset`, demo only) | Engine day 0 is the onboarding state with nothing shown yet. Time zone defaults to `Asia/Dubai`. |
+| Days the app wasn't opened | the API brings the engine forward one day at a time; each skipped day's actions are shown and closed as `no_response` | Same as a closed-app day in the simulator; without it a silent user would never become drifting/lapsed. |
+| Prompt hour | chosen by the engine (wake/sleep times, quiet hours); the API doesn't pass an hour | Keeps quiet hours in one place. |
+| Events | only for today's still-open actions; repeats and unknown ids → 409 | A double tap must not count a completion twice. |
+| Check-in free text | used only when no barrier button was pressed; skipped if the engine's red-flag keywords match | Buttons decide (Task 03 §6); red-flag text is never sent to a classifier. |
+| Unpausing after a red flag | refused (409) through settings | §6.4: coaching stays stopped until a person has checked in. |
+| Messages | `api/messages.py`, EN + AR; Arabic unreviewed (`AR_REVIEWED = False`); 998 (UAE ambulance, u.ae) and 800 SAKINA / 800 725462 (Abu Dhabi DoH 24/7 mental health line, announced Mar 2026) in the red-flag message | Placeholder until TASK_01_C's templates. Abu Dhabi line chosen because the pilot is in Abu Dhabi; other emirates may need their own. |
+| Consents | a group sent with consent `false` is never stored (onboarding) and is deleted when withdrawn (settings); screening can't be withdrawn | §2.4 data minimisation, §4.7 data controls. |
+| Export | `GET /users/{id}/export`: profile, state, full event log, account fields; never the token hash | §4.7 "view … export". |
+| Policy mode | rules (`Engine()` default), no risk model | Bandit adds nothing at 90 days (run_007); hook failed its test (run_008). |
+
 ## Dependencies
 - Engine: Python 3.11+, Pydantic v2, PyYAML. Dev: pytest, ruff.
 - Simulator: numpy, pandas, pyarrow (Parquet; falls back to CSV without it), matplotlib.
+- API: FastAPI, uvicorn, python-dotenv, tzdata (time zones on Windows), stdlib sqlite3. Dev: httpx (TestClient).
 
 ## Limitations
 - The action library is a first draft: 17 actions, Arabic titles not yet reviewed (`ar_reviewed: false`),
   rationale and limits English only.
 - Screening questions are paraphrased from PAR-Q+ and are not a clinical tool.
-- The in-memory store loses data on restart; the API swaps in SQLite (Task 03).
+- The in-memory store loses data on restart; the API uses `SQLiteStore` (Task 03).
+- `SQLiteStore` serialises single reads and writes, but an engine call (load state → change → save) is not one
+  transaction: two requests for the same user at the same moment can overwrite each other's state. Fine for a
+  one-person demo; production needs a per-user lock or optimistic versioning, and a server database.
+- **Prototype auth, not production auth.** One random bearer token per user, returned once at onboarding and stored
+  as a sha256 hash; no expiry, rotation, recovery or rate limiting, and a lost token means a lost account. Demo
+  routes exist only with `DEMO_MODE=true`; the employer view uses one shared org key from `.env`.
+- Changing `preferences.channel` in settings is saved but doesn't change the engine's channel (set at onboarding,
+  then only by the `forgot` rule); the engine has no call for it yet.
+- Withdrawing consent for body, history or preferences deletes those answers (preferences go back to defaults,
+  which also drops custom quiet hours). The health check can't be withdrawn on its own because the plan's safety
+  depends on it; the user deletes the account instead. Engine state already derived from withdrawn answers (e.g.
+  a starting tier capped by the body group) is kept.
 - Simulated behaviour is plausible, not empirically fitted; results show relative advantage, not real-world effect sizes.
 - In the calibrated simulation almost all disengagement comes from not opening the app: on open days, 82–95% of
   actions are completed in every arm. Real users also open the app and still skip; if that's common, plan quality

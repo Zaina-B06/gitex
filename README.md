@@ -17,7 +17,7 @@ Windows and macOS/Linux, and how to regenerate the simulator results. Then `AGEN
 | `engine/` | Pure Python engine package (`rebound_engine`) + action library + tests |
 | `sim/` | Synthetic population simulator (Task 02) |
 | `api/` | FastAPI wrapper + SQLite event log (Task 03) |
-| `llm/` | Barrier classifier + message templates (Task 03) |
+| `llm/` | Barrier classifier + message templates (TASK_01_C, teammate) |
 | `web/` | React + Vite + Tailwind app (Task 01-B) |
 | `docs/` | Assumptions, data sources, task files |
 
@@ -31,7 +31,18 @@ python -m venv .venv
 # macOS/Linux:           source .venv/bin/activate
 pip install -e "engine[dev,risk]"
 pip install -e "sim[dev]"                     # simulator: numpy, pandas, pyarrow, matplotlib, scikit-learn
+pip install -e "api[dev]"                     # API: fastapi, uvicorn, python-dotenv, tzdata
 ```
+
+## Run the API
+
+```bash
+copy .env.example .env                       # macOS/Linux: cp; fill in locally, never commit .env
+uvicorn api.main:app --reload                # http://127.0.0.1:8000/docs
+pytest api/tests                             # API + store tests
+```
+
+`POST /users` returns a `token` once; send it as `Authorization: Bearer <token>` on every `/users/{id}/*` call.
 
 ## Run
 

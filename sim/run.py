@@ -56,7 +56,13 @@ def run_seed(args: tuple) -> tuple[int, pd.DataFrame, pd.DataFrame, dict]:
         for k, v in saved.items():
             setattr(engine_config, k, v)
     events = pd.DataFrame(rows)
-    persona_df = pd.DataFrame(
+    persona_df = personas_frame(seed, personas)
+    return seed, events, persona_df, seed_metrics(persona_table(events, persona_df, days), days)
+
+
+def personas_frame(seed: int, personas: list) -> pd.DataFrame:
+    """Segments and a few flags per persona (for metrics and fairness breakdowns; never given to the engine)."""
+    return pd.DataFrame(
         [
             {
                 "seed": seed,
@@ -69,7 +75,6 @@ def run_seed(args: tuple) -> tuple[int, pd.DataFrame, pd.DataFrame, dict]:
             for p, t in personas
         ]
     )
-    return seed, events, persona_df, seed_metrics(persona_table(events, persona_df, days), days)
 
 
 def _ignore_sigint() -> None:
@@ -86,10 +91,9 @@ def _interrupted(pool) -> None:
     sys.exit(130)
 
 
-def simulate(n: int, days: int, seeds: list[int], arms: list[str], cfg: dict, workers: int = 0, quiet: bool = False):
-    """Returns (events, personas, metrics). workers=0 -> one process per seed (capped at CPU count)."""
-    cfg = {**cfg, "days": days}
-    jobs = [(s, n, days, arms, cfg) for s in seeds]
+def map_seeds(func, jobs: list[tuple], workers: int = 0, quiet: bool = False) -> list:
+    """Run func(job) for every job (one per seed), in parallel unless workers == 1. Results sorted by job[0].
+    Ctrl+C terminates the pool and exits cleanly."""
     results = []
     started = time.perf_counter()
     pool = None
@@ -101,13 +105,13 @@ def simulate(n: int, days: int, seeds: list[int], arms: list[str], cfg: dict, wo
             print(f"\r[{bar}] {i}/{len(jobs)} seeds  {time.perf_counter() - started:5.1f}s", end="", flush=True)
 
     try:
-        if workers == 1 or len(seeds) == 1:
+        if workers == 1 or len(jobs) == 1:
             for job in jobs:
-                results.append(run_seed(job))
+                results.append(func(job))
                 progress()
         else:
-            pool = Pool(workers or min(len(seeds), os.cpu_count() or 1), initializer=_ignore_sigint)
-            iterator = pool.imap_unordered(run_seed, jobs)
+            pool = Pool(workers or min(len(jobs), os.cpu_count() or 1), initializer=_ignore_sigint)
+            iterator = pool.imap_unordered(func, jobs)
             while len(results) < len(jobs):
                 try:  # short timeouts so Ctrl+C is noticed on Windows (a blocking wait ignores it)
                     results.append(iterator.next(timeout=0.5))
@@ -125,7 +129,13 @@ def simulate(n: int, days: int, seeds: list[int], arms: list[str], cfg: dict, wo
             pool.join()
     if not quiet:
         print()
-    results.sort(key=lambda r: r[0])
+    return sorted(results, key=lambda r: r[0])
+
+
+def simulate(n: int, days: int, seeds: list[int], arms: list[str], cfg: dict, workers: int = 0, quiet: bool = False):
+    """Returns (events, personas, metrics). workers=0 -> one process per seed (capped at CPU count)."""
+    cfg = {**cfg, "days": days}
+    results = map_seeds(run_seed, [(s, n, days, arms, cfg) for s in seeds], workers, quiet)
     events = pd.concat([r[1] for r in results], ignore_index=True)
     personas = pd.concat([r[2] for r in results], ignore_index=True)
     metrics = aggregate({r[0]: r[3] for r in results})

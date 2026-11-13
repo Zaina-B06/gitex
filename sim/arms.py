@@ -23,6 +23,7 @@ from rebound_engine.models import (
     UserProfile,
 )
 from rebound_engine.policy import choose_actions
+from rebound_engine.risk import compute_features
 from rebound_engine.safety import SCREENING_QUESTIONS, screening_flags
 from rebound_engine.state import compute_engagement_state, initial_state
 
@@ -157,7 +158,10 @@ def _run_static(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
             return
 
 
-def _run_engine(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: int, log: _Day, seed: int):
+def _run_engine(
+    arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: int, log: _Day, seed: int,
+    features: list[dict] | None = None,
+):
     pid = traits.persona_id
     engine = Engine(
         store=NoCopyStore(),
@@ -195,6 +199,13 @@ def _run_engine(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
             engine.record(Event(user_id=uid, day=day, type=EventType(o), action_id=s.action.id))
         sim.end_day(outcomes)
         log.close(day)
+        if features is not None:
+            # Task 02b: only what the engine itself holds (profile, state, its own event log) goes in.
+            state = engine.get_state(uid)
+            features.append({
+                "seed": seed, "persona_id": pid, "day": day, "engine_state": state.engagement_state.value,
+                **compute_features(engine.store.get_profile(uid), state, engine.events(uid), day),
+            })
         if sim.churned_on is not None:
             log.event(day, "churn")
             break
@@ -203,7 +214,11 @@ def _run_engine(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
             log.event(e.day, "checkin_sent", e.payload.get("state", ""))
 
 
-def run_persona(arm: str, payload, traits: HiddenTraits, cfg: dict, days: int, seed: int) -> list[dict]:
+def run_persona(
+    arm: str, payload, traits: HiddenTraits, cfg: dict, days: int, seed: int, features: list[dict] | None = None
+) -> list[dict]:
+    """Rows for one persona in one arm. Pass a list as `features` (engine arms only) to also collect one
+    lapse-risk feature row per day into it."""
     # Same stream per persona in every arm (common random numbers): identical disruption schedule.
     rng = np.random.default_rng([seed, traits.persona_id, 11])
     day_rng = np.random.default_rng([seed, traits.persona_id, 13])  # motivation + app-open: arm-independent
@@ -218,7 +233,7 @@ def run_persona(arm: str, payload, traits: HiddenTraits, cfg: dict, days: int, s
     try:  # arm-specific engine constants, always restored (runs are sequential within a process)
         for k, v in overrides.items():
             setattr(engine_config, k, v)
-        _run_engine(arm, payload, traits, sim, days, log, seed)
+        _run_engine(arm, payload, traits, sim, days, log, seed, features)
     finally:
         for k, v in saved.items():
             setattr(engine_config, k, v)

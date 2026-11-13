@@ -40,8 +40,8 @@ Every number or rule the engine uses that `AGENTS.md` doesn't fully pin down. Va
 | BMI band (internal only) | ≥ 30 → start ≤ 2, ≥ 40 → start 1 | Caps the *starting* intensity only. Never shown, never a goal. Not clinically validated. |
 | Sleep starting tier | 1 | The sleep tiers are a progression of habits; everyone starts at the anchor (fixed wake time). |
 | Screening cap | any yes → movement ≤ 2; chest pain or dizziness/fainting → movement ≤ 1 | §4.3. "Gentle" = tier 1. Permanent for now (no clinician-clearance flow yet). |
-| Step-up | 3 *consecutive* full completions at the current tier → +1 (`STEP_UP_SUCCESSES`) | skipped/no_response reset the count to 0; partial neither adds nor resets. |
-| Step-up gate | only while the state is active or recovering | After a lapse, no step-up until the user is recovering and has 3 consecutive completions since coming back. This also blocks step-up while drifting, because we've just shrunk the plan. |
+| Step-up | 4 *consecutive* full completions at the current tier → +1 (`STEP_UP_SUCCESSES`) | skipped/no_response reset the count to 0; partial neither adds nor resets. Was 3 until the pre-registered step-up test (run_006, "Step-up 3 → 4" below) changed it. |
+| Step-up gate | only while the state is active or recovering | After a lapse, no step-up until the user is recovering and has 4 consecutive completions since coming back. This also blocks step-up while drifting, because we've just shrunk the plan. |
 | Step-down | 2 consecutive skipped/no_response at the current tier while active → −1 (`STEP_DOWN_FAILURES`) | A partial breaks the run of misses (it's a response). Drifting/lapsed are handled by shrink-on-slip instead. |
 | Shrink on slip | entering drifting → every tier −1 (`DRIFT_TIER_DROP`); entering lapsed → every tier back to 1 | Make the next action easier as soon as a slip shows. Floor is tier 1. |
 | Any tier change | resets both counters | A new tier starts fresh. |
@@ -272,12 +272,56 @@ retention).
 **Outputs not to report:** a run_004 and a partial sweep_001 were produced before this recalibration. They were
 deleted; the Drop 2 results are run_005 and sweep_002.
 
-### Results: Drop 2 (run_005 all scenarios, sweep_002)
+#### Scenarios (`sim/scenarios.yaml`; each changes only what it lists, which is tested)
+| Scenario | Changes | Why |
+|---|---|---|
+| baseline | nothing | Reference. |
+| ramadan_heavy | 70% fasting; Ramadan days 20–49 | Task 02. Earlier in the run, so recovery after it is fully observed. |
+| hot_summer | heat days 1–60; heat penalty 1.0 → 2.0 | Task 02 ("outdoor penalty × 2"). |
+| low_checkin | every persona's check-in answer rate × 0.5 | Task 02 ("halved"). Tests the PRD §15 assumption that people answer check-ins. |
+| high_dropout | churn after 7 silent days (not 14); motivation mean −0.5 | Task 02. |
+| shock_heavy | unlabelled shock rate × 3 (1 → 3 per 90 days) | Task 02 §4.2. |
+| harsh_attrition | `open_base` 1.25; novelty drop up to 3.0 | Your harsher world (~30% persistence, ~40% retention for arm A). |
+
+#### Unlabelled shocks (Task 02 §4.2)
+| Parameter | Value | Why |
+|---|---|---|
+| Rate | Poisson, 1 per persona per 90 days (baseline) | One unexplained rough patch per quarter is plausible; `shock_heavy` triples it. |
+| Length | uniform 2–14 days | Task 02. |
+| Size | motivation −Uniform(0.5, 2.0) on the logit scale while it lasts; overlapping shocks add | Task 02 ("random amount"). From noticeable to severe. |
+| What the engine learns | nothing directly: no context flag, no event field, and a check-in answer during a shock comes from the persona's usual barrier weights, never "shock" | Tested by recording every call the simulator makes into the engine. |
+| Random stream | its own per persona | Adding shocks doesn't reshuffle labelled disruptions or the daily process (tested). |
+
+#### Recovery by what preceded the lapse
+A lapse is attributed to an **unlabelled shock** if one was active on the onset day or the 7 days before; otherwise
+to a **labelled disruption** (illness, travel, workload, or Ramadan for fasting personas) in the same window;
+otherwise **none**. Shock wins when both are present. Heat is left out of "labelled": it covers everyone for a month,
+so it can't single out a lapse. Recovery within 14 days is reported for each group, and compared C vs A / A0.
+
+#### Sensitivity sweep (`python -m sim.sweep`; arms A, A0, C; baseline scenario; 5 seeds per setting)
+The tornado charts show how the **C vs A** and **C vs A0** gaps in week-12 persistence move from each parameter's
+lowest to highest value. Recovery and retention gaps are recorded too. Any setting that makes a gap ≤ 0 is listed
+under "Where Rebound doesn't help".
+
+| Parameter | Values (baseline in bold) | Why this range |
+|---|---|---|
+| streak_sensitivity (arm A only) | [0, 0], **[0.3, 1.0]**, [0.8, 1.6] | From no abstinence-violation effect to a strong one; the assumption the C-vs-A gap depends on most. |
+| motivation_volatility | [0.1, 0.4], **[0.2, 0.8]**, [0.5, 1.2] | Steadier to much moodier people. |
+| check-in answer rate multiplier | 0.5, **1.0**, 1.5 (capped at 1) | Rebound's adaptation runs on check-ins. |
+| bct_responsiveness_sd | 0.0, **0.5**, 1.0 | Nothing for the bandit to learn, up to large individual differences. |
+| unlabelled shock rate | 0, **1**, 3 per 90 days | No shocks to shock-heavy. |
+| tier_fit_penalty | 0.5, **1.5**, 3.0 | How much an over-sized task hurts. |
+| success feedback δ | 0, 0.025, **0.05**, 0.1 | Pre-registered (see above). δ = 0 is the no-feedback world. |
+| engine STEP_UP_SUCCESSES | 2, **3**, 4, 5 | How eagerly Rebound steps up; run_003 showed stepping up costs completions. A product question, not tuned here. |
+
+Five seeds per setting (not ten) keeps the full sweep (26 settings) to roughly 10–15 minutes; intervals are wider.
+
+### Results: Drop 2 (run_005 all scenarios, sweep_002; step-up 3, superseded by run_007)
 run_005: 7 scenarios × 300 personas × 90 days × seeds 1–10; arms A, A0, B, C. sweep_002: baseline, 5 seeds per
 setting, arms A, A0, C. Verdicts: **helps** = whole 95% interval above zero, **worse** = whole interval below zero,
 otherwise not shown.
 
-**Headline (updated):** Against a streak app that penalises misses, Rebound improves recovery, persistence and
+**Headline (updated; superseded by "Reported results: shipped engine" below):** Against a streak app that penalises misses, Rebound improves recovery, persistence and
 retention, in every scenario. Against a static plan without that penalty, it keeps engagement about equal while
 increasing how much people do (+9 active min/week, +10 pts tier-weighted sleep in run_003). The advantage over a
 streak app exists only if missing a day on a streak app lowers motivation (abstinence-violation effect); with no such
@@ -385,58 +429,79 @@ C4 vs C, mean [95% interval]; blank = not shown. The gain is consistent but mode
 week and +1.5 to +2 pts of tier-weighted sleep in every scenario, with engagement unchanged or slightly better.
 
 **Reported, not deciding.** C4 vs A: helps on every measure in every scenario. C4 vs A0: activity helps everywhere
-(+3.5 to +8.6 min/week), recovery helps in 6 of 7 scenarios (+0.9 to +1.8 pts), persistence worse in high_dropout
-(−0.9 [−1.6, −0.1]), everything else not shown. Also on these fresh seeds, C (step-up 3) vs A0 recovery is "helps"
-in 5 of 7 scenarios (+0.8 to +1.7 pts), where on seeds 1–10 (run_005) it wasn't in any. Small effects near the
-detection limit flip between seed sets; we keep calling C-vs-A0 recovery weak evidence.
+(+3.5 to +8.6 min/week), recovery helps in **7 of 7** scenarios (+0.9 to +1.8 pts), persistence worse in
+high_dropout (−0.9 [−1.6, −0.1]), everything else not shown. Also on these fresh seeds, C (step-up 3) vs A0 recovery
+is "helps" in 5 of 7 scenarios (+0.8 to +1.7 pts), where on seeds 1–10 (run_005) it wasn't in any. (An earlier
+version of this note said "6 of 7" for C4; the run_006 table shows 7 of 7.)
 
-**Applying the decision** (pending): change `STEP_UP_SUCCESSES` to 4 in the engine and in the AGENTS.md §6.3 rule, then
-re-run the reported results on seeds 1–10 so they match the shipped engine. Snapshot of this run:
-`docs/results/run_006/scenarios.md`.
+**Decision applied:** tests made threshold-agnostic (`f13f9dd`), engine `STEP_UP_SUCCESSES` 3 → 4 (`b402774`),
+AGENTS.md / CLAUDE.md §6.3 updated (`ead1934`). The reported results were then re-run on seeds 1–10 with the shipped
+engine (run_007, next section). Snapshot of this run: `docs/results/run_006/scenarios.md`.
 
-#### Scenarios (`sim/scenarios.yaml`; each changes only what it lists, which is tested)
-| Scenario | Changes | Why |
-|---|---|---|
-| baseline | nothing | Reference. |
-| ramadan_heavy | 70% fasting; Ramadan days 20–49 | Task 02. Earlier in the run, so recovery after it is fully observed. |
-| hot_summer | heat days 1–60; heat penalty 1.0 → 2.0 | Task 02 ("outdoor penalty × 2"). |
-| low_checkin | every persona's check-in answer rate × 0.5 | Task 02 ("halved"). Tests the PRD §15 assumption that people answer check-ins. |
-| high_dropout | churn after 7 silent days (not 14); motivation mean −0.5 | Task 02. |
-| shock_heavy | unlabelled shock rate × 3 (1 → 3 per 90 days) | Task 02 §4.2. |
-| harsh_attrition | `open_base` 1.25; novelty drop up to 3.0 | Your harsher world (~30% persistence, ~40% retention for arm A). |
+### Reported results: shipped engine, step-up 4 (run_007)
+**These are the numbers to report.** run_007 = 7 scenarios × 300 personas × 90 days × seeds 1–10 (the evaluation
+seeds), arms A, A0, B, C, engine as shipped (`STEP_UP_SUCCESSES` = 4). It supersedes run_005 (step-up 3) as the
+headline; run_005 and the Drop 2 sections above stay as history. Safety audit: 0 unsafe actions and 0 quiet-hour
+messages in B and C, every scenario. Snapshot: `docs/results/run_007/`.
 
-#### Unlabelled shocks (Task 02 §4.2)
-| Parameter | Value | Why |
-|---|---|---|
-| Rate | Poisson, 1 per persona per 90 days (baseline) | One unexplained rough patch per quarter is plausible; `shock_heavy` triples it. |
-| Length | uniform 2–14 days | Task 02. |
-| Size | motivation −Uniform(0.5, 2.0) on the logit scale while it lasts; overlapping shocks add | Task 02 ("random amount"). From noticeable to severe. |
-| What the engine learns | nothing directly: no context flag, no event field, and a check-in answer during a shock comes from the persona's usual barrier weights, never "shock" | Tested by recording every call the simulator makes into the engine. |
-| Random stream | its own per persona | Adding shocks doesn't reshuffle labelled disruptions or the daily process (tested). |
+**Provenance of the shipped step-up threshold (no seed set both chose and reported it):**
+- seeds **1–5** *informed* the choice (sweep_003, a sensitivity sweep);
+- seeds **11–20** *confirmed* it (run_006, pre-registered rule, decision "keep 4");
+- seeds **1–10** *re-report* the shipped engine (run_007, below). These seeds include the sweep's 1–5, which is why
+  run_006, not run_007, is the evidence for the change; run_007 only brings the reported numbers in line with the
+  engine as shipped.
 
-#### Recovery by what preceded the lapse
-A lapse is attributed to an **unlabelled shock** if one was active on the onset day or the 7 days before; otherwise
-to a **labelled disruption** (illness, travel, workload, or Ramadan for fasting personas) in the same window;
-otherwise **none**. Shock wins when both are present. Heat is left out of "labelled": it covers everyone for a month,
-so it can't single out a lapse. Recovery within 14 days is reported for each group, and compared C vs A / A0.
+**Headline (shipped engine, run_007):** Against a streak app that penalises misses, Rebound improves recovery (+13
+to +19 pts), week-12 persistence (+17 to +25 pts) and retention (+13 to +19 pts) in every scenario, and people do
+more: +16.9 active min/week [+15.6, +18.1] and +13.9 pts tier-weighted sleep [+12.5, +15.3] in baseline (+8.5 to
++18.1 min across scenarios). Against a static plan without that penalty, engagement is about equal, recovery after a
+lapse is small (~1–2 pts) but consistent, and people still do more: +8.7 active min/week [+7.5, +9.9] and +10.4 pts
+tier-weighted sleep [+9.0, +11.8] in baseline (+4.4 to +9.8 min across scenarios). The engagement advantage over a
+streak app exists only if missing a day on a streak app lowers motivation (abstinence-violation effect); with no
+such effect it disappears (sweep_002). The bandit adds no measurable benefit over rules at 90 days and this sample
+size.
 
-#### Sensitivity sweep (`python -m sim.sweep`; arms A, A0, C; baseline scenario; 5 seeds per setting)
-The tornado charts show how the **C vs A** and **C vs A0** gaps in week-12 persistence move from each parameter's
-lowest to highest value. Recovery and retention gaps are recorded too. Any setting that makes a gap ≤ 0 is listed
-under "Where Rebound doesn't help".
+**Pre-registered comparisons (run_007), percentage points, mean [95% interval]; blank = not shown:**
 
-| Parameter | Values (baseline in bold) | Why this range |
-|---|---|---|
-| streak_sensitivity (arm A only) | [0, 0], **[0.3, 1.0]**, [0.8, 1.6] | From no abstinence-violation effect to a strong one; the assumption the C-vs-A gap depends on most. |
-| motivation_volatility | [0.1, 0.4], **[0.2, 0.8]**, [0.5, 1.2] | Steadier to much moodier people. |
-| check-in answer rate multiplier | 0.5, **1.0**, 1.5 (capped at 1) | Rebound's adaptation runs on check-ins. |
-| bct_responsiveness_sd | 0.0, **0.5**, 1.0 | Nothing for the bandit to learn, up to large individual differences. |
-| unlabelled shock rate | 0, **1**, 3 per 90 days | No shocks to shock-heavy. |
-| tier_fit_penalty | 0.5, **1.5**, 3.0 | How much an over-sized task hurts. |
-| success feedback δ | 0, 0.025, **0.05**, 0.1 | Pre-registered (see above). δ = 0 is the no-feedback world. |
-| engine STEP_UP_SUCCESSES | 2, **3**, 4, 5 | How eagerly Rebound steps up; run_003 showed stepping up costs completions. A product question, not tuned here. |
+| Scenario | C vs A: recovery / persistence wk 12 / retention | C vs A0: recovery / persistence / retention | C vs B |
+|---|---|---|---|
+| baseline | +18.5 / +25.2 / +13.8, all helps | +1.5 [+0.4, +2.6] helps / −0.2 / −0.0 | ≈ 0 |
+| ramadan_heavy | +18.3 / +25.0 / +14.0, all helps | +1.2 [+0.0, +2.4] helps / −0.5 / +0.2 | ≈ 0 |
+| hot_summer | +19.2 / +25.1 / +13.4, all helps | +1.8 [+0.5, +3.1] helps / −0.2 / −0.3 | ≈ 0 |
+| low_checkin | +18.5 / +25.2 / +14.1, all helps | +1.5 [+0.0, +3.0] helps / −0.1 / +0.3 | ≈ 0 |
+| high_dropout | +13.3 / +17.3 / +18.7, all helps | +0.6 / −0.7 [−1.3, −0.2] **worse** / −0.3 | ≈ 0 |
+| shock_heavy | +16.7 / +21.6 / +15.1, all helps | +0.8 [+0.2, +1.5] helps / −1.1 [−2.0, −0.3] **worse** / −0.4 | ≈ 0 |
+| harsh_attrition | +13.9 / +17.5 / +14.4, all helps | +0.6 / −0.1 / −0.1 | retention −0.5 [−0.9, −0.0] **worse** |
 
-Five seeds per setting (not ten) keeps the full sweep (26 settings) to roughly 10–15 minutes; intervals are wider.
+**Activity (secondary), run_007, mean [95% interval]; all intervals above zero:**
+
+| Scenario | C vs A: Δ active min/week | C vs A: Δ tier-weighted sleep (pts) | C vs A0: Δ active min/week | C vs A0: Δ tier-weighted sleep (pts) |
+|---|---|---|---|---|
+| baseline | +16.9 [+15.6, +18.1] | +13.9 [+12.5, +15.3] | +8.7 [+7.5, +9.9] | +10.4 [+9.0, +11.8] |
+| ramadan_heavy | +16.8 [+15.5, +18.2] | +13.9 [+12.4, +15.3] | +8.7 [+7.2, +10.2] | +10.4 [+8.9, +11.9] |
+| hot_summer | +18.1 [+16.7, +19.5] | +14.0 [+12.6, +15.3] | +9.8 [+8.3, +11.3] | +10.5 [+9.2, +11.9] |
+| low_checkin | +16.8 [+15.4, +18.2] | +13.9 [+12.6, +15.2] | +8.6 [+7.2, +10.1] | +10.4 [+9.2, +11.7] |
+| high_dropout | +9.8 [+8.1, +11.4] | +5.7 [+4.7, +6.7] | +5.5 [+4.0, +7.0] | +3.8 [+2.9, +4.6] |
+| shock_heavy | +12.5 [+10.7, +14.3] | +10.6 [+9.3, +11.9] | +6.0 [+4.5, +7.4] | +7.7 [+6.5, +8.8] |
+| harsh_attrition | +8.5 [+7.1, +10.0] | +6.6 [+5.7, +7.6] | +4.4 [+3.2, +5.6] | +4.8 [+4.0, +5.7] |
+
+**C vs A0 recovery: small (~1–2 pts) but consistent.** Clear ("helps") in 5 of 7 worlds in run_007 (+0.8 to +1.8
+pts; not shown in high_dropout and harsh_attrition, +0.6 each), and in 7 of 7 for C4 in run_006 on fresh seeds. This
+replaces the earlier "weak evidence" label, which was based on run_003 and run_005 with step-up 3.
+
+**The 3 "worse" results in run_007** (whole interval below zero, out of 63 pre-registered intervals):
+1. C vs A0, persistence wk 12, high_dropout: −0.7 [−1.3, −0.2].
+2. C vs A0, persistence wk 12, shock_heavy: −1.1 [−2.0, −0.3].
+3. C vs B, retention, harsh_attrition: −0.5 [−0.9, −0.0].
+
+The first two match the known step-up cost vs a static easy plan, in the two harshest engagement worlds. The C vs B
+one is likely chance: with 63 intervals, a few will exclude zero with no real effect; C vs B is ≈ 0 everywhere else,
+and that interval only just excludes zero.
+
+**Compared with run_005 (step-up 3, same seeds):** C vs A0 recovery is now "helps" in 5 of 7 scenarios (it was in
+none), and the "worse" results shrink (shock_heavy persistence −1.5 → −1.1; retention worse in high_dropout and
+shock_heavy → no longer). Arm A's week-12 persistence is 33% here vs 41% on calibration seed 101: a seed-set
+difference, not retuned.
 
 ### Disruptions (labelled)
 | Parameter | Value | Why |
@@ -498,6 +563,5 @@ Five seeds per setting (not ten) keeps the full sweep (26 settings) to roughly 1
   the success feedback δ; both are swept in Drop 2. With no streak penalty the advantage disappears.
 - Success feedback is the same for every completion regardless of difficulty, which favours easy static plans; a
   difficulty-weighted version (mastery experiences) is an untested alternative.
-- The step-up threshold (3 consecutive completions) is not validated. In the simulator, slower step-ups (4–5) give
-  more activity with no engagement cost (sweep_003); 3 → 4 is being tested on fresh seeds. Either way it has to be
-  settled with real users in the pilot.
+- The step-up threshold (now 4 consecutive completions) was chosen by a pre-registered simulator test, not by real
+  users. It has to be confirmed in the pilot.

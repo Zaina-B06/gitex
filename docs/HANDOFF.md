@@ -11,33 +11,32 @@ Read `AGENTS.md` (identical to `CLAUDE.md`) first: product spec, rules and conve
 | **Task 01: engine core** | `engine/rebound_engine`: Pydantic models, 17-action library (`engine/data/actions.yaml`), safety layer (screening, context filters, red flags EN/AR), habit strength + engagement state, rules policy (shrink on slip, consecutive step-up/down), Engine facade with a `Store` protocol, 30-day demo CLI. One movement and one sleep action per goal per day. | `b21699a` → `e22630f` |
 | **Task 02 Drop 1: simulator** | Thompson-sampling bandit in the engine (`policy_mode="bandit"`), quiet hours, fast store. `sim/`: personas + hidden traits, behaviour model (daily app-open step, novelty decay, pre-registered success feedback δ = 0.05), arms A (streak app) / A0 (no streak penalty) / B (rules) / C (bandit), independent safety audit, metrics with 95% intervals, charts + summary. | `758341a`, `3cc111b` (pre-registration), `5ddb921` |
 | **Task 02 Drop 2: robustness** | 7 scenarios (incl. `harsh_attrition`), unlabelled shocks the engine never sees, recovery split by what preceded a lapse, sensitivity sweep + tornado chart, `--all-scenarios`, clean Ctrl+C. | `abcbf8b` |
+| **Step-up 3 → 4** | sweep_003 recorded; change pre-registered, then tested as arm C4 on fresh seeds 11–20 (run_006): decision "keep 4". Engine now steps up after **4** consecutive completions; tests read the threshold from config; AGENTS.md §6.3 updated; reported results re-run (run_007). | `97b94ef`, `cac4f73` (pre-registration), `a657d17`, `d051f30`, `f13f9dd`, `b402774`, `ead1934` |
 
 All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot of the reviewed outputs is in
-`docs/results/` (run_005 = all scenarios, sweep_002 = full sweep, sweep_003 = step-up threshold with activity).
+`docs/results/` (index: `docs/results/README.md`). **Report run_007**: the shipped engine, seeds 1–10, all scenarios.
 
-## Key findings (simulation; relative, not real-world effect sizes)
+## Key findings (run_007, shipped engine; simulation, so relative, not real-world effect sizes)
 
-- **Against a streak app that penalises misses, Rebound improves recovery (+13 to +20 pts), week-12 persistence
-  (+17 to +25 pts) and retention (+13 to +18 pts) in all 7 scenarios.** Safety audit: 0 unsafe actions and 0
-  quiet-hour messages everywhere.
-- **That advantage depends entirely on the abstinence-violation assumption** (missing a day on a streak app lowers
-  motivation). With no such effect it disappears: C vs A persistence −1.0 pts [−3.0, +1.0] (sweep_002).
-- **Against a static plan without that penalty (A0), engagement is about equal, and people do more:** +9 active
-  min/week and +10 pts tier-weighted sleep (run_003). Small "worse" results (< 2 pts) appear in a few scenarios,
-  consistent with harder actions earning less success feedback.
+- **Against a streak app that penalises misses, Rebound improves recovery (+13 to +19 pts), week-12 persistence
+  (+17 to +25 pts) and retention (+13 to +19 pts) in all 7 scenarios, and people do more** (+16.9 active min/week,
+  +13.9 pts tier-weighted sleep in baseline). Safety audit: 0 unsafe actions and 0 quiet-hour messages everywhere.
+- **That engagement advantage depends entirely on the abstinence-violation assumption** (missing a day on a streak
+  app lowers motivation). With no such effect it disappears: C vs A persistence −1.0 pts [−3.0, +1.0] (sweep_002).
+- **Against a static plan without that penalty (A0), engagement is about equal, recovery is small (~1–2 pts) but
+  consistent** (clear in 5/7 scenarios in run_007, 7/7 for C4 in run_006), **and people do more:** +8.7 active
+  min/week and +10.4 pts tier-weighted sleep in baseline. Three small "worse" results out of 63 pre-registered
+  intervals (≤ 1.1 pts; listed in `docs/ASSUMPTIONS.md`).
 - **The per-user bandit adds no measurable benefit over rules** at 90 days with people opening the app on ~40% of days.
-- **Slower step-ups look better in the simulator** (step up after 4–5 successes instead of 3: more activity, no
-  engagement cost; sweep_003). Not acted on: it needs a pre-registered test on fresh seeds.
+- **Step-up after 4 (not 3) was adopted by a pre-registered test:** seeds 1–5 informed it (sweep_003), seeds 11–20
+  confirmed it (run_006: about +2 active min/week vs step-up 3 in every scenario, no engagement cost), seeds 1–10
+  re-report the shipped engine (run_007).
 
 ## Next, in order
 
-1. **Record sweep_003 in `docs/ASSUMPTIONS.md`** (`docs/results/sweep_003/summary.md`), including that the earlier
-   guess "slower step-ups cost activity" was wrong.
-2. **Pre-registered step-up test, 3 → 4:** write the change and the comparisons in `docs/ASSUMPTIONS.md` and commit
-   that alone; then run seeds **11–20** (never used before); keep or revert based on that run only.
-3. **Task 02b: lapse-risk model** (`docs/tasks/TASK_02b_lapse_risk_model.md`). Read it fully and ask questions
+1. **Task 02b: lapse-risk model** (`docs/tasks/TASK_02b_lapse_risk_model.md`). Read it fully and ask questions
    before coding.
-4. **Task 03: API + lean LLM layer** (FastAPI wrapper, SQLite event log, barrier classifier, red-flag keywords,
+2. **Task 03: API + lean LLM layer** (FastAPI wrapper, SQLite event log, barrier classifier, red-flag keywords,
    templates EN/AR). The API contract is `AGENTS.md` §7.
 
 ## Setup on a fresh clone
@@ -80,18 +79,26 @@ python -m rebound_engine.demo --days 30 --seed 1
 the same package versions). Run from the repo root.
 
 ```bash
-# All 7 scenarios, arms A/B/C + A0 (about 7–8 minutes), then charts + summaries
-python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --all-scenarios --sensitivity --out sim/out/run_005
-python -m sim.report --run sim/out/run_005
-
-# Full sensitivity sweep + tornado chart (26 settings × 5 seeds, about 10–15 minutes)
-python -m sim.sweep --out sim/out/sweep_002
-
-# Step-up threshold only, with activity gaps (about 2–3 minutes)
-python -m sim.sweep --param engine_overrides.STEP_UP_SUCCESSES --values 2 3 4 5 --out sim/out/sweep_003
+# The reported results (shipped engine): all 7 scenarios, arms A/B/C + A0 (about 7–8 minutes)
+python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --all-scenarios --sensitivity --out sim/out/run_007
+python -m sim.report --run sim/out/run_007
 ```
 
 Ctrl+C stops any of these cleanly. Arm-A calibration runs (seed 101 only) are described in `docs/ASSUMPTIONS.md`.
+
+**Older snapshots were made with step-up 3** (run_005, run_006, sweep_002, sweep_003). To reproduce them exactly, check
+out the last commit before the engine change, `d051f30`, then run (a throwaway worktree keeps your branch untouched):
+
+```bash
+git worktree add ../gitex-stepup3 d051f30 && cd ../gitex-stepup3
+# then, with the same venv active (pip install -e "engine[dev]" -e "sim[dev]" inside the worktree first):
+python -m sim.run --n 300 --days 90 --seeds 11-20 --arms A C C4 --all-scenarios --sensitivity --out sim/out/run_006
+python -m sim.report --run sim/out/run_006                                   # step-up test, decision "keep 4"
+python -m sim.sweep --out sim/out/sweep_002                                  # full sweep, ~10–15 min
+python -m sim.sweep --param engine_overrides.STEP_UP_SUCCESSES --values 2 3 4 5 --out sim/out/sweep_003
+```
+
+On the current engine the sweeps still run, but their baseline is now step-up 4, and C4 equals C.
 
 ## Working rules
 

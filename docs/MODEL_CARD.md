@@ -29,6 +29,9 @@ employers never see it (AGENTS.md §2.6).
   21–30. These seeds are never used for evaluation (1–10), the step-up test (11–20) or calibration (101).
 - **Split by seed, so by persona:** train 21–26, validation 27–28 (model choice, threshold), test 29–30 (every
   reported number). No persona appears in two splits (tested).
+- **Earlier simulator world:** trained when personas could answer check-ins on closed-app days. The reported world
+  now allows answers only on open days (`docs/ASSUMPTIONS.md`, "Check-ins answered only on open days"); the model is
+  not retrained, so its numbers describe the earlier world. The hook is off in the app either way.
 - **Label:** the engine's state is `lapsed` on any of the next 7 days. Rows where the person is already lapsed, has
   churned, or has no full 7-day window left are excluded.
 

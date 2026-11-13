@@ -8,6 +8,7 @@ from sim.run import simulate
 
 CFG = load_config("baseline")
 STRICT = _merge(CFG, {"traits": {"checkin_needs_open_app": True}})
+ANY_DAY = _merge(CFG, {"traits": {"checkin_needs_open_app": False}})  # the earlier world (run_007)
 
 
 def _answered_days_open(events):
@@ -21,13 +22,13 @@ def _answered_days_open(events):
 
 @pytest.fixture(scope="module")
 def runs():
-    any_day = simulate(30, 60, [1], ["A", "A0", "B", "C"], CFG, workers=1, quiet=True)
+    any_day = simulate(30, 60, [1], ["A", "A0", "B", "C"], ANY_DAY, workers=1, quiet=True)
     strict = simulate(30, 60, [1], ["A", "A0", "B", "C"], STRICT, workers=1, quiet=True)
     return any_day, strict
 
 
-def test_default_is_off_so_run_007_reproduces():
-    assert CFG["traits"]["checkin_needs_open_app"] is False
+def test_default_is_the_adopted_rule():
+    assert CFG["traits"]["checkin_needs_open_app"] is True
 
 
 def test_strict_rule_answers_only_on_open_days(runs):

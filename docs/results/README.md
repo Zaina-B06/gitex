@@ -5,7 +5,9 @@ Small copies of reviewed simulator outputs (`sim/out/` itself isn't committed). 
 
 | Folder | What | Engine | Status |
 |---|---|---|---|
-| `run_007/` | All 7 scenarios, seeds 1–10, arms A, A0, B, C | step-up 4 (shipped) | **Report these numbers.** |
+| `run_007/` | All 7 scenarios, seeds 1–10, arms A, A0, B, C; check-ins answered on any day | step-up 4 (shipped) | **Report these numbers until run_011 replaces them**; then the earlier world. |
+| `run_009/` | Check-in rule test, flag off (answered on any day): seeds 31–40, all scenarios, arms A, A0, B, C | step-up 4 | Pre-registered control; `scenarios.md` only. |
+| `run_010/` | Check-in rule test, flag on (answered only on open days): same seeds and arms | step-up 4 | Pre-registered test; decision fixed beforehand: adopt. See `docs/ASSUMPTIONS.md`. |
 | `run_006/` | Pre-registered step-up test: C4 (step-up 4) vs C (step-up 3), fresh seeds 11–20, all scenarios | both | Evidence for the 3 → 4 decision ("keep 4"). |
 | `run_005/` | All 7 scenarios, seeds 1–10, arms A, A0, B, C | step-up 3 | Superseded by run_007; kept as history. |
 | `sweep_002/` | Full sensitivity sweep + tornado chart, baseline, seeds 1–5 | step-up 3 | Current for sensitivity: what the C vs A / A0 gaps depend on. |

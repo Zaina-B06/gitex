@@ -88,9 +88,17 @@ python -m rebound_engine.demo --days 30 --seed 1
 the same package versions). Run from the repo root.
 
 ```bash
-# The reported results (shipped engine): all 7 scenarios, arms A/B/C + A0 (about 7–8 minutes)
-python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --all-scenarios --sensitivity --out sim/out/run_007
+# The reported world from now on: check-ins answered only on open days (default). About 7–8 minutes.
+python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --all-scenarios --sensitivity --out sim/out/run_011
+python -m sim.report --run sim/out/run_011
+
+# The earlier world (run_007): check-ins answered on any day
+python -m sim.run --n 300 --days 90 --seeds 1-10 --arms A B C --all-scenarios --sensitivity --set traits.checkin_needs_open_app=false --out sim/out/run_007
 python -m sim.report --run sim/out/run_007
+
+# The check-in rule test (pre-registered): same seeds 31-40, flag off vs on
+python -m sim.run --n 300 --days 90 --seeds 31-40 --arms A B C --all-scenarios --sensitivity --set traits.checkin_needs_open_app=false --out sim/out/run_009
+python -m sim.run --n 300 --days 90 --seeds 31-40 --arms A B C --all-scenarios --sensitivity --out sim/out/run_010
 ```
 
 Ctrl+C stops any of these cleanly. Arm-A calibration runs (seed 101 only) are described in `docs/ASSUMPTIONS.md`.

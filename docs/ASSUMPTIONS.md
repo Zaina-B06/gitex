@@ -636,6 +636,47 @@ interval below zero, otherwise **not shown**. Also reported: the share of check-
   labelled weak evidence, not a finding.
 - The lapse-risk model (risk_001) was trained in the earlier world and is not retrained; its model card says so.
 
+#### Result (run_009 any day vs run_010 open days only: seeds 31–40, all 7 scenarios, arms A, A0, B, C)
+**Validity check passed:** A and A0 metrics are identical in run_009 and run_010 in all 7 scenarios. Safety audit 0 for
+B and C in both runs. Copies: `docs/results/run_009/`, `docs/results/run_010/`.
+
+**The rule bites:** the share of sent check-ins that get answered (B and C) falls from 84% to 60% in baseline, and
+from 63% to 39% in low_checkin.
+
+**Our prediction was wrong.** We expected C's recovery edge over A0 to shrink. It didn't: recovery within 14 days,
+C vs A0, is **helps in 6/7 scenarios in run_009 and 7/7 in run_010** (baseline +1.4 [+0.4, +2.4] → +1.7 [+0.3, +3.2];
+shock_heavy +0.7 [−0.1, +1.5] → +0.9 [+0.1, +1.7]). With about a quarter fewer answered check-ins and no loss of
+recovery, the edge over a static plan looks driven mostly by shrink-on-slip and step-down, which need no answer, rather
+than by check-in answers. That reading is an inference, not something this test was designed to show.
+
+Verdicts by comparison (5 measures × 7 scenarios each, both runs):
+
+| Comparison | run_009 (any day) | run_010 (open days only) |
+|---|---|---|
+| C vs A | helps on all 35 | helps on all 35 |
+| C vs A0 | recovery helps 6/7; persistence wk 12 not shown 7/7; retention helps 1/7 (hot_summer); active minutes and tier-weighted sleep helps 7/7 | recovery helps 7/7; persistence not shown 7/7; retention not shown 7/7; active minutes and sleep helps 7/7 |
+| C vs B | recovery, persistence, retention not shown 21/21; active minutes helps 3/7 (hot_summer, low_checkin, ramadan_heavy); sleep not shown 7/7 | recovery helps 2/7 (harsh_attrition, high_dropout); persistence, retention not shown 14/14; active minutes helps 6/7 (all but high_dropout); sleep helps 1/7 (hot_summer) |
+
+**No "worse" result in either run.**
+
+**Depends on the assumption that check-ins can be answered on closed-app days** (helps in run_009, not in run_010):
+- hot_summer retention, C vs A0: +0.6 [+0.1, +1.0] → −0.3 [−0.8, +0.2]. That's the only one.
+
+**Changed the other way (not shown → helps): 7 of 105, all weak evidence, not findings.** The pre-registration
+expected at most one or two; there are seven, all small and with lower bounds close to zero:
+- C vs A0 recovery, shock_heavy: +0.9 [+0.1, +1.7].
+- C vs B recovery, harsh_attrition +0.5 [+0.1, +0.8] and high_dropout +0.8 [+0.1, +1.6].
+- C vs B active minutes, baseline +0.9 [+0.2, +1.7], harsh_attrition +0.7 [+0.1, +1.3], shock_heavy +0.6 [+0.2, +1.0].
+- C vs B tier-weighted sleep, hot_summer +0.3 [+0.0, +0.6].
+
+Five of the seven are C vs B. Together they hint that under the stricter rule the bandit (C) does slightly better than
+rules-only (B), by under 1.5 active minutes a week. That is not established. "The bandit adds nothing measurable at
+90 days" stays the headline until a pre-registered test says otherwise.
+
+**Adoption, as pre-registered:** `traits.checkin_needs_open_app` is now `true`. The reported results are re-run on
+seeds 1–10 (run_011). run_007 stays documented as the earlier world, "check-ins answered on any day". To reproduce it,
+add `--set traits.checkin_needs_open_app=false`.
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|
@@ -690,6 +731,8 @@ interval below zero, otherwise **not shown**. Also reported: the share of check-
 | Adjusted actions | the API calls `Engine.checkin(replace_pending=True)`: today's open action is swapped for the smaller one, logged as `action_shown` with `payload.replaces` | Otherwise the user is told "here's a smaller step" but can't record it until tomorrow. The simulator keeps the default (`False`), so reported results are unchanged. |
 | Demo time travel (`DEMO_MODE` only) | `advance` answers each day's open actions with P(completed, partial, skipped, no answer) = good 0.85/0.10/0.05/0 · mixed 0.45/0.15/0.20/0.20 · lapse 0/0/0/1, seeded by user and day, then moves `day_offset` on; `scenario` turns heat/Ramadan on and leaves it on; max 60 days per call | Demo-only numbers to show a lapse and a recovery on screen; they are not the simulator's behaviour model and produce no evidence. |
 | Demo seed (`DEMO_MODE` only) | 3 personas (night-shift worker in Arabic, office worker, wheelchair user) with 7 "good" days; a fresh org of 12 synthetic users with 14 days cycling good/mixed/lapse | A habit to lapse from, and an org above k = 10 so the employer page has aggregates. |
+| Employer view | `X-Org-Key` (one shared `ORG_KEY`); 403 below 10 members, same for an unknown org; returns group size, share in "active", mean habit strength per behaviour, top 3 check-in barriers by count; states as of each member's last visit (the view doesn't advance anyone's day) | §2.6 aggregates only, k ≥ 10. |
+| Outcome dashboard | `GET /dashboard/outcomes` serves `docs/results/dashboard.json` from `python -m sim.export_dashboard`; the exporter keeps the committed file when `sim/out` isn't there | Synthetic aggregate results only, so no auth. |
 | CORS | `FRONTEND_URL` always; `http://localhost:5173` only with `DEMO_MODE` or `DEV_MODE` | No local origin in production. |
 | Screening consent | onboarding with `consents.screening = false` → 422 | The health check is required for a safe plan (§4.3). |
 | Prompt hour | chosen by the engine (wake/sleep times, quiet hours); the API doesn't pass an hour | Keeps quiet hours in one place. |
@@ -717,8 +760,8 @@ interval below zero, otherwise **not shown**. Also reported: the share of check-
   one-person demo; production needs a per-user lock or optimistic versioning, and a server database.
 - **Prototype auth, not production auth.** One random bearer token per user, returned once at onboarding and stored
   as a sha256 hash; no expiry, rotation, recovery or rate limiting, and a lost token means a lost account. Demo
-  routes exist only with `DEMO_MODE=true`; `/demo/seed` needs no token, so anyone who can reach a demo server can
-  create synthetic users. The employer view uses one shared org key from `.env`.
+  routes exist only with `DEMO_MODE=true`; `/demo/seed` needs the shared `DEMO_KEY` (`X-Demo-Key` header) and is
+  refused when none is set. The employer view uses one shared org key from `.env`.
 - Changing `preferences.channel` in settings is saved but doesn't change the engine's channel (set at onboarding,
   then only by the `forgot` rule); the engine has no call for it yet.
 - Withdrawing consent for body, history or preferences deletes those answers (preferences go back to defaults,

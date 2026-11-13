@@ -564,6 +564,39 @@ Otherwise the hook stays out of the app, and the model is shown only as a predic
 | Explanations | `RiskModel.reasons`: plain phrases, intuitive direction only | Shown in the app as "We noticed …". |
 | Model used by D / D50 | `models/lapse_risk.joblib` from risk_001, frozen | Pre-registered. |
 
+#### Result (run_008: seeds 1–10, all 7 scenarios, arms A, A0, C, D, D50)
+**Decision by the pre-registered rule: keep the hook out of the app.** Condition (1) fails: baseline lapse rate, D vs C,
+is +0.2 pts [−0.1, +0.5], not "helps". Conditions (2) and (3) hold: no engagement measure is worse for D vs C in any
+scenario, and burden is +0.1 messages per persona-week everywhere (cap +0.5). D vs C is ≈ 0 on every measure in
+every scenario (one "helps": hot_summer retention +0.5 [+0.1, +0.9]). D50 is the same picture.
+
+**So the shipped default is no hook:** `Engine()` without a risk model, exactly as before Task 02b. The model stays in
+the repo as a tested component (features, training, evaluation, explanations, the hook code and its tests), with its
+prediction results in `docs/MODEL_CARD.md`.
+
+**Likely reason (read-only check on run_008 baseline, arm D):**
+- On alert days with a lighter option offered, **46% were days the persona didn't open the app** (35% on other days),
+  so the option was never seen. When the app *was* opened, the option was taken on 89% of those days.
+- On risk-check-in days (6,248; each is an alert day), **77% had every action already at tier 1**, so there was
+  nothing lighter to offer, and 48% were closed-app days. **Only 26% of these alert days put a lighter option in
+  front of the user.**
+
+People at risk have mostly stopped opening the app, and the plan has usually already shrunk to the smallest step. An
+in-app lighter option can't reach them. (The simulator doesn't log every alert, only offers and check-ins, so
+risk-check-in days are a sample: the first alert in each 7-day window.)
+
+**Pilot recommendation:** keep the risk score, and test *out-of-app* interventions triggered by it, which reach people
+who aren't opening the app. For example a WhatsApp-style nudge (`channel: whatsapp_style`), a buddy prompt, or a
+voice note, within the same message cap and quiet hours. Pre-register it like arm D, with a micro-randomised design
+(PRD §14).
+
+**Also from run_008: C and D vs A0, lapse rate slightly *higher* while recovery is better.** Lapse rate vs A0 is
++0.4 to +1.4 pts for both C (baseline +1.1 [+0.7, +1.6]) and D (baseline +1.4 [+1.0, +1.7]), whole interval above zero
+in every scenario. Recovery within 14 days is better (D vs A0 +0.6 to +1.7 pts, "helps" in 5 of 7; C vs A0 the same
+picture, see run_007).
+Consistent with Rebound asking for more than a static easy plan: a few more people slip at some point, and more of them
+come back.
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|

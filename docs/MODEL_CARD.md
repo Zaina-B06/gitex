@@ -2,9 +2,9 @@
 
 ## Lapse-risk model (Task 02b)
 
-**Status:** trained and evaluated (Drop A, `python -m sim.train_risk --run sim/out/risk_001`). The engine hook and
-simulator arms D / D50 (Drop B) are pre-registered in `docs/ASSUMPTIONS.md` ("Arm D"); their results go below once
-run.
+**Status:** trained and evaluated (Drop A, `python -m sim.train_risk --run sim/out/risk_001`). The engine hook was
+tested as pre-registered (Drop B, run_008) and **is disabled by default**: the shipped engine runs without a risk
+model. The model stays as a tested component; see "Engine hook: result" below.
 
 ### Intended use
 Predict, for a user who isn't lapsed today, the probability that the engine's engagement state becomes `lapsed`
@@ -104,6 +104,24 @@ Mobility-aid users have the weakest recall (0.250 vs 0.379 for no limitation), t
 a small group (988 test days, 236 lapse-ahead days), so the number is noisy, but it should be watched in a pilot.
 The model beats the completion heuristic in every segment.
 
+### Engine hook: result (run_008, pre-registered as "Arm D" in `docs/ASSUMPTIONS.md`)
+With the model plugged in (`Engine(risk_model=...)`), an alert offers each action one tier lighter and, at most
+once a week, a gentle check-in. Against Rebound without it (D vs C, seeds 1–10, all 7 scenarios):
+- **Lapse rate:** baseline +0.2 pts [−0.1, +0.5], not lower, so the ship rule's first condition fails.
+- **Engagement:** ≈ 0 everywhere; nothing worse.
+- **Burden:** +0.1 messages per persona-week, within the +0.5 cap.
+
+**Decision: keep the hook out of the app.** `Engine()` without a model is the shipped default.
+
+**Why it didn't help:** in the baseline run, 46% of alert days with a lighter option were days the person didn't open
+the app, and on 77% of risk-check-in days every action was already the smallest (tier 1), so there was nothing lighter
+to offer. Only about a quarter of alerts put an option in front of the user. A good prediction attached to an in-app
+intervention can't reach people who have stopped opening the app.
+
+**Pilot recommendation:** use the risk score to trigger *out-of-app* support (e.g. a WhatsApp-style nudge, a buddy
+prompt or a voice note), within the message cap and quiet hours, and test it pre-registered with a micro-randomised
+design.
+
 ### Known limitations
 - **Simulated data only.** It shows the pipeline and the engine hook work. It says nothing about real-world accuracy.
   It must be retrained, and re-validated, on pilot data before any real use.
@@ -116,6 +134,8 @@ The model beats the completion heuristic in every segment.
 - **No earlier warning than a simple heuristic.** It catches more lapses but with a median 3-day warning, a day
   less than the 7-day completion heuristic.
 - **Weaker recall for mobility-aid users** (0.25 vs 0.38) in a small group; noisy, to be re-checked on real data.
+- **Prediction isn't impact.** It ranks risk well, but the in-app hook built on it didn't reduce lapses (run_008).
+  Its value depends on an intervention that reaches people outside the app.
 - **Small, synthetic segments.** Mobility-aid and some language groups are small, so their fairness numbers are noisy.
 - The boosting explanations are approximate (see Model).
 

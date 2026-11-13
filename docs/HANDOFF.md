@@ -12,6 +12,7 @@ Read `AGENTS.md` (identical to `CLAUDE.md`) first: product spec, rules and conve
 | **Task 02 Drop 1: simulator** | Thompson-sampling bandit in the engine (`policy_mode="bandit"`), quiet hours, fast store. `sim/`: personas + hidden traits, behaviour model (daily app-open step, novelty decay, pre-registered success feedback δ = 0.05), arms A (streak app) / A0 (no streak penalty) / B (rules) / C (bandit), independent safety audit, metrics with 95% intervals, charts + summary. | `758341a`, `3cc111b` (pre-registration), `5ddb921` |
 | **Task 02 Drop 2: robustness** | 7 scenarios (incl. `harsh_attrition`), unlabelled shocks the engine never sees, recovery split by what preceded a lapse, sensitivity sweep + tornado chart, `--all-scenarios`, clean Ctrl+C. | `abcbf8b` |
 | **Step-up 3 → 4** | sweep_003 recorded; change pre-registered, then tested as arm C4 on fresh seeds 11–20 (run_006): decision "keep 4". Engine now steps up after **4** consecutive completions; tests read the threshold from config; AGENTS.md §6.3 updated; reported results re-run (run_007). | `97b94ef`, `cac4f73` (pre-registration), `a657d17`, `d051f30`, `f13f9dd`, `b402774`, `ead1934` |
+| **Task 02b: lapse-risk model** | Drop A: engine-visible features (`engine/rebound_engine/risk/`), training + evaluation (`sim/train_risk.py`), plain-language alert reasons, model card. Drop B: `Engine(risk_model=...)` hook and arms D / D50, tested as pre-registered (run_008): **decision "keep the hook out of the app"**. The hook is **disabled by default** (`Engine()` without a model is the shipped engine); the model stays as a tested component. | `644b54f` (pre-registration), `c46b25a`, `23a0663`, `ec5f211`, `ee05a3e`, `760ce45`, `ca2440d` |
 
 All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot of the reviewed outputs is in
 `docs/results/` (index: `docs/results/README.md`). **Report run_007**: the shipped engine, seeds 1–10, all scenarios.
@@ -31,18 +32,21 @@ All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot
 - **Step-up after 4 (not 3) was adopted by a pre-registered test:** seeds 1–5 informed it (sweep_003), seeds 11–20
   confirmed it (run_006: about +2 active min/week vs step-up 3 in every scenario, no engagement cost), seeds 1–10
   re-report the shipped engine (run_007).
+- **Lapse prediction works; the in-app hook doesn't.** The model flags 93% of upcoming lapses in the prior week vs 62%
+  for the drifting rule, at a similar alert rate (`docs/MODEL_CARD.md`). But offering a lighter option on alert didn't
+  lower the lapse rate (run_008, D vs C ≈ 0). 46% of alert days with an option were closed-app days, and most at-risk
+  users were already at tier 1. Pilot recommendation: trigger *out-of-app* support (WhatsApp-style nudge, buddy) from
+  the risk score.
+- **Rebound vs a static easy plan (A0): lapse rate is slightly higher (+0.4 to +1.4 pts) while recovery is better**,
+  consistent with Rebound asking for more.
 
-## Next, in order
+## Next, in order (see `docs/tasks/PLAN.md`)
 
-1. **Task 02b: lapse-risk model** (`docs/tasks/TASK_02b_lapse_risk_model.md`), in two drops:
-   - **Drop A (done):** engine-visible features (`engine/rebound_engine/risk/`), training + evaluation vs the
-     drifting rule and a completion heuristic (`sim/train_risk.py`), model card with results (`docs/MODEL_CARD.md`):
-     flags 93% of upcoming lapses in the prior week vs 62% for the drifting rule.
-   - **Drop B (code written):** `Engine(risk_model=...)` hook and arms D / D50, pre-registered in
-     `docs/ASSUMPTIONS.md` ("Arm D"). Run run_008 (seeds 1–10, all scenarios, arms A C D D50 + A0); the report
-     applies the ship rule automatically.
-2. **Task 03: API + lean LLM layer** (FastAPI wrapper, SQLite event log, barrier classifier, red-flag keywords,
-   templates EN/AR). The API contract is `AGENTS.md` §7.
+1. **Task 03 (Sat 14): API + lean LLM layer.** FastAPI wrapper, SQLite event log, barrier classifier, red-flag
+   keywords, templates EN/AR. The API contract is `AGENTS.md` §7. The API uses `Engine()` **without** a risk model.
+2. **Sun 15:** frontend shell wired to the API (`TASK_01_B_frontend_shell.md`, lean version).
+3. **Mon 16:** demo controls (time travel) + outcome dashboard + simple employer page.
+4. **Tue 17:** deploy. **Wed 18:** docs + demo video. **Thu 19:** buffer. **Fri 20:** submit.
 
 ## Setup on a fresh clone
 

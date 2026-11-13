@@ -5,7 +5,8 @@ Do the tasks **in this order**. Each one ends with something that runs. Don't st
 | Day | Task file | Outcome |
 |---|---|---|
 | Fri 13 (done) | `TASK_01_A_engine_core.md`, `TASK_02_simulator_bandit.md`, `TASK_02b_lapse_risk_model.md` | Engine + simulator + bandit + scenarios + sweep + lapse-risk model; results in `docs/ASSUMPTIONS.md`, `docs/MODEL_CARD.md` |
-| Sat 14 | Task 03: thin FastAPI wrapper + SQLite event log + **lean** LLM layer (barrier classifier + red-flag keywords + ~6 templates, EN/AR). `Engine()` without a risk model. | Full flow works over HTTP |
+| Sat 14 | Task 03 API (`TASK_03_api.md`): thin FastAPI wrapper + SQLite store, per-user tokens, demo endpoints. `Engine()` without a risk model. Check-in free text goes through an LLM interface with a keyword fallback; no provider calls. | Full flow works over HTTP |
+| Sat 14 → Tue 17 (teammate) | LLM layer (`TASK_01_C_llm_safety_docs.md`, lean): barrier classifier + red-flag LLM check + ~6 templates EN/AR, plugged into the API's interface; replaces `api/messages.py`. | Free-text check-ins classified |
 | Sun 15 | `TASK_01_B_frontend_shell.md` (lean version, see cuts) wired to the real API | Clickable journey on a phone |
 | Mon 16 | Demo controls (time travel, scenarios) + outcome dashboard (from `docs/results/run_007`) + simple employer page | Judges can watch a lapse and a recovery |
 | Tue 17 | Polish + deploy (Vercel + Render/Fly) + Arabic pass | Public links work |

@@ -1,4 +1,4 @@
-# Task 03 — API + storage (owner: Hamza)
+# Task 03 — API + storage (owner: Zaina)
 
 Read `AGENTS.md` (esp. §7 API contract, §8 conventions) and `docs/HANDOFF.md` first.
 The engine and simulator are done. This task wraps the engine in a FastAPI service so the app can use it.

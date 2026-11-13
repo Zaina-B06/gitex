@@ -2,6 +2,13 @@
 
 Read `AGENTS.md` first, especially §6.2 (barriers), §6.4 (red flags) and §2 (non-negotiables).
 
+> **How the API calls you (Task 03 is done).** The API calls `classify_barrier(text) -> Barrier | None` through
+> `api/llm_client.py`, which imports `llm.classify_barrier` if it exists and otherwise uses a keyword fallback.
+> Either expose that exact signature from `llm`, or adapt the small `_LLM` wrapper in `api/llm_client.py` (pass the
+> user's language, map low confidence or invalid output to `None`). The richer return below (`confidence`,
+> `red_flag`, …) can stay inside the `llm` package. Red-flag text never reaches the classifier: the engine's keyword
+> check runs first. See `docs/HANDOFF.md`, "For the LLM layer".
+
 ## Build
 
 1. **`llm/` package** (Python, provider-agnostic):

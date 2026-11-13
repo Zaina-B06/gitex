@@ -15,7 +15,7 @@ You can start immediately against mock data; the backend (Task 03) is being buil
 ## Part 2 (after the core screens work)
 6. **Demo panel** (shown only when `VITE_DEMO_MODE=true`): buttons for "Skip 7 days (good week)", "Skip 4 days (lapse)", "Start Ramadan", "Heat wave", calling `/demo/users/{id}/advance`. Show the returned day-by-day log so judges can watch drifting → lapsed → check-in → recovery in 2 minutes. A "Load demo persona" picker uses `/demo/seed`.
 7. **Results dashboard** page reading `GET /dashboard/outcomes`: headline cards (recovery, persistence, retention vs the streak app, with ranges), activity gains vs the fixed plan, the 7-world table, the safety audit (0 violations), the risk-model card (93% of lapses flagged vs 62%), and a clearly visible **"Where Rebound doesn't help"** section. Use the wording in `docs/Rebound_Results_Explained.pdf` if it's in the repo; otherwise docs/ASSUMPTIONS.md.
-8. **Employer page** reading `GET /dashboard/employer?org_id=demo`: aggregates only, and a friendly message when the API returns 403 (fewer than 10 people).
+8. **Employer page** reading `GET /dashboard/employer?org_id=<org_id>` with the `X-Org-Key` header (`ORG_KEY` from `.env`). Use the `org_id` returned by `POST /demo/seed`; every seed call creates a fresh org, so there is no fixed `demo` id. Aggregates only, and a friendly message when the API returns 403 (fewer than 10 people). A 401 means a missing or wrong org key.
 
 ## Done when
 - Full journey clickable on a phone-sized screen in English and Arabic (RTL correct), against mocks and then the real API.

@@ -183,6 +183,8 @@ class Engine:
             if state.pending:
                 state.pending = []
                 self._end_day(profile, state)
+            for b, h in state.habit_strength.items():
+                state.h_daily[b] = [*state.h_daily.get(b, []), h][-config.H_DAILY_KEEP :]
             scheduled = choose_actions(profile, state, library=self.library, bandit=self.bandit)
             state.day = day
             state.shown_today = [(s.action.id, s.time_window, s.hour) for s in scheduled]

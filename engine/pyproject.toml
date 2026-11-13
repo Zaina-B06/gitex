@@ -11,6 +11,8 @@ dependencies = ["pydantic>=2.6", "pyyaml>=6.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.4"]
+# Only needed to load a trained lapse-risk model (Task 02b); the engine runs without it.
+risk = ["scikit-learn>=1.4", "joblib>=1.3"]
 
 [tool.setuptools.packages.find]
 include = ["rebound_engine*"]

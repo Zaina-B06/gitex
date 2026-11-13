@@ -331,6 +331,8 @@ class UserState(BaseModel):
     prefer_indoor: bool = False
     red_flag: bool = False
     history: list[DayLog] = Field(default_factory=list)
+    # H at the start of each recent day, oldest first (observation only; used by lapse-risk features).
+    h_daily: dict[Behaviour, list[float]] = Field(default_factory=dict)
 
 
 class Context(BaseModel):

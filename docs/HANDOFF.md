@@ -34,8 +34,11 @@ All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot
 
 ## Next, in order
 
-1. **Task 02b: lapse-risk model** (`docs/tasks/TASK_02b_lapse_risk_model.md`). Read it fully and ask questions
-   before coding.
+1. **Task 02b: lapse-risk model** (`docs/tasks/TASK_02b_lapse_risk_model.md`), in two drops:
+   - **Drop A (code written):** engine-visible features (`engine/rebound_engine/risk/`), training + evaluation vs
+     the drifting rule and a completion heuristic (`sim/train_risk.py`), model card (`docs/MODEL_CARD.md`). Run:
+     `python -m sim.train_risk --run sim/out/risk_001`, then fill the model card's results.
+   - **Drop B:** `Engine(risk_model=...)` hook and arms D / D50, pre-registered in `docs/ASSUMPTIONS.md` ("Arm D").
 2. **Task 03: API + lean LLM layer** (FastAPI wrapper, SQLite event log, barrier classifier, red-flag keywords,
    templates EN/AR). The API contract is `AGENTS.md` §7.
 
@@ -49,7 +52,7 @@ git clone https://github.com/Zaina-B06/gitex.git
 cd gitex
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -e "engine[dev]"
+pip install -e "engine[dev,risk]"
 pip install -e "sim[dev]"
 copy .env.example .env      # only needed from Task 03 on; fill in locally, never commit
 ```
@@ -60,7 +63,7 @@ git clone https://github.com/Zaina-B06/gitex.git
 cd gitex
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e "engine[dev]"
+pip install -e "engine[dev,risk]"
 pip install -e "sim[dev]"
 cp .env.example .env        # only needed from Task 03 on; fill in locally, never commit
 ```

@@ -29,8 +29,8 @@ Needs Python 3.11+. From the repo root:
 python -m venv .venv
 # Windows (PowerShell):  .venv\Scripts\Activate.ps1
 # macOS/Linux:           source .venv/bin/activate
-pip install -e "engine[dev]"
-pip install -e "sim[dev]"                     # simulator: numpy, pandas, pyarrow, matplotlib
+pip install -e "engine[dev,risk]"
+pip install -e "sim[dev]"                     # simulator: numpy, pandas, pyarrow, matplotlib, scikit-learn
 ```
 
 ## Run

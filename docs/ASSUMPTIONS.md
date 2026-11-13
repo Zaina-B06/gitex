@@ -503,6 +503,22 @@ none), and the "worse" results shrink (shock_heavy persistence −1.5 → −1.1
 shock_heavy → no longer). Arm A's week-12 persistence is 33% here vs 41% on calibration seed 101: a seed-set
 difference, not retuned.
 
+### Lapse-risk model (Task 02b, Drop A)
+Details and limitations: `docs/MODEL_CARD.md`. Choices made here:
+
+| Choice | Value | Why |
+|---|---|---|
+| Training data | arm C, baseline scenario, 300 personas × 90 days, seeds 21–30 | Fresh seeds: 1–10 evaluation, 11–20 step-up test, 101 calibration are never used. Arm C because that's the shipped engine's behaviour. |
+| Split | by seed: train 21–26, validation 27–28, test 29–30 | Splitting by seed splits by persona, so a person's days never leak across splits (Task 02b honesty rule). |
+| Label | engine state becomes `lapsed` within the next 7 days | What the engine would act on (the engine's state, not the simulator's replay). Already-lapsed rows, rows after churn and the last 7 days (no full window) are excluded. |
+| Features | 41, from `compute_features(profile, state, events, day)` only | Same code in training and in the app. Travel left out (the engine never gets a travel flag). Weekend gap kept for real data but uninformative here (no weekly rhythm in the sim). |
+| Habit-strength slope | from `UserState.h_daily`: H at the start of each of the last 15 days | The only engine change in Drop A: an observation-only field, needed because H can't be recovered from the event log. No engine behaviour changes. |
+| Models | logistic regression and gradient boosting (`random_state=0`); pick by validation AUROC | Task 02b. Both reported. |
+| Alert threshold | score flagging 15% of validation days (`RISK_ALERT_RATE`) | Task 02b's example alert rate, frozen into the model file. |
+| Baselines | drifting rule (state is `drifting`); completion heuristic (last-7-day completion rate below a threshold set on validation at the same 15% alert rate) | Your additions (a). The model must beat both to be worth having. |
+| Lapses caught / warning time | caught = an alert in the 7 days before the engine entered `lapsed`; warning = days from the first such alert to the lapse, median over caught lapses | Your addition (b). |
+| Intervals | 95% persona-bootstrap (200 resamples) for AUROC, recall, and model-minus-heuristic AUROC | Test has only 2 seeds, so a t-interval across seeds would be meaningless. |
+
 ### Arm D (lapse-risk hook): pre-registered before any Task 02b run (committed on its own, before the code)
 **What's tested.** Arm **D** = C plus the lapse-risk model (`Engine(risk_model=...)`, Task 02b). When predicted risk is
 above the frozen threshold and the state is still `active`, the engine offers the next action one tier smaller as an

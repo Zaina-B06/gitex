@@ -95,7 +95,8 @@ class PersonaSim:
     def shock_today(self) -> bool:
         return self.day in self.shocks
 
-    def outcome(self, action: Action, window: str, hour: int) -> str:
+    def p_complete(self, action: Action, window: str, hour: int) -> float:
+        """Chance of completing this action today if the app is opened. Draws no random numbers."""
         b, t, day = self.b, self.t, self.day
         behaviour = action.behaviour.value
         cap = t.capacity_tier[behaviour]
@@ -128,7 +129,13 @@ class PersonaSim:
             + b["b_window"] * window_match
             - penalty
         )
-        p = _sigmoid(logit)
+        return _sigmoid(logit)
+
+    def outcome(self, action: Action, window: str, hour: int) -> str:
+        b = self.b
+        behaviour = action.behaviour.value
+        m = self.motivation_today()
+        p = self.p_complete(action, window, hour)
         u = self.rng.random()
         if not self.app_open:
             result = "no_response"

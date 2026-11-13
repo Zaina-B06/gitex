@@ -29,6 +29,7 @@ METRICS = {
     "delta_sleep_effort": ("Δ tier-weighted sleep nights (wk1→wk12)", "pct"),
     "delta_sleep": ("Δ sleep nights completed, raw (wk1→wk12)", "pct"),
     "retention": ("Retention at end", "pct"),
+    "lapse_rate": ("Lapse rate (≥ 1 lapse in the run)", "pct"),
     "messages_per_week": ("Messages per persona-week", "count"),
     "quiet_messages": ("Messages in quiet hours", "count"),
     "quiet_share": ("Share of messages in quiet hours", "pct"),
@@ -36,9 +37,12 @@ METRICS = {
 }
 EQUITY_METRICS = ("persistence_w12", "recovery_rate", "retention", "delta_minutes")
 COMPARE_METRICS = ("persistence_w12", "persistence_all", "recovery_rate", "recovery_labelled", "recovery_shock",
-                   "days_to_active", "retention", "delta_minutes", "delta_sleep_effort")  # raw sleep share is in the table only (biased)
+                   "days_to_active", "retention", "delta_minutes", "delta_sleep_effort",
+                   "lapse_rate", "messages_per_week")  # raw sleep share is in the table only (biased)
 COMPARISONS = (("C", "A"), ("B", "A"), ("C", "B"), ("C", "A0"),
-               ("C4", "C"), ("C4", "A"), ("C4", "A0"))  # C4 = pre-registered step-up test
+               ("C4", "C"), ("C4", "A"), ("C4", "A0"),  # C4 = pre-registered step-up test
+               ("D", "C"), ("D50", "C"), ("D", "A"), ("D", "A0"))  # D/D50 = pre-registered lapse-risk hook test
+LOWER_IS_BETTER = {"time_to_recover", "days_to_active", "lapse_rate", "messages_per_week"}
 
 _T95 = {1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57, 6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23,
         12: 2.18, 15: 2.13, 20: 2.09, 30: 2.04}
@@ -133,6 +137,7 @@ def persona_table(events: pd.DataFrame, personas: pd.DataFrame, days: int) -> pd
             "seed": seed, "arm": arm, "persona_id": pid,
             **{f"active_w{k}": week_active[k] for k in range(1, weeks + 1)},
             "lapse_onsets": onsets, "lapses_recovered": recovered, "recovery_times": times, "to_active": to_active,
+            "ever_lapsed": "lapsed" in state_list,
             **{f"onsets_{c}": by_cause[c][0] for c in CAUSES},
             **{f"recovered_{c}": by_cause[c][1] for c in CAUSES},
             "has_movement": len(mv) > 0, "has_sleep": len(slp) > 0,
@@ -175,6 +180,7 @@ def _group_metrics(t: pd.DataFrame, days: int) -> dict:
         float((sl["sleep_effort_w12"] - sl["sleep_effort_w1"]).mean()) if len(sl) else float("nan")
     )
     out["retention"] = float(1 - t["churned"].mean())
+    out["lapse_rate"] = float(t["ever_lapsed"].mean())
     out["messages_per_week"] = float(t["messages"].sum() / t["alive_weeks"].sum())
     out["quiet_messages"] = float(t["quiet_messages"].sum())
     out["quiet_share"] = float(t["quiet_messages"].sum() / max(1, t["messages"].sum()))

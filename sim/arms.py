@@ -1,5 +1,5 @@
 """The compared arms. A/A0 = static streak app, B = Engine(rules), C = Engine(bandit),
-C4 = C with STEP_UP_SUCCESSES = 4 (pre-registered step-up test).
+C4 = C with STEP_UP_SUCCESSES = 4 (pre-registered step-up test), D / D50 = C + the lapse-risk hook (Task 02b).
 
 B and C call the real Engine. A reuses the engine only to pick its *starting* plan (same starting
 tier and safety cap Rebound would assign), then never adapts."""
@@ -27,15 +27,36 @@ from rebound_engine.risk import compute_features
 from rebound_engine.safety import SCREENING_QUESTIONS, screening_flags
 from rebound_engine.state import compute_engagement_state, initial_state
 
+from . import SIM_DIR
 from .personas import HiddenTraits
 from .user_model import HEAT_END, HEAT_START, PersonaSim
 
-ARMS = ("A", "A0", "B", "C", "C4")
+ARMS = ("A", "A0", "B", "C", "C4", "D", "D50")
 _ARM_INDEX = {a: i for i, a in enumerate(ARMS)}
 # Pre-registered test (docs/ASSUMPTIONS.md, "Step-up 3 → 4"): C4 is C with one engine constant changed.
 ARM_ENGINE_OVERRIDES = {"C4": {"STEP_UP_SUCCESSES": 4}}
-_BANDIT_ARMS = ("C", "C4")
-_RNG_ARM = {"C4": "C"}  # same bandit random seed as C, so the threshold is the only difference
+_BANDIT_ARMS = ("C", "C4", "D", "D50")
+# Same bandit random seed as C, so the arm's own change is the only difference.
+_RNG_ARM = {"C4": "C", "D": "C", "D50": "C"}
+# Pre-registered (docs/ASSUMPTIONS.md, "Arm D"): C + the lapse-risk hook. How the persona picks between the shown
+# action and the lighter option: D = whichever it's more likely to complete; D50 = either, 50/50 (sensitivity).
+RISK_ARMS = ("D", "D50")
+DEFAULT_RISK_MODEL = SIM_DIR.parent / "models" / "lapse_risk.joblib"
+_risk_models: dict[str, object] = {}
+
+
+def load_arm_risk_model(cfg: dict):
+    """The frozen lapse-risk model for arms D/D50 (loaded once per process)."""
+    path = str(cfg.get("risk_model_path") or DEFAULT_RISK_MODEL)
+    if path not in _risk_models:
+        from pathlib import Path
+
+        if not Path(path).exists():
+            raise FileNotFoundError(f"{path} not found: train it first with `python -m sim.train_risk`")
+        from rebound_engine.risk import load_risk_model
+
+        _risk_models[path] = load_risk_model(path)
+    return _risk_models[path]
 _EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 HISTORY_DAYS = 21
 
@@ -89,7 +110,7 @@ class _Day:
 
     def action(
         self, day: int, action: Action, window: str, hour: int, outcome: str, quiet: bool, violation: str,
-        sim: PersonaSim,
+        sim: PersonaSim, offered_lighter: bool = False, took_lighter: bool = False,
     ):
         self.rows.append(
             self.base
@@ -111,6 +132,8 @@ class _Day:
                 # Ground truth for metrics only (lapse attribution); never passed to the engine.
                 "labelled": sim.labelled_today(),
                 "shock": sim.shock_today(),
+                "offered_lighter": offered_lighter,
+                "took_lighter": took_lighter,
             }
         )
         self.history.append(DayLog(day=day, outcome=DayOutcome(outcome)))
@@ -160,13 +183,14 @@ def _run_static(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
 
 def _run_engine(
     arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: int, log: _Day, seed: int,
-    features: list[dict] | None = None,
+    features: list[dict] | None = None, cfg: dict | None = None,
 ):
     pid = traits.persona_id
     engine = Engine(
         store=NoCopyStore(),
         policy_mode="bandit" if arm in _BANDIT_ARMS else "rules",
         rng=random.Random(seed * 1_000_003 + pid * 101 + _ARM_INDEX[_RNG_ARM.get(arm, arm)]),
+        risk_model=load_arm_risk_model(cfg or {}) if arm in RISK_ARMS else None,
     )
     uid = engine.onboard(payload, user_id=f"p{pid}").user_id
     told: set[ContextFlag] = set()
@@ -190,13 +214,24 @@ def _run_engine(
         flags = set(engine.get_state(uid).context_flags)
         outcomes = []
         for s in today.actions:
-            o = sim.outcome(s.action, s.time_window.value, s.hour)
+            action = s.action
+            if s.lighter is not None:  # risk hook offered a lighter version
+                if arm == "D50":
+                    take = sim.rng.random() < 0.5
+                else:
+                    window = s.time_window.value
+                    take = sim.p_complete(s.lighter, window, s.hour) > sim.p_complete(s.action, window, s.hour)
+                action = s.lighter if take else s.action
+            o = sim.outcome(action, s.time_window.value, s.hour)
             outcomes.append(o)
-            violation = audit(s.action, s.hour, payload, flags)
+            # Audit both what was shown and what was offered: neither may break a safety rule.
+            violation = ",".join(v for v in (audit(s.action, s.hour, payload, flags),
+                                             audit(s.lighter, s.hour, payload, flags) if s.lighter else "") if v)
             log.action(
-                day, s.action, s.time_window.value, s.hour, o, in_quiet_hours(s.hour, payload), violation, sim
+                day, action, s.time_window.value, s.hour, o, in_quiet_hours(s.hour, payload), violation, sim,
+                offered_lighter=s.lighter is not None, took_lighter=action is not s.action,
             )
-            engine.record(Event(user_id=uid, day=day, type=EventType(o), action_id=s.action.id))
+            engine.record(Event(user_id=uid, day=day, type=EventType(o), action_id=action.id))
         sim.end_day(outcomes)
         log.close(day)
         if features is not None:
@@ -233,7 +268,7 @@ def run_persona(
     try:  # arm-specific engine constants, always restored (runs are sequential within a process)
         for k, v in overrides.items():
             setattr(engine_config, k, v)
-        _run_engine(arm, payload, traits, sim, days, log, seed, features)
+        _run_engine(arm, payload, traits, sim, days, log, seed, features, cfg)
     finally:
         for k, v in saved.items():
             setattr(engine_config, k, v)

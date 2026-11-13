@@ -11,13 +11,20 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .metrics import COMPARE_METRICS, EQUITY_METRICS, METRICS
+from .metrics import COMPARE_METRICS, EQUITY_METRICS, LOWER_IS_BETTER, METRICS
 
 ARM_LABEL = {"A": "A · streak app", "A0": "A0 · streak app, no AVE", "B": "B · Rebound rules", "C": "C · Rebound full",
-             "C4": "C4 · Rebound full, step-up 4"}
+             "C4": "C4 · Rebound full, step-up 4", "D": "D · Rebound full + risk hook",
+             "D50": "D50 · risk hook, 50/50 pick"}
 HEADLINE_COMPARISONS = ("C_vs_A", "C_vs_A0", "C_vs_B")
 HEADLINE_METRICS = ("recovery_rate", "persistence_w12", "retention")
-ARM_COLOR = {"A": "#9a9a9a", "A0": "#c9b27c", "B": "#5b8def", "C": "#2a9d6f", "C4": "#b5487a"}
+ARM_COLOR = {"A": "#9a9a9a", "A0": "#c9b27c", "B": "#5b8def", "C": "#2a9d6f", "C4": "#b5487a", "D": "#e07b39",
+             "D50": "#f2b880"}
+# Pre-registered lapse-risk hook test (docs/ASSUMPTIONS.md, "Arm D"). The decision uses D vs C only.
+RISK_COMPARISONS = ("D_vs_C", "D50_vs_C", "D_vs_A", "D_vs_A0")
+RISK_MEASURES = ("lapse_rate", "persistence_w12", "recovery_rate", "retention", "messages_per_week")
+RISK_ENGAGEMENT = ("persistence_w12", "recovery_rate", "retention")
+BURDEN_CAP = 0.5  # pre-registered: messages per persona-week, D minus C, mean difference
 # Pre-registered step-up test (docs/ASSUMPTIONS.md, "Step-up 3 → 4"). The decision uses C4 vs C only.
 STEPUP_COMPARISONS = ("C4_vs_C", "C4_vs_A", "C4_vs_A0")
 STEPUP_MEASURES = ("delta_minutes", "delta_sleep_effort", "persistence_w12", "recovery_rate", "retention")
@@ -26,15 +33,26 @@ ALL_SCENARIOS = ("baseline", "ramadan_heavy", "hot_summer", "low_checkin", "high
                  "harsh_attrition")
 
 
-def verdict(s: dict | None) -> str:
-    """helps = whole 95% interval above zero; worse = whole interval below zero; otherwise not shown."""
+def verdict(s: dict | None, lower_is_better: bool = False) -> str:
+    """helps = whole 95% interval on the good side of zero; worse = whole interval on the bad side; otherwise
+    not shown. For lower-is-better measures (e.g. lapse rate) the sides swap."""
     if not s or s.get("ci_low") is None:
         return "not shown"
-    if s["ci_low"] > 0:
+    above, below = s["ci_low"] > 0, s["ci_high"] < 0
+    if lower_is_better:
+        above, below = below, above
+    if above:
         return "helps"
-    if s["ci_high"] < 0:
+    if below:
         return "worse"
     return "not shown"
+
+
+def burden_verdict(s: dict | None) -> str:
+    """Pre-registered: "worse" on burden means the mean increase exceeds BURDEN_CAP, not any increase."""
+    if not s or s.get("mean") is None:
+        return "not shown"
+    return "worse" if s["mean"] > BURDEN_CAP else "within cap"
 
 
 def fmt(summary: dict, unit: str, signed: bool = False) -> str:
@@ -48,7 +66,7 @@ def fmt(summary: dict, unit: str, signed: bool = False) -> str:
 
 
 def _arms(m: dict) -> list[str]:
-    return [a for a in ("A", "A0", "B", "C", "C4") if a in m["arms"]]
+    return [a for a in ("A", "A0", "B", "C", "C4", "D", "D50") if a in m["arms"]]
 
 
 def chart_persistence(m: dict, out: Path) -> None:
@@ -131,8 +149,49 @@ def headline_cells(m: dict, name: str, metrics: tuple[str, ...] = HEADLINE_METRI
     cells = []
     for k in metrics:
         s = m["comparisons"][name].get(k)
-        cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({verdict(s)})")
+        v = burden_verdict(s) if k == "messages_per_week" else verdict(s, k in LOWER_IS_BETTER)
+        cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({v})")
     return cells
+
+
+def risk_hook_decision(by_scenario: dict[str, dict]) -> tuple[str, list[str]]:
+    """Applies the pre-registered ship rule to D vs C. Returns (decision, reasons)."""
+    missing = [s for s in ALL_SCENARIOS if s not in by_scenario or "D_vs_C" not in by_scenario[s]["comparisons"]]
+    if missing:
+        return "incomplete", [f"D vs C missing for: {', '.join(missing)} (the rule needs all 7 scenarios)"]
+    reasons = []
+    lapse = verdict(by_scenario["baseline"]["comparisons"]["D_vs_C"]["lapse_rate"], lower_is_better=True)
+    if lapse != "helps":
+        reasons.append(f"(1) fails: baseline lapse rate is '{lapse}', not 'helps'")
+    for s in ALL_SCENARIOS:
+        comp = by_scenario[s]["comparisons"]["D_vs_C"]
+        for k in RISK_ENGAGEMENT:
+            if verdict(comp[k]) == "worse":
+                reasons.append(f"(2) fails: {METRICS[k][0].lower()} is 'worse' in {s}")
+        if burden_verdict(comp["messages_per_week"]) == "worse":
+            reasons.append(f"(3) fails: messages per persona-week +{comp['messages_per_week']['mean']:.2f} in {s} "
+                           f"(cap +{BURDEN_CAP})")
+    if not reasons:
+        return "ship the hook", [("(1) baseline lapse rate helps; (2) no engagement measure is worse in any scenario; "
+                                 f"(3) burden within +{BURDEN_CAP} messages per persona-week everywhere")]
+    return "keep the hook out of the app", reasons
+
+
+def risk_hook_markdown(by_scenario: dict[str, dict]) -> str:
+    lines = ["## Pre-registered lapse-risk hook test: D (and D50) vs C", "",
+             ("Ship rule (docs/ASSUMPTIONS.md, \"Arm D\"), D vs C only: (1) lapse rate \"helps\" (lower) in baseline; "
+              "(2) no engagement measure \"worse\" in any scenario; (3) messages per persona-week up by at most "
+              f"+{BURDEN_CAP} on average in every scenario. D50 (50/50 pick) is the sensitivity version."), "",
+             "| Scenario | Comparison | " + " | ".join(METRICS[k][0] for k in RISK_MEASURES) + " |",
+             "|---|---|" + "---|" * len(RISK_MEASURES)]
+    for scenario, m in by_scenario.items():
+        for name in RISK_COMPARISONS:
+            if name in m["comparisons"]:
+                lines.append(f"| {scenario} | {name.replace('_vs_', ' vs ')} | "
+                             + " | ".join(headline_cells(m, name, RISK_MEASURES)) + " |")
+    decision, reasons = risk_hook_decision(by_scenario)
+    lines += ["", f"**Decision: {decision}.**", ""] + [f"- {r}" for r in reasons]
+    return "\n".join(lines) + "\n"
 
 
 def stepup_decision(by_scenario: dict[str, dict]) -> tuple[str, list[str]]:
@@ -194,6 +253,8 @@ def scenarios_markdown(by_scenario: dict[str, dict]) -> str:
     md = "\n".join(lines) + "\n"
     if any("C4_vs_C" in m["comparisons"] for m in by_scenario.values()):
         md += "\n" + stepup_markdown(by_scenario)
+    if any("D_vs_C" in m["comparisons"] for m in by_scenario.values()):
+        md += "\n" + risk_hook_markdown(by_scenario)
     return md
 
 
@@ -235,7 +296,7 @@ def summary_markdown(m: dict) -> str:
                 continue
             lines.append(f"- {a} vs {b}, {label.lower()}: {fmt(s, unit, signed=True)}")
             if a == "C" and b in ("A", "A0") and s["mean"] is not None:
-                lower_is_better = key in ("time_to_recover", "days_to_active")
+                lower_is_better = key in LOWER_IS_BETTER
                 surely_better = s["ci_high"] < 0 if lower_is_better else s["ci_low"] > 0
                 surely_worse = s["ci_low"] > 0 if lower_is_better else s["ci_high"] < 0
                 if not surely_better:

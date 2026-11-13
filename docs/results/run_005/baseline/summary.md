@@ -25,7 +25,7 @@
 
 Raw Δ sleep nights completed favours arms that ask for less (A keeps the easiest sleep action), so the comparisons use the tier-weighted version.
 
-### Pre-registered headline (docs/ASSUMPTIONS.md, commit dc054ab)
+### Pre-registered headline (docs/ASSUMPTIONS.md, commit 3cc111b)
 
 Rebound "helps" on a measure only if the whole 95% interval of the difference is above zero; "worse" if it is entirely below zero; otherwise "not shown".
 

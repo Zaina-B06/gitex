@@ -8,9 +8,9 @@ Read `AGENTS.md` (identical to `CLAUDE.md`) first: product spec, rules and conve
 
 | Task | What exists | Key commits |
 |---|---|---|
-| **Task 01: engine core** | `engine/rebound_engine`: Pydantic models, 17-action library (`engine/data/actions.yaml`), safety layer (screening, context filters, red flags EN/AR), habit strength + engagement state, rules policy (shrink on slip, consecutive step-up/down), Engine facade with a `Store` protocol, 30-day demo CLI. One movement and one sleep action per goal per day. | `8408739` → `b765f35` |
-| **Task 02 Drop 1: simulator** | Thompson-sampling bandit in the engine (`policy_mode="bandit"`), quiet hours, fast store. `sim/`: personas + hidden traits, behaviour model (daily app-open step, novelty decay, pre-registered success feedback δ = 0.05), arms A (streak app) / A0 (no streak penalty) / B (rules) / C (bandit), independent safety audit, metrics with 95% intervals, charts + summary. | `70a181d`, `dc054ab` (pre-registration), `b79f72a` |
-| **Task 02 Drop 2: robustness** | 7 scenarios (incl. `harsh_attrition`), unlabelled shocks the engine never sees, recovery split by what preceded a lapse, sensitivity sweep + tornado chart, `--all-scenarios`, clean Ctrl+C. | `d68779f` |
+| **Task 01: engine core** | `engine/rebound_engine`: Pydantic models, 17-action library (`engine/data/actions.yaml`), safety layer (screening, context filters, red flags EN/AR), habit strength + engagement state, rules policy (shrink on slip, consecutive step-up/down), Engine facade with a `Store` protocol, 30-day demo CLI. One movement and one sleep action per goal per day. | `b21699a` → `e22630f` |
+| **Task 02 Drop 1: simulator** | Thompson-sampling bandit in the engine (`policy_mode="bandit"`), quiet hours, fast store. `sim/`: personas + hidden traits, behaviour model (daily app-open step, novelty decay, pre-registered success feedback δ = 0.05), arms A (streak app) / A0 (no streak penalty) / B (rules) / C (bandit), independent safety audit, metrics with 95% intervals, charts + summary. | `758341a`, `3cc111b` (pre-registration), `5ddb921` |
+| **Task 02 Drop 2: robustness** | 7 scenarios (incl. `harsh_attrition`), unlabelled shocks the engine never sees, recovery split by what preceded a lapse, sensitivity sweep + tornado chart, `--all-scenarios`, clean Ctrl+C. | `abcbf8b` |
 
 All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot of the reviewed outputs is in
 `docs/results/` (run_005 = all scenarios, sweep_002 = full sweep, sweep_003 = step-up threshold with activity).

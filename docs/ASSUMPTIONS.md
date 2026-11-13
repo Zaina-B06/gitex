@@ -201,7 +201,7 @@ in the report is secondary.
 δ; (4) run seeds 1–10 once (run_003). In Drop 2 the sensitivity sweep includes δ = 0, 0.025, 0.05 and 0.1, so it
 shows how the advantage over A0 depends on this assumption.
 
-### Where Rebound doesn't help: the no-feedback world (run_002, commit 70a181d)
+### Where Rebound doesn't help: the no-feedback world (run_002, commit 758341a)
 Before success feedback, nothing an arm did could change motivation (except A's streak penalty), so engagement was
 the same in A0, B and C by construction. Seeds 1–10, 300 personas, 90 days:
 
@@ -367,7 +367,7 @@ the current, already-documented behaviour. We apply it as written and report the
 results are re-run on seeds 1–10 so the reported numbers match the shipped engine. **If reverted:** nothing changes;
 the result is recorded here and the threshold stays a pilot question.
 
-#### Result (run_006: seeds 11–20, all 7 scenarios, arms A, A0, C, C4; commits 8e888a5 → 6dc1469 → run)
+#### Result (run_006: seeds 11–20, all 7 scenarios, arms A, A0, C, C4; commits cac4f73 → a657d17 → run)
 **Decision by the pre-registered rule: keep 4.** (a) Baseline Δ weekly active minutes, C4 vs C: +2.1 min
 [+1.4, +2.9], helps. (b) No engagement measure for C4 vs C is worse in any of the 7 scenarios (21 checks).
 

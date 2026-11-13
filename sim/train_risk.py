@@ -386,9 +386,13 @@ def main(argv: list[str] | None = None) -> None:
     charts(metrics, extra, out)
     te_alert, scores = extra["test_alert"].reset_index(drop=True), extra["alert_scores"]
     picks = np.flatnonzero(scores >= model.threshold)[:200]
-    rows = [{"seed": int(te_alert.at[i, "seed"]), "persona_id": int(te_alert.at[i, "persona_id"]),
-             "day": int(te_alert.at[i, "day"]), "risk": float(scores[i]), "lapsed_within_7d": bool(te_alert.at[i, "label"]),
-             "top_reasons": "; ".join(model.explain({n: float(te_alert.at[i, n]) for n in FEATURE_NAMES}))} for i in picks]
+    rows = []
+    for i in picks:
+        feats_i = {n: float(te_alert.at[i, n]) for n in FEATURE_NAMES}
+        rows.append({"seed": int(te_alert.at[i, "seed"]), "persona_id": int(te_alert.at[i, "persona_id"]),
+                     "day": int(te_alert.at[i, "day"]), "risk": float(scores[i]),
+                     "lapsed_within_7d": bool(te_alert.at[i, "label"]),
+                     "reasons": "; ".join(model.reasons(feats_i)), "reason_features": "; ".join(model.explain(feats_i))})
     pd.DataFrame(rows).to_csv(out / "alerts_examples.csv", index=False)
     md = summary_markdown(metrics)
     (out / "summary.md").write_text(md, encoding="utf-8")

@@ -38,6 +38,36 @@ FEATURE_NAMES: tuple[str, ...] = (
 )
 
 
+# Features that may be shown to a user as a reason for an alert: (direction that raises risk, plain phrase).
+# +1 = a higher value means more risk, -1 = a lower value means more risk. Anything not listed (e.g. schedule type,
+# screening, n_shown_7) is never shown as a reason: not actionable, sensitive, or not intuitive.
+REASONS: dict[str, tuple[int, str]] = {
+    "no_response_share_14": (+1, "fewer replies in the last 2 weeks"),
+    "consecutive_misses": (+1, "a few missed days in a row"),
+    "comp_rate_3": (-1, "fewer completions in the last few days"),
+    "comp_rate_7": (-1, "fewer completions this week"),
+    "comp_rate_14": (-1, "fewer completions in the last 2 weeks"),
+    "comp_trend": (-1, "completions dropping off recently"),
+    "h_movement": (-1, "the movement habit is still new"),
+    "h_sleep": (-1, "the sleep habit is still new"),
+    "h_slope_movement": (-1, "movement habit strength falling"),
+    "h_slope_sleep": (-1, "sleep habit strength falling"),
+    "checkin_due": (+1, "a check-in is waiting"),
+    "last_barrier_time": (+1, "you said time has been tight"),
+    "last_barrier_energy_fatigue": (+1, "you said you've been tired"),
+    "last_barrier_illness_pain": (+1, "you mentioned illness or pain"),
+    "last_barrier_schedule_change": (+1, "your schedule changed"),
+    "last_barrier_environment": (+1, "weather or space got in the way"),
+    "last_barrier_low_motivation": (+1, "motivation has been low"),
+    "last_barrier_social_family": (+1, "family or social plans got in the way"),
+    "last_barrier_forgot": (+1, "reminders were easy to miss"),
+    "ctx_ramadan": (+1, "Ramadan changes your routine"),
+    "ctx_heat": (+1, "hot weather"),
+    "ctx_illness": (+1, "you're recovering from illness"),
+    "state_drifting": (+1, "your routine has been slipping"),
+}
+
+
 def _window(outcomes: list[Event], day: int, days: int) -> list[Event]:
     return [e for e in outcomes if day - days < e.day <= day]
 

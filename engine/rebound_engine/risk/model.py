@@ -6,7 +6,7 @@ so `Engine()` without a risk model stays pure Python."""
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .features import FEATURE_NAMES
+from .features import FEATURE_NAMES, REASONS
 
 
 @dataclass
@@ -34,16 +34,33 @@ class RiskModel:
         return [float(p[1]) for p in self.model.predict_proba([self._row(r) for r in rows])]
 
     def explain(self, features: dict[str, float], k: int = 3) -> list[str]:
-        """The k features pushing this person's risk up the most.
+        """Up to k features that push this person's risk up *in an intuitive direction* (see REASONS).
 
-        Logistic: standardised coefficient × standardised value (exact contribution to the log-odds).
-        Boosting: permutation importance × how far the value is from average (an approximation)."""
+        A feature qualifies only if it's in REASONS, its value is on the risky side of average for that direction,
+        and (logistic) its coefficient has the intuitive sign, so collinear features with a backwards sign (e.g. a
+        positive weight on completion rate) are never shown. Ranking: logistic = exact contribution to the log-odds
+        (coefficient × standardised value); boosting = permutation importance × distance from average
+        (approximate). This only affects the explanation, never the risk score."""
         scores = {}
         for n in self.feature_names:
+            if n not in REASONS:
+                continue
+            direction = REASONS[n][0]
             z = (float(features[n]) - self.mean[n]) / (self.std[n] or 1.0)
             w = self.weights.get(n, 0.0)
-            scores[n] = w * z if self.kind == "logistic" else w * abs(z)
+            if direction * z <= 0:
+                continue  # value isn't on the risky side for this person
+            if self.kind == "logistic":
+                if direction * w <= 0:
+                    continue  # backwards coefficient (collinearity): not a believable reason
+                scores[n] = w * z
+            else:
+                scores[n] = w * abs(z)
         return [n for n, s in sorted(scores.items(), key=lambda kv: -kv[1])[:k] if s > 0]
+
+    def reasons(self, features: dict[str, float], k: int = 3) -> list[str]:
+        """Plain-language reasons for the app, e.g. ["fewer replies in the last 2 weeks", ...]."""
+        return [REASONS[n][1] for n in self.explain(features, k)]
 
     def alert(self, features: dict[str, float]) -> bool:
         return self.predict(features) >= self.threshold

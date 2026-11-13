@@ -596,6 +596,8 @@ in every scenario. Recovery within 14 days is better (D vs A0 +0.6 to +1.7 pts, 
 picture, see run_007).
 Consistent with Rebound asking for more than a static easy plan: a few more people slip at some point, and more of them
 come back.
+*Superseded:* with check-ins answered only on open days (run_011), the recovery edge over A0 is not robust across seed
+sets; see "Reported results: check-ins answered only on open days (run_011)".
 
 ### Check-ins answered only on open days: pre-registered before any run (committed on its own, before the code)
 **The change (simulator behaviour model only; the engine is unchanged).** Today a persona with a check-in due answers

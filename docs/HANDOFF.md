@@ -1,6 +1,6 @@
 # Handoff: where Rebound stands
 
-Last updated 2026-11-13. Deadline: working prototype + technical docs + assumptions/limitations due **20 Nov 2026**.
+Last updated 2026-11-14. Deadline: working prototype + technical docs + assumptions/limitations due **20 Nov 2026**.
 Read `AGENTS.md` (identical to `CLAUDE.md`) first: product spec, rules and conventions. The build plan is
 `docs/tasks/PLAN.md`.
 
@@ -13,6 +13,8 @@ Read `AGENTS.md` (identical to `CLAUDE.md`) first: product spec, rules and conve
 | **Task 02 Drop 2: robustness** | 7 scenarios (incl. `harsh_attrition`), unlabelled shocks the engine never sees, recovery split by what preceded a lapse, sensitivity sweep + tornado chart, `--all-scenarios`, clean Ctrl+C. | `abcbf8b` |
 | **Step-up 3 → 4** | sweep_003 recorded; change pre-registered, then tested as arm C4 on fresh seeds 11–20 (run_006): decision "keep 4". Engine now steps up after **4** consecutive completions; tests read the threshold from config; AGENTS.md §6.3 updated; reported results re-run (run_007). | `97b94ef`, `cac4f73` (pre-registration), `a657d17`, `d051f30`, `f13f9dd`, `b402774`, `ead1934` |
 | **Task 02b: lapse-risk model** | Drop A: engine-visible features (`engine/rebound_engine/risk/`), training + evaluation (`sim/train_risk.py`), plain-language alert reasons, model card. Drop B: `Engine(risk_model=...)` hook and arms D / D50, tested as pre-registered (run_008): **decision "keep the hook out of the app"**. The hook is **disabled by default** (`Engine()` without a model is the shipped engine); the model stays as a tested component. | `644b54f` (pre-registration), `c46b25a`, `23a0663`, `ec5f211`, `ee05a3e`, `760ce45`, `ca2440d` |
+| **Task 03: API** | `api/`: FastAPI over the same `Engine()` (rules, no risk model); `SQLiteStore` (sensitive profile groups in their own table); per-user bearer tokens (hashed); calendar-day clock per time zone, unopened days filled in as no-response; all §7 routes + export; consent withdrawal deletes answers; one check-in a day, adjusted action replaces today's; demo `advance` / `seed` (`DEMO_MODE`, `DEMO_KEY`); `/dashboard/outcomes` (from `sim.export_dashboard`) and `/dashboard/employer` (`ORG_KEY`, k ≥ 10). `api/openapi.json` and `docs/results/dashboard.json` committed. Check-in free text goes through `api/llm_client.py` (keyword fallback until the LLM package lands). | `2004608` → `812ad7f` |
+| **Check-in rule** | Pre-registered: personas answer check-ins only on days they open the app. Tested on seeds 31–40 (run_009 vs run_010), adopted as decided beforehand, reported results re-run (run_011). | `76e62a6` (pre-registration), `d11b3b2`, `24b2c4d`, `998ae6a` |
 
 All parameters, calibration and results are in `docs/ASSUMPTIONS.md`. A snapshot of the reviewed outputs is in
 `docs/results/` (index: `docs/results/README.md`). **Report run_011**: the shipped engine, seeds 1–10, all scenarios,
@@ -46,11 +48,45 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
 
 ## Next, in order (see `docs/tasks/PLAN.md`)
 
-1. **Task 03 (Sat 14): API + lean LLM layer.** FastAPI wrapper, SQLite event log, barrier classifier, red-flag
-   keywords, templates EN/AR. The API contract is `AGENTS.md` §7. The API uses `Engine()` **without** a risk model.
-2. **Sun 15:** frontend shell wired to the API (`TASK_01_B_frontend_shell.md`, lean version).
-3. **Mon 16:** demo controls (time travel) + outcome dashboard + simple employer page.
-4. **Tue 17:** deploy. **Wed 18:** docs + demo video. **Thu 19:** buffer. **Fri 20:** submit.
+1. **Sun 15–Mon 16, frontend (teammate, `TASK_04_frontend.md`):** shell wired to the real API, then demo panel,
+   results dashboard, employer page. See "For the frontend" below.
+2. **Sun 15–Tue 17, LLM layer (teammate, `TASK_01_C_llm_safety_docs.md`, lean):** classifier, templates, safety lists,
+   eval set. See "For the LLM layer" below.
+3. **Tue 17:** deploy. **Wed 18:** docs + demo video. **Thu 19:** buffer. **Fri 20:** submit.
+
+### For the frontend (Task 04)
+- **Types:** generate them from `api/openapi.json` (includes the demo routes). Run the API with
+  `uvicorn api.main:app --reload`; set `DEV_MODE=true` (or `DEMO_MODE=true`) in `.env` so `http://localhost:5173` is
+  allowed by CORS.
+- **Auth:** `POST /users` returns `token` once. Store it; send `Authorization: Bearer <token>` on every
+  `/users/{id}/*` and `/demo/users/{id}/advance` call. A 401 means a lost or wrong token.
+- **Today:** `actions[]` (movement first, then sleep), each with `hour` and `explanation_id`; `messages[]` are already
+  rendered in the user's language. After a check-in, `adjusted_actions[]` *replace* today's actions; re-fetch `/today`.
+- **Check-in:** at most one per day (409 on a second); free text is optional and a red flag always gets through.
+  On `red_flag: true`, show `message` (care guidance, 998 and 800 SAKINA) and no coaching.
+- **Settings:** `PATCH /settings` with `preferences`, `consents`, `context` (e.g. `{"heat": true}`,
+  `{"illness": false}` = "I'm OK now"). Withdrawing a consent deletes those answers; screening can't be withdrawn
+  (409). `GET /users/{id}/export` and `DELETE /users/{id}` cover "view / export / delete".
+- **Demo panel:** `POST /demo/seed` needs `X-Demo-Key`; it returns 3 personas with tokens and a **fresh `org_id`**
+  every call (not `demo`). `advance` takes `{days, pattern: good|mixed|lapse, scenario?: ramadan|heat}` and returns
+  a day-by-day `log`. A lapse needs ≥ 3 unanswered days to show; "Skip 4 days (lapse)" is enough.
+- **Results page:** read `GET /dashboard/outcomes` (run_011). Use the new wording: big gains vs the streak app (and that
+  this depends on the streak-penalty assumption); **about equal to a kind fixed plan on engagement, no reliable
+  recovery edge, more activity**; bandit adds nothing measurable; "Where Rebound doesn't help" visible.
+- **Employer page:** `GET /dashboard/employer?org_id=<from seed>` with `X-Org-Key`; show the friendly message on 403.
+- **Not in the API:** changing `channel` in settings has no effect yet (documented limitation).
+
+### For the LLM layer (TASK_01_C)
+- **Plug-in point:** `api/llm_client.py` imports `llm.classify_barrier` if it exists, else uses the keyword fallback.
+  It currently expects `classify_barrier(text) -> Barrier | None`. TASK_01_C specifies
+  `classify_barrier(text, lang) -> {barrier, confidence, red_flag, ...}`: when the package lands, adapt the small
+  `_LLM` wrapper in `llm_client.py` (pass the user's language, map low confidence to `None`). Provider errors already
+  fall back to keywords.
+- **Red flags:** the engine's keyword list (`engine/rebound_engine/safety.py`) runs first and is the guarantee;
+  red-flag text is never sent to the classifier. An LLM red-flag check is a bonus and isn't wired into the API yet.
+- **Messages:** `api/messages.py` holds EN/AR text for the engine's message keys (Arabic unreviewed). The templates
+  should replace it with the same keys, keeping 998 / 800 SAKINA in the red-flag message.
+- **Keys:** `.env.example` has `LLM_PROVIDER` and the provider keys; the API runs without them.
 
 ## Setup on a fresh clone
 
@@ -64,6 +100,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e "engine[dev,risk]"
 pip install -e "sim[dev]"
+pip install -e "api[dev]"
 copy .env.example .env      # only needed from Task 03 on; fill in locally, never commit
 ```
 
@@ -75,14 +112,16 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e "engine[dev,risk]"
 pip install -e "sim[dev]"
+pip install -e "api[dev]"
 cp .env.example .env        # only needed from Task 03 on; fill in locally, never commit
 ```
 
 **Check it works** (from the repo root)
 ```bash
-ruff check engine sim
-pytest engine/tests          # 105 tests
-pytest sim/tests             # 25 tests
+ruff check engine sim api
+pytest engine/tests          # 165 tests
+pytest sim/tests             # 47 tests
+pytest api/tests             # 57 tests
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

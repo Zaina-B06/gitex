@@ -597,6 +597,45 @@ picture, see run_007).
 Consistent with Rebound asking for more than a static easy plan: a few more people slip at some point, and more of them
 come back.
 
+### Check-ins answered only on open days: pre-registered before any run (committed on its own, before the code)
+**The change (simulator behaviour model only; the engine is unchanged).** Today a persona with a check-in due answers
+it with probability `answer_rate` on any day, including days it doesn't open the app. A real user can only answer
+inside the app. New rule: **a check-in can be answered only on a day the persona opens the app** (`app_open`); on
+those days the answer probability is unchanged. Config flag `traits.checkin_needs_open_app`, default `false` until
+this test has run, so run_007 still reproduces exactly from the same commit.
+
+**Why.** It's more realistic, and it was found in code review, not in results. It matters because people open the app
+on ~40% of days, so the current model lets engine arms (B, C) adapt from check-ins that no real user could have
+answered. Expected direction, written down now: fewer answered check-ins in B and C, so their recovery edge over A0
+probably shrinks. A and A0 send no check-ins, so they can't be affected.
+
+**Adoption, decided now, whatever the result.** The stricter rule becomes the reported world: after the test the
+default flips to `true` and the reported results are re-run on the evaluation seeds 1–10 (as for step-up 3 → 4).
+run_007 stays documented as the earlier world ("answered on any day"), like run_002. Calibration is unaffected (arm A
+only, and A answers no check-ins), so `open_base` stays.
+
+**How it's tested.**
+- Seeds **31–40**: never used before (1–10 evaluation, 11–20 step-up test, 21–30 risk-model training and test,
+  101 calibration). 300 personas, 90 days, all 7 scenarios, arms A, A0, B, C.
+- Two runs on those seeds, identical except for the flag: **run_009** (`false`, any day) and **run_010** (`true`,
+  open days only), so the check-in rule is the only difference. Each is run once.
+- **Validity check:** A and A0 must give identical metrics in run_009 and run_010. If they differ, the change touched
+  something it shouldn't have; both runs are invalid, deleted and recorded here.
+- Safety audit must be 0 for B and C in both runs (§9.8).
+
+**Comparisons and measures.** The pre-registered headline: C vs A, C vs A0, C vs B on recovery within 14 days,
+persistence at week 12 and retention at day 90, plus Δ weekly active minutes and Δ tier-weighted sleep, in every
+scenario and in both runs. Verdicts as everywhere: **helps** = whole 95% interval above zero, **worse** = whole
+interval below zero, otherwise **not shown**. Also reported: the share of check-ins answered in B and C in each run.
+
+**How it's reported.**
+- Every headline verdict for run_009 and run_010 side by side, whatever the direction.
+- A verdict that is **helps** in run_009 but not in run_010 is reported as **depending on the assumption that
+  check-ins can be answered on closed-app days** (§9.5), in this file, `docs/HANDOFF.md` and the submission.
+- Any verdict that changes the other way (not shown → helps) with only one or two such changes among the 105 is
+  labelled weak evidence, not a finding.
+- The lapse-risk model (risk_001) was trained in the earlier world and is not retrained; its model card says so.
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|

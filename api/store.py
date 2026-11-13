@@ -23,6 +23,7 @@ class UserMeta(BaseModel):
     day_offset: int = 0  # demo time travel only
     org_id: str | None = None
     token_hash: str  # sha256 of the bearer token; the token itself is never stored
+    last_checkin_day: int | None = None  # engine day of the last check-in (one per day)
 
 
 _SCHEMA = """

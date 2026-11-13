@@ -43,7 +43,8 @@ from .messages import HOW_TO_TURN_OFF, render
 from .store import SQLiteStore, UserMeta, sqlite_path
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
-LOCAL_FRONTEND = "http://localhost:5173"
+LOCAL_FRONTEND = "http://localhost:5173"  # allowed only with DEMO_MODE or DEV_MODE
+CATCH_UP_MAX_DAYS = 60  # unopened days filled in on return (docs/ASSUMPTIONS.md, API)
 
 
 # ---------- request / response shapes ----------
@@ -62,6 +63,13 @@ class OnboardIn(OnboardingPayload):
             ZoneInfo(v)
         except (ZoneInfoNotFoundError, ValueError):
             raise ValueError(f"unknown time zone {v!r}") from None
+        return v
+
+    @field_validator("consents")
+    @classmethod
+    def _screening_consent_needed(cls, v: dict[ConsentGroup, bool]) -> dict[ConsentGroup, bool]:
+        if v.get(ConsentGroup.screening) is False:
+            raise ValueError("the health check is needed to build a safe plan")
         return v
 
 
@@ -172,6 +180,7 @@ def create_app(
     demo_mode: bool = False,
     clock: Callable[[], datetime] | None = None,
     classifier: BarrierClassifier | None = None,
+    dev_mode: bool = False,
 ) -> FastAPI:
     store = SQLiteStore(sqlite_path(database_url))
     engine = Engine(store=store)  # rules mode, no risk model (hook off: ASSUMPTIONS.md, "Arm D")
@@ -182,7 +191,7 @@ def create_app(
     app.state.clock = clock or (lambda: datetime.now(UTC))  # tests swap this
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o for o in (LOCAL_FRONTEND, frontend_url) if o],
+        allow_origins=[o for o in (LOCAL_FRONTEND if demo_mode or dev_mode else None, frontend_url) if o],
         allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type"],
     )
@@ -210,7 +219,8 @@ def create_app(
         """Bring the engine up to today, one day at a time. A day the app wasn't opened is a day the action was
         shown and got no response, exactly as in the simulator."""
         day, start = current_day(meta), engine.get_state(meta.user_id).day + 1
-        for d in range(start, day):
+        # Bounded work per request; days beyond the cap are simply not logged.
+        for d in range(max(start, day - CATCH_UP_MAX_DAYS), day):
             engine.today(meta.user_id, d)
         return engine.today(meta.user_id, day)
 
@@ -254,21 +264,29 @@ def create_app(
 
     @app.post("/users/{user_id}/checkin", response_model=CheckinOut)
     def checkin(body: CheckinIn, meta: Authed) -> CheckinOut:
+        open_day(meta)  # check in on today's state, or a lapse found later would ask again the same day
+        day = engine.get_state(meta.user_id).day
+        red_flag_text = bool(body.free_text) and detect_red_flags(body.free_text)
+        if meta.last_checkin_day == day and not red_flag_text:  # a red flag always gets through
+            raise HTTPException(409, "already checked in today")
         barriers = list(body.barriers)  # buttons decide; free text only fills in when none were pressed
         # The engine's red-flag keywords run first (inside checkin); red-flag text never goes to the classifier.
-        if not barriers and body.free_text and not detect_red_flags(body.free_text):
+        if not barriers and body.free_text and not red_flag_text:
             guess = classifier.classify_barrier(body.free_text)
             barriers = [guess] if guess else []
-        result = engine.checkin(meta.user_id, barriers, free_text=body.free_text)
+        result = engine.checkin(meta.user_id, barriers, free_text=body.free_text, replace_pending=True)
+        store.save_meta(meta.model_copy(update={"last_checkin_day": day}))
         profile = store.get_profile(meta.user_id)
         return CheckinOut.model_validate({**result.model_dump(), "message": render(result.message_key, profile)})
 
     @app.get("/users/{user_id}/state", response_model=StateOut)
     def get_state(meta: Authed) -> StateOut:
+        open_day(meta)
         return _state_out(engine.get_state(meta.user_id))
 
     @app.patch("/users/{user_id}/settings", response_model=SettingsOut)
     def settings(body: SettingsIn, meta: Authed) -> SettingsOut:
+        open_day(meta)
         uid = meta.user_id
         profile = store.get_profile(uid)
         if body.context and body.context.get(ContextFlag.paused) is False and engine.get_state(uid).red_flag:
@@ -289,6 +307,7 @@ def create_app(
 
     @app.get("/users/{user_id}/export", response_model=ExportOut)
     def export(meta: Authed) -> ExportOut:
+        open_day(meta)
         uid = meta.user_id
         return ExportOut(
             account=meta.model_dump(exclude={"token_hash"}), profile=store.get_profile(uid),

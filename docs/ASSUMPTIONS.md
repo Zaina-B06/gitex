@@ -645,13 +645,19 @@ come back.
 | Choice | Value | Why |
 |---|---|---|
 | Engine day | calendar days in the user's time zone; the onboarding day is day 1 (+ `day_offset`, demo only) | Engine day 0 is the onboarding state with nothing shown yet. Time zone defaults to `Asia/Dubai`. |
-| Days the app wasn't opened | the API brings the engine forward one day at a time; each skipped day's actions are shown and closed as `no_response` | Same as a closed-app day in the simulator; without it a silent user would never become drifting/lapsed. |
+| Days the app wasn't opened | the API brings the engine forward one day at a time; each skipped day's actions are shown and closed as `no_response`; every user route (today, events, check-in, state, settings, export) does this first | Same as a closed-app day in the simulator; without it a silent user would never become drifting/lapsed, and a check-in on a stale day would be followed by a second ask. |
+| Catch-up cap | at most 60 unopened days are filled in; older ones are not logged | Bounds the work on one request. 60 > every engagement window (7–14 days) and the 21-day history, so the engagement state is the same as without the cap; H after 60 silent days is already below 0.2% of where it started (0.9^60). |
+| Check-ins | at most one per day (409); a red-flag free text is always accepted | One blame-free question a day; a safety signal must never be rate-limited. |
+| Adjusted actions | the API calls `Engine.checkin(replace_pending=True)`: today's open action is swapped for the smaller one, logged as `action_shown` with `payload.replaces` | Otherwise the user is told "here's a smaller step" but can't record it until tomorrow. The simulator keeps the default (`False`), so reported results are unchanged. |
+| CORS | `FRONTEND_URL` always; `http://localhost:5173` only with `DEMO_MODE` or `DEV_MODE` | No local origin in production. |
+| Screening consent | onboarding with `consents.screening = false` → 422 | The health check is required for a safe plan (§4.3). |
 | Prompt hour | chosen by the engine (wake/sleep times, quiet hours); the API doesn't pass an hour | Keeps quiet hours in one place. |
 | Events | only for today's still-open actions; repeats and unknown ids → 409 | A double tap must not count a completion twice. |
 | Check-in free text | used only when no barrier button was pressed; skipped if the engine's red-flag keywords match | Buttons decide (Task 03 §6); red-flag text is never sent to a classifier. |
 | Unpausing after a red flag | refused (409) through settings | §6.4: coaching stays stopped until a person has checked in. |
 | Messages | `api/messages.py`, EN + AR; Arabic unreviewed (`AR_REVIEWED = False`); 998 (UAE ambulance, u.ae) and 800 SAKINA / 800 725462 (Abu Dhabi DoH 24/7 mental health line, announced Mar 2026) in the red-flag message | Placeholder until TASK_01_C's templates. Abu Dhabi line chosen because the pilot is in Abu Dhabi; other emirates may need their own. |
 | Consents | a group sent with consent `false` is never stored (onboarding) and is deleted when withdrawn (settings); screening can't be withdrawn | §2.4 data minimisation, §4.7 data controls. |
+| Red-flag text | apostrophes (`'`, `’`) are deleted before matching, so "can't", "can’t" and "cant" match the same phrase; added "end it all", "ending my life", "no reason to live", "can't go on", "don't want to be here" | Typed messages often drop apostrophes. Substring matching means more false positives (e.g. "I can't go on the trip"); for a safety check that's the right side to err on. |
 | Export | `GET /users/{id}/export`: profile, state, full event log, account fields; never the token hash | §4.7 "view … export". |
 | Policy mode | rules (`Engine()` default), no risk model | Bandit adds nothing at 90 days (run_007); hook failed its test (run_008). |
 

@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from api.app import create_app
+from api.app import CATCH_UP_MAX_DAYS, create_app
 from api.llm_client import KeywordClassifier
 from api.messages import MESSAGES
 from fastapi.testclient import TestClient
@@ -75,6 +75,26 @@ def test_onboard_rejects_bad_input(client):
     assert client.post("/users", json=_body(basics={"age_years": 12})).status_code == 422
 
 
+def test_onboard_needs_screening_consent(client):
+    r = client.post("/users", json=_body(consents={"screening": False}))
+    assert r.status_code == 422
+    assert client.post("/users", json=_body(consents={"screening": True})).status_code == 201
+
+
+def test_cors_allows_localhost_only_in_demo_or_dev(clock):
+    def allowed(origin, **kw):
+        with TestClient(create_app(database_url="sqlite:///:memory:", clock=clock,
+                                   frontend_url="https://app.example", **kw)) as c:
+            r = c.options("/users", headers={"Origin": origin, "Access-Control-Request-Method": "POST"})
+            return r.headers.get("access-control-allow-origin") == origin
+
+    assert allowed("https://app.example")
+    assert not allowed("http://localhost:5173")
+    assert allowed("http://localhost:5173", dev_mode=True)
+    assert allowed("http://localhost:5173", demo_mode=True)
+    assert not allowed("https://evil.example", dev_mode=True)
+
+
 def test_user_routes_need_that_users_token(client):
     uid, headers, _ = onboard(client)
     other_uid, other_headers, _ = onboard(client)
@@ -122,11 +142,19 @@ def test_unopened_days_count_as_no_response(client, clock):
     uid, headers, _ = onboard(client)
     clock.advance(days=4)
     state = client.get(f"/users/{uid}/state", headers=headers).json()
-    assert state["day"] == 1  # nothing moves until the app asks for today
-    client.get(f"/users/{uid}/today", headers=headers)
-    state = client.get(f"/users/{uid}/state", headers=headers).json()
-    assert state["day"] == 5
+    assert state["day"] == 5  # any user route brings the engine up to today
     assert {d["day"] for d in state["history"] if d["outcome"] == "no_response"} == {1, 2, 3, 4}
+    events = client.get(f"/users/{uid}/export", headers=headers).json()["events"]
+    assert {e["day"] for e in events if e["type"] == "no_response"} == {1, 2, 3, 4}
+
+
+def test_catch_up_is_capped(client, clock):
+    uid, headers, _ = onboard(client)
+    clock.advance(days=100)
+    assert client.get(f"/users/{uid}/today", headers=headers).json()["day"] == 101
+    events = client.get(f"/users/{uid}/export", headers=headers).json()["events"]
+    shown_days = {e["day"] for e in events if e["type"] == "action_shown"}
+    assert shown_days == {1} | set(range(101 - CATCH_UP_MAX_DAYS, 102))
 
 
 def test_day_follows_the_users_time_zone(client, clock):
@@ -174,10 +202,24 @@ def test_lapse_then_checkin_then_recovery(client, clock):
     assert all(h > 0 for h in state["habit_strength"].values())  # decayed, never reset to zero
 
 
-def test_free_text_fills_in_only_without_buttons(client):
+def test_adjusted_action_can_be_done_today(client):
+    uid, headers, data = onboard(client, baseline={"active_days_per_week": 7})
+    move = data["today"]["actions"][0]["action"]
+    assert move["tier"] == 3
+    r = client.post(f"/users/{uid}/checkin", headers=headers, json={"barriers": ["time"]}).json()
+    smaller = next(a for a in r["adjusted_actions"] if a["behaviour"] == "movement")
+    assert smaller["tier"] == 2
+    today_ids = [a["action"]["id"] for a in client.get(f"/users/{uid}/today", headers=headers).json()["actions"]]
+    assert smaller["id"] in today_ids and move["id"] not in today_ids
+    done = client.post(f"/users/{uid}/events", headers=headers, json={"action_id": smaller["id"], "type": "completed"})
+    assert done.status_code == 200, done.text
+
+
+def test_free_text_fills_in_only_without_buttons(client, clock):
     uid, headers, _ = onboard(client)
     r = client.post(f"/users/{uid}/checkin", headers=headers, json={"free_text": "Too tired after work"}).json()
     assert r["barrier"] == "energy_fatigue"
+    clock.advance(days=1)
     r = client.post(f"/users/{uid}/checkin", headers=headers,
                     json={"barriers": ["forgot"], "free_text": "Too tired after work"}).json()
     assert r["barrier"] == "forgot"
@@ -205,9 +247,31 @@ def test_red_flag_text_never_reaches_the_classifier(clock):
 
     with TestClient(create_app(database_url="sqlite:///:memory:", clock=clock, classifier=Spy())) as c:
         uid, headers, _ = onboard(c)
+        uid2, headers2, _ = onboard(c)
         c.post(f"/users/{uid}/checkin", headers=headers, json={"free_text": "I passed out yesterday"})
-        c.post(f"/users/{uid}/checkin", headers=headers, json={"free_text": "busy week"})
+        c.post(f"/users/{uid2}/checkin", headers=headers2, json={"free_text": "busy week"})
     assert seen == ["busy week"]
+
+
+def test_checkin_after_days_away_uses_todays_state(client, clock):
+    uid, headers, _ = onboard(client)
+    complete_all(client, uid, headers)
+    clock.advance(days=6)
+    r = client.post(f"/users/{uid}/checkin", headers=headers, json={"barriers": ["time"]})
+    assert r.status_code == 200, r.text
+    today = client.get(f"/users/{uid}/today", headers=headers).json()
+    assert today["day"] == 7
+    assert today["checkin_due"] is False  # the lapse was found before the check-in, so no second ask today
+
+
+def test_one_checkin_per_day_but_red_flags_always_get_through(client, clock):
+    uid, headers, _ = onboard(client)
+    assert client.post(f"/users/{uid}/checkin", headers=headers, json={"barriers": ["time"]}).status_code == 200
+    assert client.post(f"/users/{uid}/checkin", headers=headers, json={"barriers": ["forgot"]}).status_code == 409
+    r = client.post(f"/users/{uid}/checkin", headers=headers, json={"free_text": "I can’t breathe on the stairs"})
+    assert r.status_code == 200 and r.json()["red_flag"] is True
+    clock.advance(days=1)
+    assert client.post(f"/users/{uid}/checkin", headers=headers, json={"barriers": ["time"]}).status_code == 200
 
 
 # ---------- explain, settings, delete ----------

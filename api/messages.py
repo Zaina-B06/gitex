@@ -63,6 +63,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     # 998: UAE ambulance (confirmed on the u.ae official portal).
     # 800 SAKINA (800 725462): Abu Dhabi DoH 24/7 mental health support hotline, announced 3 Mar 2026:
     # https://www.doh.gov.ae/en/news/doh-activates-247-mental-health-support-hotline-800-sakina-(725462)
+    # https://www.mediaoffice.abudhabi/en/health/department-of-health-abu-dhabi-activates-24-7-mental-health-support-hotline-800-sakina/
     "seek_care": {
         "en": "What you wrote sounds serious. We've paused coaching. Please contact a doctor now; "
               "in an emergency call 998 for an ambulance (UAE). If you're thinking of harming yourself, please "

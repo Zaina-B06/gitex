@@ -5,14 +5,17 @@ only its sha256 is stored, and every /users/{id}/* route requires it."""
 
 import hashlib
 import hmac
+import json
 import random
 import secrets
+from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -60,6 +63,7 @@ from .store import SQLiteStore, UserMeta, sqlite_path
 DEFAULT_TIMEZONE = "Asia/Dubai"
 LOCAL_FRONTEND = "http://localhost:5173"  # allowed only with DEMO_MODE or DEV_MODE
 CATCH_UP_MAX_DAYS = 60  # unopened days filled in on return (docs/ASSUMPTIONS.md, API)
+EMPLOYER_MIN_GROUP = 10  # k for employer aggregates (AGENTS.md §2.6)
 
 
 # ---------- request / response shapes ----------
@@ -158,6 +162,21 @@ class AdvanceOut(BaseModel):
     log: list[DayRow]  # one row per day that was filled in
 
 
+class BarrierCount(BaseModel):
+    barrier: Barrier
+    count: int
+
+
+class EmployerOut(BaseModel):
+    """Aggregates for one org; only returned for groups of at least EMPLOYER_MIN_GROUP (AGENTS.md §2.6)."""
+
+    org_id: str
+    group_size: int
+    active_share: float  # share of members whose engagement state is "active"
+    average_habit_strength: dict[Behaviour, float]
+    top_barriers: list[BarrierCount]  # most common check-in barriers, at most 3
+
+
 class ExportOut(BaseModel):
     """Everything stored about the user (AGENTS.md §4.7), except the token hash."""
 
@@ -202,6 +221,9 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
     classifier: BarrierClassifier | None = None,
     dev_mode: bool = False,
+    demo_key: str | None = None,
+    org_key: str | None = None,
+    dashboard_path: Path | None = None,
 ) -> FastAPI:
     store = SQLiteStore(sqlite_path(database_url))
     engine = Engine(store=store)  # rules mode, no risk model (hook off: ASSUMPTIONS.md, "Arm D")
@@ -350,6 +372,37 @@ def create_app(
             how_to_turn_off=HOW_TO_TURN_OFF["ar" if lang == Language.ar else "en"],
         )
 
+    # ---------- dashboards: aggregates only, never individual data ----------
+
+    @app.get("/dashboard/outcomes")
+    def outcomes() -> dict[str, Any]:
+        """Simulation results by arm and scenario (docs/results/dashboard.json, from sim.export_dashboard)."""
+        if dashboard_path is None or not dashboard_path.exists():
+            raise HTTPException(404, "no dashboard.json; run python -m sim.export_dashboard")
+        return json.loads(dashboard_path.read_text(encoding="utf-8"))
+
+    @app.get("/dashboard/employer", response_model=EmployerOut)
+    def employer(org_id: str, x_org_key: Annotated[str | None, Header()] = None) -> EmployerOut:
+        if not org_key or not x_org_key or not hmac.compare_digest(x_org_key, org_key):
+            raise HTTPException(401, "missing or wrong X-Org-Key")
+        members = store.org_user_ids(org_id)
+        if len(members) < EMPLOYER_MIN_GROUP:  # same answer for an unknown org
+            raise HTTPException(403, f"group too small to report (minimum {EMPLOYER_MIN_GROUP})")
+        states = [engine.get_state(uid) for uid in members]
+        barriers = Counter(
+            e.payload["primary"] for uid in members for e in engine.events(uid) if e.type == EventType.checkin
+        )
+        return EmployerOut(
+            org_id=org_id,
+            group_size=len(members),
+            active_share=sum(s.engagement_state == EngagementState.active for s in states) / len(states),
+            average_habit_strength={
+                b: sum(hs) / len(hs) for b in Behaviour
+                if (hs := [s.habit_strength[b] for s in states if b in s.habit_strength])
+            },
+            top_barriers=[BarrierCount(barrier=b, count=n) for b, n in barriers.most_common(3)],
+        )
+
     if not demo_mode:
         return app
 
@@ -385,7 +438,10 @@ def create_app(
         return AdvanceOut(state=_state_out(engine.get_state(meta.user_id)), today=today, log=log)
 
     @app.post("/demo/seed", response_model=SeedOut, status_code=201)
-    def seed() -> SeedOut:
+    def seed(x_demo_key: Annotated[str | None, Header()] = None) -> SeedOut:
+        # No DEMO_KEY configured = seeding refused, never open.
+        if not demo_key or not x_demo_key or not hmac.compare_digest(x_demo_key, demo_key):
+            raise HTTPException(401, "missing or wrong X-Demo-Key")
         personas = []
         for name, data in DEMO_PERSONAS:
             out = onboard(OnboardIn.model_validate(data))

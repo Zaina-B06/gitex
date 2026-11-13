@@ -7,10 +7,21 @@ from fastapi.testclient import TestClient
 from test_api import Clock, complete_all, onboard
 
 
+DEMO_KEY = {"X-Demo-Key": "test-demo-key"}
+
+
 @pytest.fixture
 def demo():
-    with TestClient(create_app(database_url="sqlite:///:memory:", clock=Clock(), demo_mode=True)) as c:
+    app = create_app(database_url="sqlite:///:memory:", clock=Clock(), demo_mode=True, demo_key="test-demo-key")
+    with TestClient(app) as c:
         yield c
+
+
+def test_seed_needs_the_demo_key(demo):
+    assert demo.post("/demo/seed").status_code == 401
+    assert demo.post("/demo/seed", headers={"X-Demo-Key": "wrong"}).status_code == 401
+    with TestClient(create_app(database_url="sqlite:///:memory:", clock=Clock(), demo_mode=True)) as no_key:
+        assert no_key.post("/demo/seed", headers=DEMO_KEY).status_code == 401  # no DEMO_KEY set: refused
 
 
 def advance(client, uid, headers, **body):
@@ -73,7 +84,7 @@ def test_scenario_turns_on_its_context_flag(demo):
 
 
 def test_seed_creates_three_personas_and_an_org(demo):
-    r = demo.post("/demo/seed")
+    r = demo.post("/demo/seed", headers=DEMO_KEY)
     assert r.status_code == 201, r.text
     data = r.json()
     assert len(data["personas"]) == 3 and data["org_size"] == ORG_SIZE
@@ -93,4 +104,4 @@ def test_seed_creates_three_personas_and_an_org(demo):
     members = store.org_user_ids(data["org_id"])
     assert len(members) == ORG_SIZE
     assert {store.get_state(uid).day for uid in members} == {ORG_DAYS}
-    assert demo.post("/demo/seed").json()["org_id"] != data["org_id"]  # a fresh org every time
+    assert demo.post("/demo/seed", headers=DEMO_KEY).json()["org_id"] != data["org_id"]  # a fresh org every time

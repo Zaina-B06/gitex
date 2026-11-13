@@ -1,6 +1,7 @@
 """Entry point: uvicorn api.main:app --reload (from the repo root). Settings come from .env."""
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -18,4 +19,7 @@ app = create_app(
     frontend_url=os.getenv("FRONTEND_URL") or None,
     demo_mode=_flag("DEMO_MODE"),
     dev_mode=_flag("DEV_MODE"),
+    demo_key=os.getenv("DEMO_KEY") or None,
+    org_key=os.getenv("ORG_KEY") or None,
+    dashboard_path=Path(__file__).resolve().parents[1] / "docs" / "results" / "dashboard.json",
 )

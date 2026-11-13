@@ -13,10 +13,28 @@ import numpy as np
 
 from .metrics import COMPARE_METRICS, EQUITY_METRICS, METRICS
 
-ARM_LABEL = {"A": "A · streak app", "A0": "A0 · streak app, no AVE", "B": "B · Rebound rules", "C": "C · Rebound full"}
+ARM_LABEL = {"A": "A · streak app", "A0": "A0 · streak app, no AVE", "B": "B · Rebound rules", "C": "C · Rebound full",
+             "C4": "C4 · Rebound full, step-up 4"}
 HEADLINE_COMPARISONS = ("C_vs_A", "C_vs_A0", "C_vs_B")
 HEADLINE_METRICS = ("recovery_rate", "persistence_w12", "retention")
-ARM_COLOR = {"A": "#9a9a9a", "A0": "#c9b27c", "B": "#5b8def", "C": "#2a9d6f"}
+ARM_COLOR = {"A": "#9a9a9a", "A0": "#c9b27c", "B": "#5b8def", "C": "#2a9d6f", "C4": "#b5487a"}
+# Pre-registered step-up test (docs/ASSUMPTIONS.md, "Step-up 3 → 4"). The decision uses C4 vs C only.
+STEPUP_COMPARISONS = ("C4_vs_C", "C4_vs_A", "C4_vs_A0")
+STEPUP_MEASURES = ("delta_minutes", "delta_sleep_effort", "persistence_w12", "recovery_rate", "retention")
+STEPUP_ENGAGEMENT = ("persistence_w12", "recovery_rate", "retention")
+ALL_SCENARIOS = ("baseline", "ramadan_heavy", "hot_summer", "low_checkin", "high_dropout", "shock_heavy",
+                 "harsh_attrition")
+
+
+def verdict(s: dict | None) -> str:
+    """helps = whole 95% interval above zero; worse = whole interval below zero; otherwise not shown."""
+    if not s or s.get("ci_low") is None:
+        return "not shown"
+    if s["ci_low"] > 0:
+        return "helps"
+    if s["ci_high"] < 0:
+        return "worse"
+    return "not shown"
 
 
 def fmt(summary: dict, unit: str, signed: bool = False) -> str:
@@ -30,7 +48,7 @@ def fmt(summary: dict, unit: str, signed: bool = False) -> str:
 
 
 def _arms(m: dict) -> list[str]:
-    return [a for a in ("A", "A0", "B", "C") if a in m["arms"]]
+    return [a for a in ("A", "A0", "B", "C", "C4") if a in m["arms"]]
 
 
 def chart_persistence(m: dict, out: Path) -> None:
@@ -109,18 +127,47 @@ def chart_sensitivity(m: dict, out: Path) -> None:
     plt.close(fig)
 
 
-def headline_cells(m: dict, name: str) -> list[str]:
+def headline_cells(m: dict, name: str, metrics: tuple[str, ...] = HEADLINE_METRICS) -> list[str]:
     cells = []
-    for k in HEADLINE_METRICS:
-        s = m["comparisons"][name][k]
-        if s["ci_low"] is not None and s["ci_low"] > 0:
-            verdict = "helps"
-        elif s["ci_high"] is not None and s["ci_high"] < 0:
-            verdict = "worse"  # whole interval below zero: shown, not hidden under "not shown"
-        else:
-            verdict = "not shown"
-        cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({verdict})")
+    for k in metrics:
+        s = m["comparisons"][name].get(k)
+        cells.append(f"{fmt(s, METRICS[k][1], signed=True)} ({verdict(s)})")
     return cells
+
+
+def stepup_decision(by_scenario: dict[str, dict]) -> tuple[str, list[str]]:
+    """Applies the pre-registered rule to C4 vs C. Returns (decision, reasons)."""
+    reasons = []
+    missing = [s for s in ALL_SCENARIOS if s not in by_scenario or "C4_vs_C" not in by_scenario[s]["comparisons"]]
+    if missing:
+        return "incomplete", [f"C4 vs C missing for: {', '.join(missing)} (the rule needs all 7 scenarios)"]
+    minutes = verdict(by_scenario["baseline"]["comparisons"]["C4_vs_C"]["delta_minutes"])
+    if minutes != "helps":
+        reasons.append(f"(a) fails: baseline Δ weekly active minutes is '{minutes}', not 'helps'")
+    for s in ALL_SCENARIOS:
+        for k in STEPUP_ENGAGEMENT:
+            if verdict(by_scenario[s]["comparisons"]["C4_vs_C"][k]) == "worse":
+                reasons.append(f"(b) fails: {METRICS[k][0].lower()} is 'worse' in {s}")
+    if not reasons:
+        return "keep 4", ["(a) baseline Δ active minutes helps; (b) no engagement measure is worse in any scenario"]
+    return "revert to 3", reasons
+
+
+def stepup_markdown(by_scenario: dict[str, dict]) -> str:
+    lines = ["## Pre-registered step-up test: C4 (step up after 4) vs C (after 3)", "",
+             ("Decision rule (docs/ASSUMPTIONS.md): keep 4 only if (a) Δ weekly active minutes for C4 vs C is "
+              "\"helps\" in baseline and (b) no engagement measure (persistence wk 12, recovery, retention) for "
+              "C4 vs C is \"worse\" in any scenario; otherwise revert to 3."), "",
+             "| Scenario | Comparison | " + " | ".join(METRICS[k][0] for k in STEPUP_MEASURES) + " |",
+             "|---|---|" + "---|" * len(STEPUP_MEASURES)]
+    for scenario, m in by_scenario.items():
+        for name in STEPUP_COMPARISONS:
+            if name in m["comparisons"]:
+                lines.append(f"| {scenario} | {name.replace('_vs_', ' vs ')} | "
+                             + " | ".join(headline_cells(m, name, STEPUP_MEASURES)) + " |")
+    decision, reasons = stepup_decision(by_scenario)
+    lines += ["", f"**Decision: {decision}.**", ""] + [f"- {r}" for r in reasons]
+    return "\n".join(lines) + "\n"
 
 
 def scenarios_markdown(by_scenario: dict[str, dict]) -> str:
@@ -144,7 +191,10 @@ def scenarios_markdown(by_scenario: dict[str, dict]) -> str:
                     parts.append(f"{name.replace('_vs_', ' vs ')} {METRICS[k][0].split(', ')[1]}: "
                                  f"{fmt(comp[k], 'pct', signed=True)}")
         lines.append(f"- {scenario}: " + "; ".join(parts))
-    return "\n".join(lines) + "\n"
+    md = "\n".join(lines) + "\n"
+    if any("C4_vs_C" in m["comparisons"] for m in by_scenario.values()):
+        md += "\n" + stepup_markdown(by_scenario)
+    return md
 
 
 def summary_markdown(m: dict) -> str:

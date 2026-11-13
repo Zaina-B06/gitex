@@ -37,7 +37,8 @@ METRICS = {
 EQUITY_METRICS = ("persistence_w12", "recovery_rate", "retention", "delta_minutes")
 COMPARE_METRICS = ("persistence_w12", "persistence_all", "recovery_rate", "recovery_labelled", "recovery_shock",
                    "days_to_active", "retention", "delta_minutes", "delta_sleep_effort")  # raw sleep share is in the table only (biased)
-COMPARISONS = (("C", "A"), ("B", "A"), ("C", "B"), ("C", "A0"))
+COMPARISONS = (("C", "A"), ("B", "A"), ("C", "B"), ("C", "A0"),
+               ("C4", "C"), ("C4", "A"), ("C4", "A0"))  # C4 = pre-registered step-up test
 
 _T95 = {1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57, 6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23,
         12: 2.18, 15: 2.13, 20: 2.09, 30: 2.04}

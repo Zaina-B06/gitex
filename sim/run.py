@@ -160,7 +160,8 @@ def run_scenario(scenario: str, args: argparse.Namespace, arms: list[str], out: 
 
     # Fail loudly: the engine arms must never show an unsafe action or message in quiet hours.
     ok = True
-    for arm in ("B", "C"):
+    engine_arms = [a for a in ("B", "C", "C4") if a in metrics["arms"]]
+    for arm in engine_arms:
         if arm in metrics["arms"]:
             bad = metrics["arms"][arm]["safety_violations"]["max"] or 0
             quiet = metrics["arms"][arm]["quiet_messages"]["max"] or 0
@@ -169,7 +170,7 @@ def run_scenario(scenario: str, args: argparse.Namespace, arms: list[str], out: 
                       f"messages (see the 'violation' and 'quiet' columns in {ev_path.name})")
                 ok = False
     if ok:
-        print(f"safety audit [{scenario}]: 0 violations and 0 quiet-hour messages in B and C")
+        print(f"safety audit [{scenario}]: 0 violations and 0 quiet-hour messages in {', '.join(engine_arms)}")
     return ok
 
 

@@ -1,4 +1,5 @@
-"""The compared arms. A/A0 = static streak app, B = Engine(rules), C = Engine(bandit).
+"""The compared arms. A/A0 = static streak app, B = Engine(rules), C = Engine(bandit),
+C4 = C with STEP_UP_SUCCESSES = 4 (pre-registered step-up test).
 
 B and C call the real Engine. A reuses the engine only to pick its *starting* plan (same starting
 tier and safety cap Rebound would assign), then never adapts."""
@@ -7,6 +8,7 @@ import random
 from datetime import UTC, datetime
 
 import numpy as np
+from rebound_engine import config as engine_config
 from rebound_engine.engine import Engine, NoCopyStore
 from rebound_engine.models import (
     Action,
@@ -27,8 +29,12 @@ from rebound_engine.state import compute_engagement_state, initial_state
 from .personas import HiddenTraits
 from .user_model import HEAT_END, HEAT_START, PersonaSim
 
-ARMS = ("A", "A0", "B", "C")
+ARMS = ("A", "A0", "B", "C", "C4")
 _ARM_INDEX = {a: i for i, a in enumerate(ARMS)}
+# Pre-registered test (docs/ASSUMPTIONS.md, "Step-up 3 → 4"): C4 is C with one engine constant changed.
+ARM_ENGINE_OVERRIDES = {"C4": {"STEP_UP_SUCCESSES": 4}}
+_BANDIT_ARMS = ("C", "C4")
+_RNG_ARM = {"C4": "C"}  # same bandit random seed as C, so the threshold is the only difference
 _EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 HISTORY_DAYS = 21
 
@@ -155,8 +161,8 @@ def _run_engine(arm: str, payload, traits: HiddenTraits, sim: PersonaSim, days: 
     pid = traits.persona_id
     engine = Engine(
         store=NoCopyStore(),
-        policy_mode="bandit" if arm == "C" else "rules",
-        rng=random.Random(seed * 1_000_003 + pid * 101 + _ARM_INDEX[arm]),
+        policy_mode="bandit" if arm in _BANDIT_ARMS else "rules",
+        rng=random.Random(seed * 1_000_003 + pid * 101 + _ARM_INDEX[_RNG_ARM.get(arm, arm)]),
     )
     uid = engine.onboard(payload, user_id=f"p{pid}").user_id
     told: set[ContextFlag] = set()
@@ -206,6 +212,14 @@ def run_persona(arm: str, payload, traits: HiddenTraits, cfg: dict, days: int, s
     log = _Day(seed, arm, traits.persona_id)
     if arm in ("A", "A0"):
         _run_static(arm, payload, traits, sim, days, log)
-    else:
+        return log.rows
+    overrides = ARM_ENGINE_OVERRIDES.get(arm, {})
+    saved = {k: getattr(engine_config, k) for k in overrides}
+    try:  # arm-specific engine constants, always restored (runs are sequential within a process)
+        for k, v in overrides.items():
+            setattr(engine_config, k, v)
         _run_engine(arm, payload, traits, sim, days, log, seed)
+    finally:
+        for k, v in saved.items():
+            setattr(engine_config, k, v)
     return log.rows

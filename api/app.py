@@ -5,6 +5,7 @@ only its sha256 is stored, and every /users/{id}/* route requires it."""
 
 import hashlib
 import hmac
+import random
 import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -38,6 +39,20 @@ from rebound_engine.models import (
 )
 from rebound_engine.safety import detect_red_flags
 
+from .demo import (
+    DEMO_PERSONAS,
+    ORG_DAYS,
+    ORG_PATTERNS,
+    ORG_SIZE,
+    OUTCOMES,
+    PATTERNS,
+    PERSONA_WARMUP_DAYS,
+    AdvanceIn,
+    DayRow,
+    SeedOut,
+    SeedPersona,
+    org_bodies,
+)
 from .llm_client import BarrierClassifier, default_classifier
 from .messages import HOW_TO_TURN_OFF, render
 from .store import SQLiteStore, UserMeta, sqlite_path
@@ -135,6 +150,12 @@ class SettingsOut(BaseModel):
     preferences: Preferences
     consents: dict[ConsentGroup, bool]
     state: StateOut
+
+
+class AdvanceOut(BaseModel):
+    state: StateOut
+    today: TodayOut  # the new day, already opened
+    log: list[DayRow]  # one row per day that was filled in
 
 
 class ExportOut(BaseModel):
@@ -328,5 +349,52 @@ def create_app(
             bct_code=action.bct_code, bct_name=action.bct_name, rationale=action.rationale, limits=action.limits,
             how_to_turn_off=HOW_TO_TURN_OFF["ar" if lang == Language.ar else "en"],
         )
+
+    if not demo_mode:
+        return app
+
+    # ---------- demo only (DEMO_MODE=true): time travel and seeded personas ----------
+
+    def advance_days(meta: UserMeta, days: int, pattern: str) -> tuple[UserMeta, list[DayRow]]:
+        """Answer each day's open actions by the pattern (seeded per user and day), then move the clock a day."""
+        rows = []
+        for _ in range(days):
+            today = open_day(meta)
+            rng = random.Random(f"{meta.user_id}:{today.day}")
+            outcomes = {}
+            for s in today.actions:
+                if s.action.id not in engine.get_state(meta.user_id).pending:
+                    continue  # the user already answered it
+                o = rng.choices(OUTCOMES, weights=PATTERNS[pattern])[0]
+                outcomes[s.action.id] = o
+                if o != "no_response":  # left open: the engine closes it as no_response when the next day opens
+                    engine.record(Event(user_id=meta.user_id, day=today.day, type=EventType(o), action_id=s.action.id))
+            state = engine.get_state(meta.user_id)
+            rows.append(DayRow(day=today.day, outcomes=outcomes, engagement_state=state.engagement_state,
+                               habit_strength=state.habit_strength, checkin_due=state.checkin_due))
+            meta = meta.model_copy(update={"day_offset": meta.day_offset + 1})
+            store.save_meta(meta)
+        return meta, rows
+
+    @app.post("/demo/users/{user_id}/advance", response_model=AdvanceOut)
+    def advance(body: AdvanceIn, meta: Authed) -> AdvanceOut:
+        if body.scenario:
+            engine.set_context(meta.user_id, ContextFlag(body.scenario), True)
+        meta, log = advance_days(meta, body.days, body.pattern)
+        today = today_out(meta, open_day(meta))  # opens the new day, which closes the last one
+        return AdvanceOut(state=_state_out(engine.get_state(meta.user_id)), today=today, log=log)
+
+    @app.post("/demo/seed", response_model=SeedOut, status_code=201)
+    def seed() -> SeedOut:
+        personas = []
+        for name, data in DEMO_PERSONAS:
+            out = onboard(OnboardIn.model_validate(data))
+            advance_days(store.get_meta(out.user_id), PERSONA_WARMUP_DAYS, "good")
+            personas.append(SeedPersona(name=name, user_id=out.user_id, token=out.token))
+        org_id = f"demo-org-{secrets.token_hex(3)}"  # a fresh org per call, so repeated seeding never mixes orgs
+        for i, data in enumerate(org_bodies(org_id)):
+            out = onboard(OnboardIn.model_validate(data))
+            advance_days(store.get_meta(out.user_id), ORG_DAYS, ORG_PATTERNS[i % len(ORG_PATTERNS)])
+        return SeedOut(personas=personas, org_id=org_id, org_size=ORG_SIZE)
 
     return app

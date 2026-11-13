@@ -688,6 +688,8 @@ interval below zero, otherwise **not shown**. Also reported: the share of check-
 | Catch-up cap | at most 60 unopened days are filled in; older ones are not logged | Bounds the work on one request. 60 > every engagement window (7–14 days) and the 21-day history, so the engagement state is the same as without the cap; H after 60 silent days is already below 0.2% of where it started (0.9^60). |
 | Check-ins | at most one per day (409); a red-flag free text is always accepted | One blame-free question a day; a safety signal must never be rate-limited. |
 | Adjusted actions | the API calls `Engine.checkin(replace_pending=True)`: today's open action is swapped for the smaller one, logged as `action_shown` with `payload.replaces` | Otherwise the user is told "here's a smaller step" but can't record it until tomorrow. The simulator keeps the default (`False`), so reported results are unchanged. |
+| Demo time travel (`DEMO_MODE` only) | `advance` answers each day's open actions with P(completed, partial, skipped, no answer) = good 0.85/0.10/0.05/0 · mixed 0.45/0.15/0.20/0.20 · lapse 0/0/0/1, seeded by user and day, then moves `day_offset` on; `scenario` turns heat/Ramadan on and leaves it on; max 60 days per call | Demo-only numbers to show a lapse and a recovery on screen; they are not the simulator's behaviour model and produce no evidence. |
+| Demo seed (`DEMO_MODE` only) | 3 personas (night-shift worker in Arabic, office worker, wheelchair user) with 7 "good" days; a fresh org of 12 synthetic users with 14 days cycling good/mixed/lapse | A habit to lapse from, and an org above k = 10 so the employer page has aggregates. |
 | CORS | `FRONTEND_URL` always; `http://localhost:5173` only with `DEMO_MODE` or `DEV_MODE` | No local origin in production. |
 | Screening consent | onboarding with `consents.screening = false` → 422 | The health check is required for a safe plan (§4.3). |
 | Prompt hour | chosen by the engine (wake/sleep times, quiet hours); the API doesn't pass an hour | Keeps quiet hours in one place. |
@@ -715,7 +717,8 @@ interval below zero, otherwise **not shown**. Also reported: the share of check-
   one-person demo; production needs a per-user lock or optimistic versioning, and a server database.
 - **Prototype auth, not production auth.** One random bearer token per user, returned once at onboarding and stored
   as a sha256 hash; no expiry, rotation, recovery or rate limiting, and a lost token means a lost account. Demo
-  routes exist only with `DEMO_MODE=true`; the employer view uses one shared org key from `.env`.
+  routes exist only with `DEMO_MODE=true`; `/demo/seed` needs no token, so anyone who can reach a demo server can
+  create synthetic users. The employer view uses one shared org key from `.env`.
 - Changing `preferences.channel` in settings is saved but doesn't change the engine's channel (set at onboarding,
   then only by the `forgot` rule); the engine has no call for it yet.
 - Withdrawing consent for body, history or preferences deletes those answers (preferences go back to defaults,

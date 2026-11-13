@@ -336,6 +336,37 @@ columns match sweep_002 exactly (same seeds), a reproducibility check.
 Because this comes from the same simulator we'd be tuning to, the change 3 → 4 is tested only through a
 pre-registered run on fresh seeds (next section), not adopted from this table.
 
+### Step-up 3 → 4: pre-registered before any run (committed on its own, before the code)
+**The change.** Engine constant `STEP_UP_SUCCESSES` 3 → 4: step up one tier after 4 consecutive full completions at
+the current tier instead of 3. Nothing else changes in the engine or the simulator.
+
+**How it's tested.** A new arm **C4** = C (`policy_mode="bandit"`) with `STEP_UP_SUCCESSES = 4`. It uses the same
+bandit random seed as C for each persona, so the threshold is the only difference between C4 and C.
+- Seeds **11–20** (never used for calibration or evaluation), 300 personas, 90 days.
+- Baseline **and** all six other scenarios (ramadan_heavy, hot_summer, low_checkin, high_dropout, shock_heavy,
+  harsh_attrition).
+- Arms A, A0, C, C4. Run once; no re-runs with other seeds.
+
+**Comparisons.** C4 vs C (the decision), plus C4 vs A and C4 vs A0 (reported, not part of the decision).
+
+**Measures.** Δ weekly active minutes, Δ tier-weighted sleep nights, persistence at week 12, recovery within 14 days,
+retention at day 90. Verdicts as everywhere: **helps** = whole 95% interval above zero, **worse** = whole interval
+below zero, otherwise not shown.
+
+**Decision rule, applied to C4 vs C.**
+- **Keep 4** only if (a) Δ weekly active minutes is **helps** in baseline, and (b) none of the three engagement
+  measures (persistence wk 12, recovery, retention) is **worse** in any of the 7 scenarios.
+- **Otherwise revert to 3.**
+- Δ tier-weighted sleep and the C4 vs A / A0 comparisons are reported but don't decide.
+
+**Known property of the rule.** Condition (b) checks 21 intervals (3 measures × 7 scenarios), so even with no real
+effect there's a fair chance one shows "worse" by chance. The rule is deliberately conservative: it favours keeping
+the current, already-documented behaviour. We apply it as written and report the result either way.
+
+**If kept:** `engine/rebound_engine/config.py` changes to 4, with a line here citing this test, and run_005-style
+results are re-run on seeds 1–10 so the reported numbers match the shipped engine. **If reverted:** nothing changes;
+the result is recorded here and the threshold stays a pilot question.
+
 #### Scenarios (`sim/scenarios.yaml`; each changes only what it lists, which is tested)
 | Scenario | Changes | Why |
 |---|---|---|

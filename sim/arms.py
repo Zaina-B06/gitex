@@ -193,6 +193,7 @@ def _run_engine(
         risk_model=load_arm_risk_model(cfg or {}) if arm in RISK_ARMS else None,
     )
     uid = engine.onboard(payload, user_id=f"p{pid}").user_id
+    needs_open = (cfg or {}).get("traits", {}).get("checkin_needs_open_app", False)
     told: set[ContextFlag] = set()
     for day in range(1, days + 1):
         sim.start_day(day)
@@ -205,7 +206,7 @@ def _run_engine(
         state = engine.get_state(uid)
         if ContextFlag.illness in state.context_flags and not sim.is_ill():
             engine.set_context(uid, ContextFlag.illness, False)  # "I'm OK now"
-        if state.checkin_due:
+        if state.checkin_due and (sim.app_open or not needs_open):
             answer = sim.answer_checkin()
             if answer is not None:
                 engine.checkin(uid, [Barrier(answer)])

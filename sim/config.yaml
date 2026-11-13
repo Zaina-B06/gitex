@@ -48,6 +48,9 @@ traits:
     student: {morning: 0.20, afternoon: 0.40, evening: 0.40}
   checkin_answer_rate: [6, 4]  # beta(a, b), mean 0.6
   checkin_rate_multiplier: 1.0  # scenarios/sweep scale every persona's answer rate (capped at 1)
+  # Pre-registered (ASSUMPTIONS.md, "Check-ins answered only on open days"): true = answer only on app-open days.
+  # false until run_009/run_010 have run, so run_007 reproduces; then flips to true (decided before the run).
+  checkin_needs_open_app: false
   streak_sensitivity: [0.3, 1.0]  # uniform; motivation drop after a streak reset (arm A only)
   barrier_alpha: 1.0  # Dirichlet concentration over barriers
   stop_reason_boost: 3.0  # extra weight on barriers the persona named as past stop reasons

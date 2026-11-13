@@ -154,6 +154,13 @@ def _write_table(df: pd.DataFrame, path: Path) -> Path:
 def run_scenario(scenario: str, args: argparse.Namespace, arms: list[str], out: Path) -> bool:
     """Run one scenario and write its outputs. Returns False if the safety audit failed."""
     cfg = load_config(scenario)
+    for item in getattr(args, "set", None) or []:
+        from .sweep import set_path  # local import: sweep imports this module
+
+        path, sep, value = item.partition("=")
+        if not sep:
+            raise SystemExit(f"--set needs PATH=VALUE, got {item!r}")
+        cfg = set_path(cfg, path, yaml.safe_load(value))
     seeds = parse_seeds(args.seeds)
     print(f"scenario={scenario} n={args.n} days={args.days} seeds={seeds} arms={arms}")
     events, personas, metrics = simulate(args.n, args.days, seeds, arms, cfg, args.workers)
@@ -195,6 +202,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--sensitivity", action="store_true", help="also run A with streak_sensitivity = 0 (arm A0)")
     ap.add_argument("--workers", type=int, default=0)
     ap.add_argument("--out", default="sim/out/run_001")
+    ap.add_argument("--set", action="append", default=[], metavar="PATH=VALUE",
+                    help="override one config value (YAML), e.g. traits.checkin_needs_open_app=true; repeatable")
     args = ap.parse_args(argv)
     try:
         _main(args)

@@ -2,6 +2,7 @@ from itertools import pairwise
 
 import pytest
 
+from rebound_engine import config
 from rebound_engine.actions import filter_actions
 from rebound_engine.demo import LAPSE_DAYS, run
 from rebound_engine.models import (
@@ -120,33 +121,37 @@ def test_unanswered_actions_become_no_response_next_day(make_engine, make_payloa
 # ---------- step-up / step-down ----------
 
 
-def test_step_up_after_three_consecutive_completions(make_engine, make_payload):
+N = config.STEP_UP_SUCCESSES  # tests follow the engine's threshold rather than hard-coding it
+
+
+def test_step_up_after_n_consecutive_completions(make_engine, make_payload):
     engine, uid = _movement_engine(make_engine, make_payload)
-    assert _play(engine, uid, "CCC") == [1, 1, 2]
-    assert engine.today(uid, 4).actions[0].action.tier == 2
+    assert _play(engine, uid, "C" * N) == [1] * (N - 1) + [2]
+    assert engine.today(uid, N + 1).actions[0].action.tier == 2
 
 
 def test_skip_resets_step_up_counter(make_engine, make_payload):
     engine, uid = _movement_engine(make_engine, make_payload)
-    assert _play(engine, uid, "CCSCC") == [1, 1, 1, 1, 1]
-    assert _play(engine, uid, "C", start_day=6) == [2]
+    run = "C" * (N - 1) + "S" + "C" * (N - 1)
+    assert _play(engine, uid, run) == [1] * len(run)
+    assert _play(engine, uid, "C", start_day=len(run) + 1) == [2]
 
 
 def test_partial_neither_adds_nor_resets(make_engine, make_payload):
     engine, uid = _movement_engine(make_engine, make_payload)
-    assert _play(engine, uid, "CCHC") == [1, 1, 1, 2]
+    assert _play(engine, uid, "C" * (N - 1) + "H" + "C") == [1] * N + [2]
 
 
 def test_step_up_never_jumps_two_tiers(make_engine, make_payload):
     engine, uid = _movement_engine(make_engine, make_payload)
-    tiers = [1, *_play(engine, uid, "C" * 19)]
+    tiers = [1, *_play(engine, uid, "C" * (3 * N + 1))]
     assert all(b - a in (0, 1) for a, b in pairwise(tiers))
     assert tiers[-1] == 4
 
 
 def test_step_up_respects_screening_cap(make_engine, make_payload):
     engine, uid = _movement_engine(make_engine, make_payload, screening={"prescribed_medication": True})
-    assert _play(engine, uid, "C" * 19)[-1] == 2
+    assert _play(engine, uid, "C" * (3 * N + 1))[-1] == 2
 
 
 def test_two_misses_while_active_step_down(make_engine, make_payload):
@@ -191,13 +196,13 @@ def test_entering_lapsed_resets_to_tier_1_and_sends_checkin(make_engine, make_pa
     assert any(e.payload.get("state") == "lapsed" for e in engine.events(uid) if e.type == EventType.checkin_sent)
 
 
-def test_no_step_up_after_lapse_until_recovering_and_three_completions(make_engine, make_payload):
+def test_no_step_up_after_lapse_until_recovering_and_n_completions(make_engine, make_payload):
     engine, uid = _movement_engine(make_engine, make_payload)
     _play(engine, uid, "NNN")
     assert engine.get_state(uid).engagement_state == EngagementState.lapsed
-    # Day 4 still lapsed, day 5 -> recovering; third consecutive completion on day 6 steps up.
-    assert _play(engine, uid, "CCC", start_day=4) == [1, 1, 2]
-    assert engine.get_state(uid).engagement_state == EngagementState.recovering
+    # Day 4 still lapsed, day 5 -> recovering; the N-th consecutive completion since the return steps up.
+    assert _play(engine, uid, "C" * N, start_day=4) == [1] * (N - 1) + [2]
+    assert engine.get_state(uid).engagement_state in (EngagementState.recovering, EngagementState.active)
 
 
 # ---------- red flags ----------

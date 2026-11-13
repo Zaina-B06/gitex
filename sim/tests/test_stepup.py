@@ -15,20 +15,22 @@ def _actions(events, arm):
     return acts[ROW_COLUMNS].reset_index(drop=True)
 
 
-def test_c4_with_threshold_3_is_identical_to_c(monkeypatch):
-    """Same bandit seed, same personas: with the override set back to 3, C4 must reproduce C exactly,
-    so in the real test the threshold is the only difference."""
-    monkeypatch.setattr(sim.arms, "ARM_ENGINE_OVERRIDES", {"C4": {"STEP_UP_SUCCESSES": 3}})
+def test_c4_with_the_engine_default_is_identical_to_c(monkeypatch):
+    """Same bandit seed, same personas: with its override equal to the engine default, C4 must reproduce C
+    exactly, so the threshold is the only difference between them."""
+    monkeypatch.setattr(sim.arms, "ARM_ENGINE_OVERRIDES", {"C4": {"STEP_UP_SUCCESSES": engine_config.STEP_UP_SUCCESSES}})
     events, _, _ = simulate(8, 40, [1], ["C", "C4"], CFG, workers=1, quiet=True)
     c, c4 = _actions(events, "C"), _actions(events, "C4")
     assert len(c) > 100
     assert c.equals(c4)
 
 
-def test_c4_uses_threshold_4_and_restores_it():
+def test_c4_override_is_applied_and_restored(monkeypatch):
     before = engine_config.STEP_UP_SUCCESSES
+    slower = before + 1
+    monkeypatch.setattr(sim.arms, "ARM_ENGINE_OVERRIDES", {"C4": {"STEP_UP_SUCCESSES": slower}})
     events, _, metrics = simulate(20, 60, [1], ["C", "C4"], CFG, workers=1, quiet=True)
-    assert engine_config.STEP_UP_SUCCESSES == before == 3
+    assert engine_config.STEP_UP_SUCCESSES == before
     c, c4 = _actions(events, "C"), _actions(events, "C4")
     assert not c.equals(c4)  # the threshold changes what people are shown
     assert c4["tier"].mean() <= c["tier"].mean()  # slower step-up: never higher on average

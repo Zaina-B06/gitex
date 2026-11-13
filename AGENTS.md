@@ -136,7 +136,7 @@ Per-field consent stored with each profile (`consents: {field_group: bool}`); us
    - `illness_pain` → pause movement and show a care message
    - `environment` → swap to indoor/home variant
 3. **Bandit (Thompson sampling):** among allowed actions, arms = (tier, bct_code, time_window, channel). Beta priors per arm, warm-started from `past_helpers`. Reward = completion within 24h (1, partial 0.5).
-4. **Step-up:** after 3 successful days at a tier, go up one tier (never jump back to the pre-lapse tier directly). Max tier respects the safety cap.
+4. **Step-up:** after 4 consecutive successful days at a tier, go up one tier (never jump back to the pre-lapse tier directly). Max tier respects the safety cap. (Was 3; changed by the pre-registered test in `docs/ASSUMPTIONS.md`, "Step-up 3 → 4".)
 
 ### 6.4 Red flags (in any free text)
 Chest pain, fainting, severe breathlessness, self-harm language, disordered-eating signals → stop coaching, show a supportive message + "seek care" guidance, write a `red_flag` event. Keyword + LLM check; keyword match alone is enough to trigger.

@@ -367,6 +367,33 @@ the current, already-documented behaviour. We apply it as written and report the
 results are re-run on seeds 1–10 so the reported numbers match the shipped engine. **If reverted:** nothing changes;
 the result is recorded here and the threshold stays a pilot question.
 
+#### Result (run_006: seeds 11–20, all 7 scenarios, arms A, A0, C, C4; commits 8e888a5 → 6dc1469 → run)
+**Decision by the pre-registered rule: keep 4.** (a) Baseline Δ weekly active minutes, C4 vs C: +2.1 min
+[+1.4, +2.9], helps. (b) No engagement measure for C4 vs C is worse in any of the 7 scenarios (21 checks).
+
+| Scenario | Δ active min/week | Δ tier-weighted sleep (pts) | Persistence wk 12 (pts) | Recovery 14 d (pts) | Retention (pts) |
+|---|---|---|---|---|---|
+| baseline | +2.1 [+1.4, +2.9] helps | +1.8 [+1.5, +2.1] helps | +0.1 [−0.5, +0.7] | +0.5 [−0.2, +1.1] | +0.4 [−0.1, +0.9] |
+| ramadan_heavy | +1.4 [+0.8, +1.9] helps | +1.5 [+1.1, +2.0] helps | +0.1 [−0.5, +0.7] | +0.1 [−0.5, +0.8] | +0.3 [−0.1, +0.7] |
+| hot_summer | +2.1 [+1.3, +2.8] helps | +1.5 [+1.1, +1.9] helps | +0.0 [−0.5, +0.6] | +0.3 [−0.6, +1.1] | +0.3 [−0.3, +0.8] |
+| low_checkin | +2.1 [+1.7, +2.5] helps | +2.0 [+1.5, +2.4] helps | +0.5 [+0.1, +0.9] helps | −0.0 [−1.0, +0.9] | +0.4 [−0.1, +0.8] |
+| high_dropout | +1.7 [+1.0, +2.4] helps | +1.4 [+1.1, +1.6] helps | +0.1 [−0.3, +0.6] | +0.4 [−0.0, +0.8] | +0.0 [−0.4, +0.5] |
+| shock_heavy | +1.8 [+1.2, +2.5] helps | +1.7 [+1.3, +2.1] helps | +0.6 [−0.2, +1.4] | +0.1 [−0.7, +0.9] | +0.1 [−0.4, +0.6] |
+| harsh_attrition | +1.8 [+1.2, +2.4] helps | +1.9 [+1.7, +2.1] helps | +0.5 [+0.1, +0.8] helps | +0.4 [−0.3, +1.1] | +0.3 [−0.3, +0.9] |
+
+C4 vs C, mean [95% interval]; blank = not shown. The gain is consistent but modest: about +2 active minutes per
+week and +1.5 to +2 pts of tier-weighted sleep in every scenario, with engagement unchanged or slightly better.
+
+**Reported, not deciding.** C4 vs A: helps on every measure in every scenario. C4 vs A0: activity helps everywhere
+(+3.5 to +8.6 min/week), recovery helps in 6 of 7 scenarios (+0.9 to +1.8 pts), persistence worse in high_dropout
+(−0.9 [−1.6, −0.1]), everything else not shown. Also on these fresh seeds, C (step-up 3) vs A0 recovery is "helps"
+in 5 of 7 scenarios (+0.8 to +1.7 pts), where on seeds 1–10 (run_005) it wasn't in any. Small effects near the
+detection limit flip between seed sets; we keep calling C-vs-A0 recovery weak evidence.
+
+**Applying the decision** (pending): change `STEP_UP_SUCCESSES` to 4 in the engine and in the AGENTS.md §6.3 rule, then
+re-run the reported results on seeds 1–10 so they match the shipped engine. Snapshot of this run:
+`docs/results/run_006/scenarios.md`.
+
 #### Scenarios (`sim/scenarios.yaml`; each changes only what it lists, which is tested)
 | Scenario | Changes | Why |
 |---|---|---|

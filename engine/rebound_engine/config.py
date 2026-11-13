@@ -21,7 +21,9 @@ MIN_TIER = 1
 MAX_TIER = 4
 SCREENING_TIER_CAP = 2  # any "yes" on screening Q1-Q7
 GENTLE_TIER_CAP = 1  # chest pain or dizziness/fainting: gentle movement only
-STEP_UP_SUCCESSES = 3  # consecutive full completions at the current tier
+# Consecutive full completions at the current tier before stepping up. Was 3; changed to 4 by the pre-registered
+# test in docs/ASSUMPTIONS.md ("Step-up 3 → 4", commit cac4f73): run_006, fresh seeds 11-20, all 7 scenarios.
+STEP_UP_SUCCESSES = 4
 STEP_DOWN_FAILURES = 2  # consecutive skipped/no_response at the current tier, while active
 DRIFT_TIER_DROP = 1  # entering drifting; entering lapsed resets to MIN_TIER
 # Starting movement tier from active_days_per_week: first (max_days, tier) that fits.

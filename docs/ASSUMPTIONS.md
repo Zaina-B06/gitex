@@ -311,11 +311,30 @@ positive (−0.0 to +1.9).
 - **Success feedback δ cuts against Rebound vs A0:** δ 0 → 0.1 moves the persistence gap from +0.5 to −2.0. Equal
   feedback for every completion rewards easy static plans (see Limitations).
 - **Step-up threshold:** 3 → 4 → 5 moves the persistence gap vs A0 from −1.0 to −0.3 to −0.1 (2 gives −0.6). All
-  intervals include zero with 5 seeds, so this is a direction, not a finding. The cost in activity is measured
-  separately (sweep_003, Δ minutes and Δ tier-weighted sleep added to the sweep). **The step-up threshold is an
-  open product question for the pilot; the engine is not tuned to these results.**
+  intervals include zero with 5 seeds, so this is a direction, not a finding. Activity is in sweep_003 below.
+  **The engine is not tuned to these results.**
 - **Sanity checks:** the streak penalty doesn't move C vs A0 (neither arm uses it); with no streak penalty
   C vs A equals C vs A0.
+
+### Results: step-up threshold with activity (sweep_003)
+Baseline, 300 personas × 90 days × seeds 1–5, arms A, A0, C; only `STEP_UP_SUCCESSES` changed (snapshot:
+`docs/results/sweep_003/summary.md`). C vs A0, mean [95% interval]:
+
+| Step up after | Δ active min/week | Δ tier-weighted sleep (pts) | Persistence wk 12 (pts) | Recovery 14 d (pts) | Retention (pts) |
+|---|---|---|---|---|---|
+| 2 | +2.2 [−0.4, +4.8] | +4.6 [+1.9, +7.2] | −0.6 [−2.6, +1.4] | −0.1 [−2.9, +2.7] | +0.3 [−1.2, +1.9] |
+| **3 (current)** | +6.6 [+3.3, +9.9] | +8.3 [+5.8, +10.8] | −1.0 [−3.0, +1.0] | +1.0 [−1.8, +3.8] | −0.5 [−2.4, +1.4] |
+| 4 | +8.6 [+6.3, +10.8] | +10.4 [+7.6, +13.2] | −0.3 [−1.8, +1.2] | +1.2 [−1.4, +3.8] | +0.3 [−1.0, +1.5] |
+| 5 | +8.8 [+4.9, +12.7] | +10.9 [+8.6, +13.3] | −0.1 [−1.3, +1.0] | +1.2 [−2.4, +4.7] | +0.2 [−0.6, +1.0] |
+
+**Our prediction was wrong.** We expected slower step-ups to *cost* activity, trading engagement for less volume.
+Instead, activity *rises* with a slower step-up, and engagement doesn't get worse. Our reading: an eager step-up
+often pushes people past what they can sustain, so they miss, step down or slip, and end up doing less over 90 days;
+a slower climb holds. The 2-vs-4 activity difference is clear; 3 vs 4 or 5 overlaps with 5 seeds. The engagement
+columns match sweep_002 exactly (same seeds), a reproducibility check.
+
+Because this comes from the same simulator we'd be tuning to, the change 3 → 4 is tested only through a
+pre-registered run on fresh seeds (next section), not adopted from this table.
 
 #### Scenarios (`sim/scenarios.yaml`; each changes only what it lists, which is tested)
 | Scenario | Changes | Why |
@@ -421,5 +440,6 @@ Five seeds per setting (not ten) keeps the full sweep (26 settings) to roughly 1
   the success feedback δ; both are swept in Drop 2. With no streak penalty the advantage disappears.
 - Success feedback is the same for every completion regardless of difficulty, which favours easy static plans; a
   difficulty-weighted version (mastery experiences) is an untested alternative.
-- The step-up threshold (3 consecutive completions) is not validated: the sweep suggests slower step-ups reduce the
-  small engagement cost vs a static plan, at an activity cost still to be measured. To be settled in the pilot.
+- The step-up threshold (3 consecutive completions) is not validated. In the simulator, slower step-ups (4–5) give
+  more activity with no engagement cost (sweep_003); 3 → 4 is being tested on fresh seeds. Either way it has to be
+  settled with real users in the pilot.

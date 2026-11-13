@@ -503,6 +503,40 @@ none), and the "worse" results shrink (shock_heavy persistence −1.5 → −1.1
 shock_heavy → no longer). Arm A's week-12 persistence is 33% here vs 41% on calibration seed 101: a seed-set
 difference, not retuned.
 
+### Arm D (lapse-risk hook): pre-registered before any Task 02b run (committed on its own, before the code)
+**What's tested.** Arm **D** = C plus the lapse-risk model (`Engine(risk_model=...)`, Task 02b). When predicted risk is
+above the frozen threshold and the state is still `active`, the engine offers the next action one tier smaller as an
+option, and sends a gentle check-in at most once per 7 days. The model, its features and its threshold are frozen
+from the training seeds (21–30) before D is run; nothing about them is changed after seeing D's results.
+
+**How the simulated person responds to the lighter option.**
+- **Main assumption (arm D):** the persona takes whichever option it's more likely to complete, under its own hidden
+  model.
+- **Sensitivity (arm D50):** the persona picks either option with probability 0.5.
+
+Both are reported. Only D decides.
+
+**Runs.** Seeds 1–10 (the evaluation seeds; never used for training or threshold-setting), 300 personas, 90 days,
+all 7 scenarios, arms A, A0, C, D, D50. Run once.
+
+**Comparisons.** D vs C (the decision); D50 vs C (sensitivity); D vs A and D vs A0 (reported).
+
+**Measures.**
+- persistence at week 12, recovery within 14 days, retention at day 90;
+- **lapse rate:** % of personas with at least one lapse onset in 90 days (lower is better);
+- messages per persona-week (burden).
+
+**Verdicts.** helps / worse = whole 95% interval of the difference above / below zero, except where lower is better:
+for lapse rate, "helps" means the whole interval of D − C is below zero and "worse" means it is entirely above.
+
+**Ship rule (D vs C).** The hook goes into the app only if all three hold:
+1. lapse rate is **helps** in baseline;
+2. none of persistence wk 12, recovery or retention is **worse** in any of the 7 scenarios;
+3. burden: in every scenario the mean difference in messages per persona-week is at most **+0.5**. "Worse" on burden
+   means exceeding +0.5, not any increase.
+
+Otherwise the hook stays out of the app, and the model is shown only as a prediction result (PLAN.md cut list).
+
 ### Disruptions (labelled)
 | Parameter | Value | Why |
 |---|---|---|

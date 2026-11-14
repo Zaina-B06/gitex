@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -50,6 +50,7 @@ from rebound_engine.recipes import NOTE as RECIPE_NOTE
 from rebound_engine.recipes import Recipe, load_recipes, suggest_recipe
 from rebound_engine.safety import detect_red_flags
 
+from .community import CommunityEvent, Household, filter_events
 from .demo import (
     DEMO_PERSONAS,
     ORG_DAYS,
@@ -445,6 +446,15 @@ def create_app(
     def delete_user(meta: Authed) -> Response:
         engine.delete_user(meta.user_id)  # SQLiteStore also removes user_meta
         return Response(status_code=204)
+
+    @app.get("/community/events", response_model=list[CommunityEvent])
+    def community_events(
+        meta: Authed, household: Household | None = None, behaviour: Behaviour | None = None,
+        city: str | None = Query(default=None, max_length=40),
+    ) -> list[CommunityEvent]:
+        """Read-only events that fit the user (goals, women-only spaces, mobility, language). `household` and `city`
+        are request filters only: no location tracking, nothing stored."""
+        return filter_events(store.get_profile(meta.user_id), household=household, behaviour=behaviour, city=city)
 
     @app.get("/recipes", response_model=list[RecipeOut])
     def recipes(tag: str | None = None) -> list[RecipeOut]:

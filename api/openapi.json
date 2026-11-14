@@ -418,6 +418,110 @@
     }
    }
   },
+  "/community/events": {
+   "get": {
+    "summary": "Community Events",
+    "description": "Read-only events that fit the user (goals, women-only spaces, mobility, language). `household` and `city`\nare request filters only: no location tracking, nothing stored.",
+    "operationId": "community_events_community_events_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "household",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "alone",
+          "family",
+          "children",
+          "older_relatives"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Household"
+      }
+     },
+     {
+      "name": "behaviour",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/Behaviour"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Behaviour"
+      }
+     },
+     {
+      "name": "city",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 40
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "City"
+      }
+     },
+     {
+      "name": "user_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/CommunityEvent"
+         },
+         "title": "Response Community Events Community Events Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/recipes": {
    "get": {
     "summary": "Recipes",
@@ -1231,6 +1335,129 @@
      "message"
     ],
     "title": "CheckinOut"
+   },
+   "CommunityEvent": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "title": {
+      "$ref": "#/components/schemas/LocalizedText"
+     },
+     "category": {
+      "type": "string",
+      "enum": [
+       "walking_group",
+       "park_run",
+       "sports_night",
+       "free_health_screening",
+       "family_activity",
+       "women_only",
+       "wheelchair_accessible"
+      ],
+      "title": "Category"
+     },
+     "behaviours": {
+      "items": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "array",
+      "title": "Behaviours"
+     },
+     "city": {
+      "type": "string",
+      "title": "City"
+     },
+     "area": {
+      "type": "string",
+      "title": "Area"
+     },
+     "schedule": {
+      "type": "string",
+      "title": "Schedule"
+     },
+     "cost": {
+      "type": "string",
+      "title": "Cost"
+     },
+     "accessibility": {
+      "type": "string",
+      "title": "Accessibility"
+     },
+     "women_only": {
+      "type": "boolean",
+      "title": "Women Only"
+     },
+     "wheelchair_accessible": {
+      "type": "boolean",
+      "title": "Wheelchair Accessible"
+     },
+     "family_friendly": {
+      "type": "boolean",
+      "title": "Family Friendly"
+     },
+     "languages": {
+      "items": {
+       "$ref": "#/components/schemas/Language"
+      },
+      "type": "array",
+      "title": "Languages"
+     },
+     "organiser": {
+      "type": "string",
+      "title": "Organiser"
+     },
+     "source_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Url"
+     },
+     "last_checked": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Checked"
+     },
+     "example": {
+      "type": "boolean",
+      "title": "Example"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "category",
+     "behaviours",
+     "city",
+     "area",
+     "schedule",
+     "cost",
+     "accessibility",
+     "women_only",
+     "wheelchair_accessible",
+     "family_friendly",
+     "languages",
+     "organiser",
+     "source_url",
+     "last_checked",
+     "example"
+    ],
+    "title": "CommunityEvent"
    },
    "Condition": {
     "type": "string",

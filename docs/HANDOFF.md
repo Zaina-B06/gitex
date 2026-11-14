@@ -83,7 +83,27 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   - **Recipes:** `today.recipes` maps an action id to a recipe for cooking steps; show it with its `note`
     ("General guidance, not medical advice"). There's also a browsable `GET /recipes?tag=`.
   - **Check-in:** add buttons for `craving`, `stress`, `others_smoking` and `no_healthy_food_nearby`.
+- **Community events (read-only):** a "Community" page reading
+  `GET /community/events?user_id=<id>` with the Bearer token. It's already filtered to the user's goals,
+  women-only preference, mobility (wheelchair users see wheelchair-accessible events only) and language. Optional
+  filters: `household`, `behaviour`, `city`. No user posts and no location tracking.
+  - **Real programmes:** show "Source" (link) and "Checked on <last_checked>", plus a line asking users to confirm
+    times with the organiser.
+  - **Examples:** entries with `example: true` must keep their "Example:" title and be visibly marked, never shown
+    as real events.
 - Re-generate types from `api/openapi.json`.
+
+## Future scope (not in the prototype)
+
+- **Wearable integration** through a native app (Apple Health, Health Connect); the web app can't read them. The
+  API's input side is the next step (`POST /users/{id}/signals`, Task 05 "Later").
+- **Nearby healthy options on a map** (OpenStreetMap: greengrocers, supermarkets, parks), opt-in, location never
+  stored; offered for the `no_healthy_food_nearby` barrier.
+- **Chat nudges** (WhatsApp-style) for people who stop opening the app, triggered by the lapse-risk score; the
+  run_008 result points here rather than to in-app offers.
+- **Moderated community groups and support buddies** (a buddy sees only good news), instead of open user posts.
+- **User-submitted recipes**, reviewed before publishing.
+- **Live weather for heat mode**, replacing the fixed May–September rule.
 
 ### For the frontend (Task 04)
 - **Types:** generate them from `api/openapi.json` (includes the demo routes). Run the API with

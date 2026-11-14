@@ -167,6 +167,7 @@ POST   /users/{id}/events             body: { action_id, type: completed|partial
 POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
 GET    /actions/{id}/explain          → { bct_code, bct_name, rationale, limits, how_to_turn_off }
+GET    /community/events?user_id=     → read-only events filtered to the user (token required; real ones cite a source URL + date checked, others are labelled Example)
 GET    /recipes?tag=                  → curated recipes (general guidance, not medical advice); /recipes/{id}
                                          /today also returns recipes: { action_id: recipe } for cooking steps
 PATCH  /users/{id}/settings           body: { preferences?, consents?, context?, conditions?, shifts?, ramadan?: "started_today"|"ended_today" } → { preferences, consents, state, plan_summary }

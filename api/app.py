@@ -24,6 +24,7 @@ from rebound_engine import config as engine_config
 from rebound_engine.calendar import RAMADAN, day_context
 from rebound_engine.engine import Engine
 from rebound_engine.models import (
+    Action,
     Barrier,
     Behaviour,
     CheckinResult,
@@ -40,6 +41,7 @@ from rebound_engine.models import (
     Language,
     OnboardingPayload,
     Preferences,
+    ReadingLevel,
     ScreeningResult,
     Shift,
     TodayResult,
@@ -68,7 +70,15 @@ from .demo import (
     org_bodies,
 )
 from .llm_client import BarrierClassifier, default_classifier
-from .messages import HOW_TO_TURN_OFF, ROTATION_NOTE, render, render_encouragement, render_reason
+from .messages import (
+    HOW_TO_TURN_OFF,
+    onboarding_text,
+    pick,
+    render,
+    render_encouragement,
+    render_reason,
+    render_rotation_note,
+)
 from .store import SQLiteStore, UserMeta, sqlite_path
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
@@ -173,6 +183,13 @@ class CheckinOut(CheckinResult):
     message: str
 
 
+class OnboardingTextOut(BaseModel):
+    questions: dict[str, str]  # health-check question key (Screening field) -> text
+    why_we_ask: dict[str, str]  # field group -> the "why we ask" line
+    reading_level_examples: dict[str, str]  # "standard" / "simple" -> the same step at each level
+    translation_note: str | None  # Arabic only: "draft translation, pending native review"
+
+
 class ExplainOut(BaseModel):
     bct_code: str
     bct_name: str
@@ -253,11 +270,18 @@ def _encouragement_out(e: Encouragement | None, profile: UserProfile) -> Encoura
 def _plan_out(profile: UserProfile) -> PlanOut:
     plan = build_plan(profile)
     rotating = len(profile.basics.goals) > engine_config.MAX_ACTIVE_BEHAVIOURS
-    note = ROTATION_NOTE["ar" if profile.basics.language == Language.ar else "en"] if rotating else None
+    note = render_rotation_note(profile) if rotating else None
     # The rotation note says it already; don't repeat it as a reason.
     reasons = [render_reason(k, profile) for k in plan.reasons if not (note and k == "rotating")]
     return PlanOut(behaviours=plan.active, reasons=reasons[:PLAN_REASONS_SHOWN], all_reasons=reasons,
                    rotation_note=note)
+
+
+def _leveled(action: Action, profile: UserProfile) -> Action:
+    """At reading_level "simple", the title the frontend shows is the plain-language one (Task 05 Part D)."""
+    if profile.preferences.reading_level == ReadingLevel.simple and action.simple:
+        return action.model_copy(update={"title": action.simple})
+    return action
 
 
 def _state_out(s: UserState) -> StateOut:
@@ -358,8 +382,12 @@ def create_app(
             s.action.id: RecipeOut(**r.model_dump())
             for s in result.actions if (r := suggest_recipe(profile, s.action, result.day, flags))
         }
+        actions = [s.model_copy(update={"action": _leveled(s.action, profile),
+                                        "lighter": s.lighter and _leveled(s.lighter, profile)})
+                   for s in result.actions]
         return TodayOut.model_validate({
-            **result.model_dump(), "messages": [render(k, profile) for k in result.message_keys], "recipes": recipes,
+            **result.model_dump(), "actions": [s.model_dump() for s in actions],
+            "messages": [render(k, profile) for k in result.message_keys], "recipes": recipes,
             "encouragement": _encouragement_out(result.encouragement, profile),
         })
 
@@ -419,7 +447,9 @@ def create_app(
         result = engine.checkin(meta.user_id, barriers, free_text=body.free_text, replace_pending=True)
         store.save_meta(meta.model_copy(update={"last_checkin_day": day}))
         profile = store.get_profile(meta.user_id)
-        return CheckinOut.model_validate({**result.model_dump(), "message": render(result.message_key, profile)})
+        adjusted = [_leveled(a, profile).model_dump() for a in result.adjusted_actions]
+        return CheckinOut.model_validate({**result.model_dump(), "adjusted_actions": adjusted,
+                                          "message": render(result.message_key, profile)})
 
     @app.get("/users/{user_id}/state", response_model=StateOut)
     def get_state(meta: Authed) -> StateOut:
@@ -498,14 +528,21 @@ def create_app(
         return RecipeOut(**found.model_dump())
 
     @app.get("/actions/{action_id}/explain", response_model=ExplainOut)
-    def explain(action_id: str, lang: Language = Language.en) -> ExplainOut:
+    def explain(action_id: str, lang: Language = Language.en,
+                reading_level: ReadingLevel = ReadingLevel.standard) -> ExplainOut:
         action = next((a for a in engine.library if a.id == action_id), None)
         if action is None:
             raise HTTPException(404, "unknown action")
         return ExplainOut(
             bct_code=action.bct_code, bct_name=action.bct_name, rationale=action.rationale, limits=action.limits,
-            how_to_turn_off=HOW_TO_TURN_OFF["ar" if lang == Language.ar else "en"],
+            how_to_turn_off=pick(HOW_TO_TURN_OFF, lang, reading_level),
         )
+
+    @app.get("/content/onboarding", response_model=OnboardingTextOut)
+    def onboarding_content(lang: Language = Language.en,
+                           reading_level: ReadingLevel = ReadingLevel.standard) -> OnboardingTextOut:
+        """Health-check questions, "why we ask" lines and a reading-level example, before the user exists."""
+        return OnboardingTextOut(**onboarding_text(lang, reading_level))
 
     # ---------- dashboards: aggregates only, never individual data ----------
 

@@ -95,6 +95,20 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   `encouragement: {moment, message, behaviour?}`. Show it as a small, dismissible pop-up, without counts or
   confetti-style "streak" visuals. It's at most one a day. Settings has a toggle, `preferences.encouragement`
   (default on).
+- **Part D, health literacy:**
+  - **Reading level:** in onboarding, ask "How should we write things?" and show the two examples from
+    `GET /content/onboarding` → `reading_level_examples`. Send `preferences.reading_level`: `standard` | `simple`; it
+    can be changed in Settings. With `simple`, the API already sends the plain texts (action titles, messages,
+    reasons, encouragement). There's nothing to switch in the frontend.
+  - **Health check and "why we ask":** take the texts from `GET /content/onboarding?lang=&reading_level=`
+    (`questions`, `why_we_ask`) instead of hard-coding them.
+  - **Read aloud:** a Settings toggle, `preferences.read_aloud`. When on, show a speaker button on each card that
+    reads the text with the browser's `speechSynthesis` (`lang` "ar-AE" or "en-US"). No API call.
+  - **Icons:** every action has an `icon` key from a fixed list (`walk`, `stretch`, `seat`, `balance`, `moon`, `sun`,
+    `bed`, `water`, `plate`, `fruit`, `cup`, `cook`, `basket`, `clock`, `no_smoking`, `hand`, `door`, `breath`,
+    `phone_off`, `rest`, `family`). Map each to one icon.
+  - **Arabic label:** when the language is Arabic, show `translation_note` ("Draft translation, pending native
+    review") in Settings and on the onboarding welcome screen.
 - Re-generate types from `api/openapi.json`.
 
 ## Future scope (not in the prototype)
@@ -174,9 +188,9 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 **Check it works** (from the repo root)
 ```bash
 ruff check engine sim api
-pytest engine/tests          # 240 tests
+pytest engine/tests          # 243 tests
 pytest sim/tests             # 49 tests
-pytest api/tests             # 96 tests
+pytest api/tests             # 114 tests
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

@@ -114,6 +114,11 @@ class Accessibility(StrEnum):
     screen_reader = "screen_reader"
 
 
+class ReadingLevel(StrEnum):
+    standard = "standard"
+    simple = "simple"  # short words, one idea per sentence (Task 05 Part D)
+
+
 class ConsentGroup(StrEnum):
     body = "body"
     screening = "screening"
@@ -289,6 +294,8 @@ class Preferences(_Input):
     channel: Channel = Channel.app
     accessibility: list[Accessibility] = Field(default_factory=list)
     encouragement: bool = True  # Task 05 Part C: small "well done" moments; users can turn them off
+    reading_level: ReadingLevel = ReadingLevel.standard  # Task 05 Part D: "simple" shows the plain-language texts
+    read_aloud: bool = False  # the frontend reads texts aloud with the browser's speech; the API only stores it
 
 
 class Conditions(_Input):

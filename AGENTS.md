@@ -103,7 +103,7 @@ Plus: `pregnant` (shown only if sex = female; yes/no/prefer not to say), `mobili
 | `motivation_reason` | optional free text, ≤ 200 chars. "Why we ask": *"We'll remind you of this on tough days."* | Shown back on `low_motivation` (§6.3); red-flag checked (§6.4) at onboarding |
 
 ### 4.6 Preferences (optional)
-`setting`: `indoor` \| `outdoor` \| `either`; `social`: `alone` \| `with_others` \| `either`; `space_preference`: `home` \| `women_only_spaces` \| `any`; `fasting_ramadan`: bool; `iftar_time` (optional, overrides the Abu Dhabi sunset table); `notification_window`; `quiet_hours`; `channel`: `app` \| `whatsapp_style` \| `voice_note`; `accessibility`: `large_text`, `high_contrast`, `screen_reader`.
+`setting`: `indoor` \| `outdoor` \| `either`; `social`: `alone` \| `with_others` \| `either`; `space_preference`: `home` \| `women_only_spaces` \| `any`; `fasting_ramadan`: bool; `iftar_time` (optional, overrides the Abu Dhabi sunset table); `notification_window`; `quiet_hours`; `channel`: `app` \| `whatsapp_style` \| `voice_note`; `accessibility`: `large_text`, `high_contrast`, `screen_reader`. `reading_level`: `standard` \| `simple` (Task 05 Part D: simple shows plain-language texts, FK grade ≤ 6); `read_aloud`: bool (frontend uses the browser's speech; the API only stores it).
 
 ### 4.7 Data controls
 Per-field consent stored with each profile (`consents: {field_group: bool}`); users can view, edit, export and delete. Sensitive groups (body, screening, history, conditions) are stored separately from behaviour events. Withdrawing consent for a group deletes its answers (screening can't be withdrawn on its own; it's needed for a safe plan).
@@ -169,7 +169,8 @@ GET    /users/{id}/today              → { actions: [{ action, time_window, exp
 POST   /users/{id}/events             body: { action_id, type: completed|partial|skipped } → { state, encouragement? }
 POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
-GET    /actions/{id}/explain          → { bct_code, bct_name, rationale, limits, how_to_turn_off }
+GET    /actions/{id}/explain?lang=&reading_level= → { bct_code, bct_name, rationale, limits, how_to_turn_off }
+GET    /content/onboarding?lang=&reading_level=    → { questions, why_we_ask, reading_level_examples, translation_note }   (no auth; Task 05 Part D)
 GET    /users/{id}/community/events   → read-only events filtered to the user (Bearer token; real ones cite a source URL + date checked, others are labelled Example)
 GET    /recipes?tag=                  → curated recipes (general guidance, not medical advice); /recipes/{id}
                                          /today also returns recipes: { action_id: recipe } for cooking steps

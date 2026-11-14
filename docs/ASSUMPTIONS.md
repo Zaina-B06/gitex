@@ -827,7 +827,27 @@ fires on a later completion.
 **Rationale:** praise for real progress supports self-efficacy without the all-or-nothing pressure of a streak.
 **Limits:** frequent or empty praise loses meaning, hence one a day and only real moments. Messages never show a
 count, never use streak language and never mention how many days were missed (tested). Three variants per moment,
-rotated by day, EN + AR (draft) + a simple English variant.
+rotated by day, EN + AR (draft) + simple EN and AR variants.
+
+## Health literacy (Task 05 Part D)
+
+- **Two reading levels**, `standard` and `simple`. Every user-facing string has a simple EN and AR variant: action
+  titles, messages, plan reasons, encouragement, the rotation note, the health check and "why we ask" lines. The API
+  picks the variant, so the engine and the simulator don't change.
+- **Target: Flesch-Kincaid grade ≤ 6** for every English simple string (tested). Grade 6 is a common target for
+  health materials for the public. The method is the standard FK formula,
+  `0.39 × words/sentences + 11.8 × syllables/words − 15.59`, with a heuristic syllable count (vowel groups, minus a
+  silent final "e"; numbers count as one). It is checked against known sentences. It can be off by a syllable on
+  some words, so treat the score as a guide, not a measurement.
+- **Not scored:** recipe titles. They are dish names ("Shakshuka"), and FK is meaningless on a name. They are kept to
+  ≤ 6 words instead. Action `rationale` and `limits` (the "why this?" screen) are English-only and have no simple
+  variant yet.
+- **Safety wording is kept exactly** in every language and level (tested): the red-flag message keeps 998 and
+  "800 SAKINA (800 725462)", and the doctor advice stays in every doctor message.
+- **Arabic is a draft translation, pending native review.** No native speaker has checked it. `python -m
+  api.review_arabic` writes `review/arabic_review.csv` (git-ignored): each Arabic string, its English source and an
+  optional LLM back-translation, with the safety-critical rows first. It is a checklist for a human; it proves
+  nothing by itself.
 
 ## API (Task 03)
 
@@ -863,6 +883,8 @@ rotated by day, EN + AR (draft) + a simple English variant.
 - The action library is a first draft: 17 actions, Arabic titles not yet reviewed (`ar_reviewed: false`),
   rationale and limits English only.
 - Screening questions are paraphrased from PAR-Q+ and are not a clinical tool.
+- All Arabic, including the safety texts and their simple versions, is a draft translation, pending native review.
+  The readability check covers English only; there is no Arabic readability test.
 - The in-memory store loses data on restart; the API uses `SQLiteStore` (Task 03).
 - `SQLiteStore` serialises single reads and writes, but an engine call (load state → change → save) is not one
   transaction: two requests for the same user at the same moment can overwrite each other's state. Fine for a

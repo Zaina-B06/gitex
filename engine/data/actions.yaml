@@ -11,6 +11,8 @@ actions:
       en: "Walk around your home for 5 minutes"
       ar: "امشِ في منزلك لمدة 5 دقائق"
       ar_reviewed: false
+    simple: {en: "Walk at home for 5 minutes.", ar: "امشِ في البيت 5 دقائق.", ar_reviewed: false}
+    icon: walk
     bct_code: "8.7"
     bct_name: "Graded tasks"
     rationale: "Starting very small makes the habit easy to begin; we build up from here."
@@ -29,6 +31,8 @@ actions:
       en: "Take a 5-minute walk outside"
       ar: "تمشَّ في الخارج لمدة 5 دقائق"
       ar_reviewed: false
+    simple: {en: "Walk outside for 5 minutes.", ar: "امشِ خارج البيت 5 دقائق.", ar_reviewed: false}
+    icon: walk
     bct_code: "8.7"
     bct_name: "Graded tasks"
     rationale: "A short, easy walk is a first step you can repeat every day."
@@ -47,6 +51,8 @@ actions:
       en: "Balance practice: stand on one foot holding a chair, 3 times each side"
       ar: "تمرين توازن: قف على قدم واحدة مع الإمساك بكرسي، 3 مرات لكل جهة"
       ar_reviewed: false
+    simple: {en: "Hold a chair. Stand on one foot. Do it 3 times on each side.", ar: "أمسك كرسياً. قف على قدم واحدة. كرّرها 3 مرات لكل قدم.", ar_reviewed: false}
+    icon: balance
     bct_code: "8.1"
     bct_name: "Behavioral practice/rehearsal"
     rationale: "Practising balance a little each day keeps everyday movement steady and safe."
@@ -65,6 +71,8 @@ actions:
       en: "Seated arm and leg raises for 5 minutes"
       ar: "ارفع ذراعيك وساقيك وأنت جالس لمدة 5 دقائق"
       ar_reviewed: false
+    simple: {en: "Sit and lift your arms and legs for 5 minutes.", ar: "اجلس وارفع ذراعيك وساقيك 5 دقائق.", ar_reviewed: false}
+    icon: seat
     bct_code: "8.7"
     bct_name: "Graded tasks"
     rationale: "Movement you can do from a chair still builds the habit and your strength."
@@ -84,6 +92,8 @@ actions:
       en: "March in place for 10 minutes, right after something you already do daily"
       ar: "سِر في مكانك لمدة 10 دقائق بعد شيء تفعله يوميًا"
       ar_reviewed: false
+    simple: {en: "March on the spot for 10 minutes. Do it after something you do each day.", ar: "سِر في مكانك 10 دقائق بعد عمل تقوم به كل يوم.", ar_reviewed: false}
+    icon: walk
     bct_code: "1.4"
     bct_name: "Action planning"
     rationale: "Deciding exactly when and where you'll move makes it far more likely to happen."
@@ -102,6 +112,8 @@ actions:
       en: "Go for a 10-minute brisk walk at a time you choose now"
       ar: "امشِ بخطى سريعة لمدة 10 دقائق في وقت تحدده الآن"
       ar_reviewed: false
+    simple: {en: "Pick a time now. Then walk fast for 10 minutes.", ar: "اختر وقتاً الآن. ثم امشِ بسرعة 10 دقائق.", ar_reviewed: false}
+    icon: walk
     bct_code: "1.4"
     bct_name: "Action planning"
     rationale: "Planning the time in advance turns a good intention into a plan."
@@ -120,6 +132,8 @@ actions:
       en: "10 minutes of seated cardio: arm punches and leg extensions"
       ar: "10 دقائق من التمارين وأنت جالس: لكمات بالذراعين ومدّ الساقين"
       ar_reviewed: false
+    simple: {en: "Sit and move for 10 minutes. Punch the air and stretch your legs.", ar: "اجلس وتحرّك 10 دقائق. حرّك ذراعيك ومدّ ساقيك.", ar_reviewed: false}
+    icon: seat
     bct_code: "8.7"
     bct_name: "Graded tasks"
     rationale: "A slightly longer seated session is the next small step up."
@@ -139,6 +153,8 @@ actions:
       en: "20-minute low-impact home workout, then tick it off"
       ar: "تمرين منزلي خفيف التأثير لمدة 20 دقيقة، ثم سجّله"
       ar_reviewed: false
+    simple: {en: "Do 20 minutes of easy exercise at home. Then tick it off.", ar: "تمرّن تمريناً سهلاً 20 دقيقة في البيت. ثم سجّله.", ar_reviewed: false}
+    icon: stretch
     bct_code: "2.3"
     bct_name: "Self-monitoring of behaviour"
     rationale: "Recording what you did helps you see your progress build over time."
@@ -157,6 +173,8 @@ actions:
       en: "20-minute brisk walk with 3 faster minutes, then tick it off"
       ar: "مشي سريع لمدة 20 دقيقة مع 3 دقائق أسرع، ثم سجّله"
       ar_reviewed: false
+    simple: {en: "Walk fast for 20 minutes. Go faster for 3 of them. Then tick it off.", ar: "امشِ بسرعة 20 دقيقة، وأسرع أكثر 3 دقائق منها. ثم سجّله.", ar_reviewed: false}
+    icon: walk
     bct_code: "2.3"
     bct_name: "Self-monitoring of behaviour"
     rationale: "Tracking your walks shows you how far you've come."
@@ -174,6 +192,8 @@ actions:
       en: "20-minute easy-pace indoor walk, e.g. in a mall or corridor"
       ar: "مشي بوتيرة هادئة لمدة 20 دقيقة في مكان مغلق، مثل مركز تسوق"
       ar_reviewed: false
+    simple: {en: "Walk inside at an easy pace for 20 minutes, like in a mall.", ar: "امشِ بهدوء 20 دقيقة داخل مبنى، مثل مركز تسوق.", ar_reviewed: false}
+    icon: walk
     bct_code: "8.7"
     bct_name: "Graded tasks"
     rationale: "A longer walk at an easy pace builds endurance without strain."
@@ -192,6 +212,8 @@ actions:
       en: "30-minute moderate home workout at your usual time"
       ar: "تمرين منزلي معتدل لمدة 30 دقيقة في وقتك المعتاد"
       ar_reviewed: false
+    simple: {en: "Exercise at home for 30 minutes. Do it at your usual time.", ar: "تمرّن في البيت 30 دقيقة في وقتك المعتاد.", ar_reviewed: false}
+    icon: stretch
     bct_code: "8.3"
     bct_name: "Habit formation"
     rationale: "Same time, same place: repetition in a stable context makes it automatic."
@@ -210,6 +232,8 @@ actions:
       en: "30-minute brisk walk or bike ride at your usual time"
       ar: "مشي سريع أو ركوب دراجة لمدة 30 دقيقة في وقتك المعتاد"
       ar_reviewed: false
+    simple: {en: "Walk fast or ride a bike for 30 minutes at your usual time.", ar: "امشِ بسرعة أو اركب دراجة 30 دقيقة في وقتك المعتاد.", ar_reviewed: false}
+    icon: walk
     bct_code: "8.3"
     bct_name: "Habit formation"
     rationale: "Repeating the same routine in the same context turns it into a habit."
@@ -228,6 +252,8 @@ actions:
       en: "Set an alarm to get up at the same time tomorrow (within 30 minutes)"
       ar: "اضبط منبهًا لتستيقظ غدًا في نفس الوقت (بفارق لا يزيد عن 30 دقيقة)"
       ar_reviewed: false
+    simple: {en: "Set an alarm to wake up at the same time tomorrow.", ar: "اضبط المنبه لتستيقظ غداً في نفس الوقت.", ar_reviewed: false}
+    icon: clock
     bct_code: "1.4"
     bct_name: "Action planning"
     rationale: "A steady wake time is the simplest anchor for better sleep."
@@ -245,6 +271,8 @@ actions:
       en: "Start a 15-minute wind-down routine before bed"
       ar: "ابدأ روتينًا للاسترخاء لمدة 15 دقيقة قبل النوم"
       ar_reviewed: false
+    simple: {en: "Calm down for 15 minutes before bed.", ar: "استرخِ 15 دقيقة قبل النوم.", ar_reviewed: false}
+    icon: moon
     bct_code: "8.3"
     bct_name: "Habit formation"
     rationale: "Doing the same calm steps each night tells your body it's time to sleep."
@@ -262,6 +290,8 @@ actions:
       en: "Get 10 minutes of daylight within an hour of waking"
       ar: "تعرّض لضوء النهار 10 دقائق خلال ساعة من استيقاظك"
       ar_reviewed: false
+    simple: {en: "Get 10 minutes of daylight soon after you wake up.", ar: "اخرج إلى ضوء النهار 10 دقائق بعد أن تستيقظ.", ar_reviewed: false}
+    icon: sun
     bct_code: "1.4"
     bct_name: "Action planning"
     rationale: "Morning light helps set your body clock, which makes evenings easier."
@@ -279,6 +309,8 @@ actions:
       en: "No screens for 30 minutes before bed; set a phone reminder as your cue"
       ar: "لا شاشات قبل النوم بـ30 دقيقة؛ اضبط تذكيرًا على هاتفك"
       ar_reviewed: false
+    simple: {en: "No screens for 30 minutes before bed. Set a phone reminder.", ar: "لا شاشات قبل النوم بنصف ساعة. ضع تذكيراً في هاتفك.", ar_reviewed: false}
+    icon: phone_off
     bct_code: "7.1"
     bct_name: "Prompts/cues"
     rationale: "A reminder at the right moment makes the switch-off easier to remember."
@@ -296,6 +328,8 @@ actions:
       en: "Keep the same bed and wake time on 6 of 7 nights; tick each night"
       ar: "حافظ على نفس وقت النوم والاستيقاظ 6 ليالٍ من 7، وسجّل كل ليلة"
       ar_reviewed: false
+    simple: {en: "Go to bed and wake up at the same times on 6 of 7 nights. Tick each night.", ar: "نَم واستيقظ في نفس الوقت 6 ليالٍ من 7. سجّل كل ليلة.", ar_reviewed: false}
+    icon: bed
     bct_code: "2.3"
     bct_name: "Self-monitoring of behaviour"
     rationale: "Tracking your schedule helps you keep it steady, the core of good sleep."
@@ -364,7 +398,7 @@ actions:
     behaviour: nutrition
     tier: 2
     title: {en: "Add one vegetable or piece of fruit to a meal", ar: "أضف خضاراً أو قطعة فاكهة إلى إحدى الوجبات", ar_reviewed: false}
-    simple: {en: "Add one fruit or vegetable today.", ar: "أضف فاكهة أو خضاراً اليوم.", ar_reviewed: false}
+    simple: {en: "Add one more fruit or vegetable to a meal today.", ar: "أضف فاكهة أو خضاراً اليوم.", ar_reviewed: false}
     icon: fruit
     bct_code: "1.4"
     bct_name: "Action planning"

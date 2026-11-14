@@ -26,11 +26,12 @@ def test_every_moment_has_several_short_kind_variants():
     for moment, variants in ENCOURAGEMENT.items():
         assert len(variants) >= 3, moment
         for v in variants:
-            assert v["en"] and v["ar"] and v["simple"], moment
-            for text in (v["en"], v["simple"]):
+            assert v["en"] and v["ar"] and v["simple_en"] and v["simple_ar"], moment
+            for text in (v["en"], v["simple_en"]):
                 assert not BANNED.search(text), (moment, text)
                 assert len(text.split()) <= 14, (moment, text)
-            assert not re.search(r"\d|[٠-٩]", v["ar"]), (moment, v["ar"])
+            for text in (v["ar"], v["simple_ar"]):
+                assert not re.search(r"\d|[٠-٩]", text), (moment, text)
 
 
 def test_first_completion_returns_a_moment_and_today_shows_it(client):

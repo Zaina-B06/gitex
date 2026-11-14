@@ -34,3 +34,6 @@ web/dist/
 *.log
 Thumbs.db
 .DS_Store
+
+# Arabic review sheet (python -m api.review_arabic)
+review/

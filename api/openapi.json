@@ -634,6 +634,15 @@
        "$ref": "#/components/schemas/Language",
        "default": "en"
       }
+     },
+     {
+      "name": "reading_level",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "$ref": "#/components/schemas/ReadingLevel",
+       "default": "standard"
+      }
      }
     ],
     "responses": {
@@ -643,6 +652,55 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/ExplainOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/content/onboarding": {
+   "get": {
+    "summary": "Onboarding Content",
+    "description": "Health-check questions, \"why we ask\" lines and a reading-level example, before the user exists.",
+    "operationId": "onboarding_content_content_onboarding_get",
+    "parameters": [
+     {
+      "name": "lang",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "$ref": "#/components/schemas/Language",
+       "default": "en"
+      }
+     },
+     {
+      "name": "reading_level",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "$ref": "#/components/schemas/ReadingLevel",
+       "default": "standard"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OnboardingTextOut"
         }
        }
       }
@@ -2130,6 +2188,50 @@
     ],
     "title": "OnboardOut"
    },
+   "OnboardingTextOut": {
+    "properties": {
+     "questions": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Questions"
+     },
+     "why_we_ask": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Why We Ask"
+     },
+     "reading_level_examples": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object",
+      "title": "Reading Level Examples"
+     },
+     "translation_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Translation Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "questions",
+     "why_we_ask",
+     "reading_level_examples",
+     "translation_note"
+    ],
+    "title": "OnboardingTextOut"
+   },
    "PastHelper": {
     "type": "string",
     "enum": [
@@ -2262,6 +2364,15 @@
       "type": "boolean",
       "title": "Encouragement",
       "default": true
+     },
+     "reading_level": {
+      "$ref": "#/components/schemas/ReadingLevel",
+      "default": "standard"
+     },
+     "read_aloud": {
+      "type": "boolean",
+      "title": "Read Aloud",
+      "default": false
      }
     },
     "additionalProperties": false,
@@ -2276,6 +2387,14 @@
      "prefer_not_to_say"
     ],
     "title": "PregnancyAnswer"
+   },
+   "ReadingLevel": {
+    "type": "string",
+    "enum": [
+     "standard",
+     "simple"
+    ],
+    "title": "ReadingLevel"
    },
    "RecipeOut": {
     "properties": {

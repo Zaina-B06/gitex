@@ -31,12 +31,12 @@ from .models import (
 )
 from .plan import goal_order
 from .policy import (
-    BARRIER_MESSAGE,
     Bandit,
     RulesBandit,
     ThompsonBandit,
     apply_barrier,
     arm_key,
+    barrier_message,
     choose_actions,
     init_bandit_params,
     lighter_option,
@@ -457,7 +457,7 @@ class Engine:
         if state.red_flag and ContextFlag.paused in state.context_flags:
             keys.append("seek_care")
         if state.last_barrier is not None:
-            keys.append(BARRIER_MESSAGE[state.last_barrier])
+            keys.append(barrier_message(profile, state.last_barrier))
             if state.last_barrier == Barrier.low_motivation:
                 keys.append("buddy_offer")
         if state.lighter_offers:

@@ -18,6 +18,7 @@ _ORDER = (
     "mobility",  # seated movement
     "recovering",  # gentlest starting level
     "recovery_first",  # recovering or stressed, and chose recovery -> rest steps first
+    "caregiver",  # cares for someone, and chose recovery -> a short caregiver pause first (Task 05 Part E)
     "nutrition_first",  # diabetes, and chose nutrition -> meal steps early
     "senior_start",  # balance-friendly start at 65+
     "small_start",  # few active days now -> small first steps
@@ -71,6 +72,7 @@ def build_plan(profile: UserProfile) -> PlanSummary:
         "recovery_first": bool(order) and order[0] == Behaviour.recovery,
         "nutrition_first": Behaviour.nutrition in active and Condition.diabetes in managing,
         "rotating": len(order) > config.MAX_ACTIVE_BEHAVIOURS,
+        "caregiver": profile.preferences.caregiver and Behaviour.recovery in active,
     }
     gentle_start = moves and start_tiers[Behaviour.movement] == config.MIN_TIER and not (
         found["see_doctor_gentle"] or found["recovering"])

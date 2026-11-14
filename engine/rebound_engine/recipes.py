@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from .actions import lives_with_family
 from .models import Action, Condition, ContextFlag, LocalizedText, UserProfile
 
 # shortcut: path works for the editable install only (same as actions.yaml); move data/ into the package for a wheel.
@@ -41,13 +42,14 @@ def load_recipes(path: Path = RECIPES_PATH) -> tuple[Recipe, ...]:
 
 def suggest_recipe(profile: UserProfile, action: Action, day: int, flags: set[ContextFlag]) -> Recipe | None:
     """One recipe for a cooking step, rotating by day: diabetes-friendly ones for people managing diabetes, ones
-    that suit suhoor or iftar during Ramadan. None if the step doesn't involve cooking."""
+    that suit suhoor or iftar during Ramadan, family ones for people living with family. None if the step doesn't involve cooking."""
     if "cooking" not in action.tags:
         return None
     pool = list(load_recipes())
     for wanted, applies in (
         ("diabetes_friendly", Condition.diabetes in profile.conditions.managing),
         ("fasting", ContextFlag.ramadan in flags),
+        ("family", lives_with_family(profile)),  # Task 05 Part E
     ):
         narrowed = [r for r in pool if wanted in r.tags]
         if applies and narrowed:

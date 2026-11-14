@@ -64,6 +64,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "simple_en": "Thank you for telling us. We changed your plan for tomorrow.",
         "simple_ar": "شكراً لك. غيّرنا خطة الغد.",
     },
+    # "Family things" check-in with a family at home (Task 05 Part E); without one, social_family keeps
+    # "thanks_for_sharing".
+    "family_together": {
+        "en": "Family comes first. Today's step is one you can do with them.",
+        "ar": "العائلة أولاً. خطوة اليوم يمكنك القيام بها معهم.",
+        "simple_en": "Family time matters. Today, do your step with them.",
+        "simple_ar": "وقت العائلة مهم. اليوم، قم بخطوتك معهم.",
+    },
     "new_reminder": {
         "en": "Easy to forget. We'll remind you at a different time or in a different way.",
         "ar": "من السهل أن ننسى. سنذكّرك في وقت مختلف أو بطريقة مختلفة.",
@@ -210,6 +218,12 @@ REASONS: dict[str, dict[str, str]] = {
         "ar": "أنت في فترة تعافٍ أو ضغط، لذلك تأتي خطوات الراحة أولاً.",
         "simple_en": "You are getting better or under stress, so rest comes first.",
         "simple_ar": "أنت تتعافى أو تحت ضغط، لذلك الراحة أولاً.",
+    },
+    "caregiver": {
+        "en": "You care for someone, so rest steps start short.",
+        "ar": "أنت ترعى شخصاً آخر، لذلك تبدأ خطوات الراحة قصيرة.",
+        "simple_en": "You look after someone, so your rest steps are short.",
+        "simple_ar": "أنت تعتني بشخص، فخطوات راحتك قصيرة.",
     },
     "nutrition_first": {
         "en": "You mentioned diabetes, so meal steps come early.",

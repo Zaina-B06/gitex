@@ -3,6 +3,7 @@
 import pytest
 from api.app import create_app
 from api.demo import ORG_DAYS, ORG_SIZE, PERSONA_WARMUP_DAYS
+from api.messages import REASONS
 from fastapi.testclient import TestClient
 from test_api import Clock, complete_all, onboard
 
@@ -117,4 +118,5 @@ def test_seeded_personas_show_different_plans(demo):
     assert len({tuple(p["all_reasons"]) for p in plans.values()}) == 3  # all different
     assert any("ضغط الدم" in r for r in plans["Ahmed"]["all_reasons"])  # Ahmed is Arabic: high blood pressure
     assert len(plans["Mariam"]["all_reasons"]) >= 2  # mobility + recovering
+    assert REASONS["caregiver"]["en"] in plans["Mariam"]["all_reasons"]  # Part E: Mariam cares for someone
     assert all(len(p["reasons"]) <= 3 for p in plans.values())

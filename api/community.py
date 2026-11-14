@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, model_validator
 from rebound_engine.models import (
     Behaviour,
+    Household,
     Language,
     LocalizedText,
     MobilityLimitation,
@@ -23,7 +24,6 @@ Category = Literal[
     "walking_group", "park_run", "sports_night", "free_health_screening", "family_activity", "women_only",
     "wheelchair_accessible",
 ]
-Household = Literal["alone", "family", "children", "older_relatives"]
 
 
 class CommunityEvent(BaseModel):

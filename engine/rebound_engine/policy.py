@@ -4,7 +4,7 @@ import random
 from typing import Protocol
 
 from . import config
-from .actions import filter_actions
+from .actions import filter_actions, lives_with_family
 from .calendar import in_busy
 from .models import (
     Action,
@@ -66,7 +66,17 @@ BARRIER_TAG = {
     Barrier.craving: "substitution",
     Barrier.others_smoking: "cue_avoidance",
     Barrier.no_healthy_food_nearby: "no_shopping",
+    Barrier.social_family: "family",  # only applies when family steps are allowed (household other than alone)
 }
+# Variants that fit the person's home life (Task 05 Part E) come before every other fitting variant.
+_FAMILY_TAGS = frozenset({"family", "family_iftar", "caregiver"})
+
+
+def barrier_message(profile: UserProfile, barrier: Barrier) -> str:
+    """The reply for a barrier. "Family things" with a family at home gets a family reply (Task 05 Part E)."""
+    if barrier == Barrier.social_family and lives_with_family(profile):
+        return "family_together"
+    return BARRIER_MESSAGE[barrier]
 
 
 def primary_barrier(barriers: list[Barrier]) -> Barrier | None:
@@ -309,12 +319,13 @@ def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> s
     elif barrier == Barrier.stress:
         for b in (Behaviour.movement, Behaviour.nutrition, Behaviour.smoking):
             _tier_down(state, b)  # recovery comes first today (todays_behaviours)
-    return BARRIER_MESSAGE[barrier]
+    return barrier_message(profile, barrier)
 
 
 def _tag_rank(profile: UserProfile, state: UserState, a: Action) -> int:
-    """0 for a variant that fits this person right now (Ramadan, diabetes, recovering), else 1. Movement and sleep
-    actions carry no tags, so their order is unchanged."""
+    """0 for a family/caregiver variant (filter_actions only lets through the ones that fit), 1 for another variant
+    that fits this person right now (Ramadan, diabetes, recovering), else 2. Movement and sleep actions without
+    tags keep their order."""
     managing = profile.conditions.managing
     fits = (
         ("ramadan_only" in a.tags and ContextFlag.ramadan in effective_flags(state))
@@ -322,7 +333,9 @@ def _tag_rank(profile: UserProfile, state: UserState, a: Action) -> int:
         or ("after_illness" in a.tags and (Condition.recovering_from_illness_or_injury in managing
                                            or ContextFlag.illness in effective_flags(state)))
     )
-    return 0 if fits else 1
+    if _FAMILY_TAGS & set(a.tags):
+        return 0
+    return 1 if fits else 2
 
 
 def todays_behaviours(state: UserState) -> list[Behaviour]:

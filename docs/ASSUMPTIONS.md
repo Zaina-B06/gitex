@@ -849,6 +849,30 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
   optional LLM back-translation, with the safety-critical rows first. It is a checklist for a human; it proves
   nothing by itself.
 
+## Family context (Task 05 Part E)
+
+- **Three optional answers** in preferences: `household` (alone, family, children, older relatives), `caregiver`,
+  `family_fasting`. We store only these answers. Nothing is stored about the other people, and nobody else gets
+  messages. Withdrawing the preferences consent deletes them.
+- **Family variants are suggestions**, not a plan for the whole family. 8 steps: moving at home with the family
+  (tier 1), a family walk after maghrib (tier 2), a water jug on the table (tier 1), a fruit bowl (tier 2), two
+  family-iftar steps (Ramadan only, tiers 1–2), a smoke-free room (tier 1) and a short caregiver pause (tier 1). Each
+  carries the same safety and fasting flags as other steps and goes through the same safety filter.
+- **When they show:** `family` steps need a household other than alone, `family_iftar` steps need `family_fasting`
+  and Ramadan, and the caregiver pause needs `caregiver`. When they fit, they come before other variants at the same
+  tier. The tier itself doesn't change. Cooking steps suggest recipes tagged `family` for people living with family.
+- **"Family things" (`social_family`):** with a family at home, the next steps prefer a family step, and the reply is
+  "Family comes first. Today's step is one you can do with them." Without one, nothing changes.
+- **Caregivers:** recovery already starts at tier 1, so "a gentler start" means the 5-minute caregiver pause comes
+  first, plus one plan reason ("You care for someone, so rest steps start short"). There is no new tier rule.
+- **Not evaluated.** Simulator personas have no household, so with these answers unset the engine behaves exactly
+  as before (tested, plus the same-seed check against run_011). Whether family steps help is a pilot question.
+- **What went wrong first:** the first Part E build failed the same-seed check in every arm, including the streak
+  app. Personas drew one random number per movement/sleep BCT code, and that list was read from the action library.
+  The family walk added code 3.1, so every later draw shifted. Fix: the list is now frozen to run_011's six codes
+  (`sim/personas.py`). A test re-imports the simulator with and without the family steps and needs identical
+  results in all arms. No outputs from the broken build were kept.
+
 ## API (Task 03)
 
 | Choice | Value | Why |
@@ -885,6 +909,7 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 - Screening questions are paraphrased from PAR-Q+ and are not a clinical tool.
 - All Arabic, including the safety texts and their simple versions, is a draft translation, pending native review.
   The readability check covers English only; there is no Arabic readability test.
+- Family variants (Task 05 Part E) are engine-tested but not simulation-evaluated: personas have no household.
 - The in-memory store loses data on restart; the API uses `SQLiteStore` (Task 03).
 - `SQLiteStore` serialises single reads and writes, but an engine call (load state → change → save) is not one
   transaction: two requests for the same user at the same moment can overwrite each other's state. Fine for a

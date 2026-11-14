@@ -114,6 +114,15 @@ class Accessibility(StrEnum):
     screen_reader = "screen_reader"
 
 
+class Household(StrEnum):
+    """Who the user lives with (Task 05 Part E). Nothing is stored about the other people."""
+
+    alone = "alone"
+    family = "family"
+    children = "children"
+    older_relatives = "older_relatives"
+
+
 class ReadingLevel(StrEnum):
     standard = "standard"
     simple = "simple"  # short words, one idea per sentence (Task 05 Part D)
@@ -296,6 +305,10 @@ class Preferences(_Input):
     encouragement: bool = True  # Task 05 Part C: small "well done" moments; users can turn them off
     reading_level: ReadingLevel = ReadingLevel.standard  # Task 05 Part D: "simple" shows the plain-language texts
     read_aloud: bool = False  # the frontend reads texts aloud with the browser's speech; the API only stores it
+    # Task 05 Part E, all optional. Unset = no family steps, exactly as before (every simulator persona).
+    household: Household | None = None
+    caregiver: bool = False  # cares for someone at home -> short caregiver pause first, one plan reason
+    family_fasting: bool = False  # the family fasts together -> family-iftar steps in Ramadan
 
 
 class Conditions(_Input):

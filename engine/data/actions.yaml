@@ -743,3 +743,144 @@ actions:
     low_energy_ok: true
     pregnancy_safe: true
     duration_min: 10
+
+  # ---------------- family variants (Task 05 Part E) ----------------
+  # Offered only when they fit: "family" needs a household other than alone, "family_iftar" needs family_fasting
+  # (and Ramadan), "caregiver" needs caregiver. With none of these set (every simulator persona) they never show.
+  - id: mv_t1_family_play
+    behaviour: movement
+    tier: 1
+    title: {en: "Play or walk around at home with your family for 5 minutes", ar: "العب أو امشِ في البيت مع عائلتك لمدة 5 دقائق", ar_reviewed: false}
+    simple: {en: "Move with your family at home for 5 minutes.", ar: "تحرّك مع أهلك في البيت 5 دقائق.", ar_reviewed: false}
+    icon: family
+    tags: [family]
+    bct_code: "3.1"
+    bct_name: "Social support (unspecified)"
+    rationale: "A small step done together is easier to keep up, and it fits into family time."
+    limits: "Go at a comfortable pace. Stop if you feel pain, dizziness or chest discomfort."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    seated_variant_id: mv_t1_seated
+    duration_min: 5
+
+  - id: mv_t2_family_walk
+    behaviour: movement
+    tier: 2
+    title: {en: "Walk with your family after maghrib for 10 minutes", ar: "امشِ مع عائلتك بعد المغرب لمدة 10 دقائق", ar_reviewed: false}
+    simple: {en: "Take a walk with your family after maghrib. Go for 10 minutes.", ar: "بعد المغرب، امشِ مع أهلك 10 دقائق.", ar_reviewed: false}
+    icon: family
+    tags: [family]
+    bct_code: "3.1"
+    bct_name: "Social support (unspecified)"
+    rationale: "An evening walk together is cooler, social and easy to repeat."
+    limits: "Keep a pace everyone can manage. Stop if you feel pain, dizziness or chest discomfort."
+    setting: outdoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    seated_variant_id: mv_t2_seated
+    duration_min: 10
+
+  - id: nu_t1_family_water_jug
+    behaviour: nutrition
+    tier: 1
+    title: {en: "Put a jug of water on the table for the whole family at meals", ar: "ضع إبريق ماء على المائدة لكل العائلة في الوجبات", ar_reviewed: false}
+    simple: {en: "Put water on the table for the family at meals.", ar: "ضع الماء على مائدة أهلك عند الأكل.", ar_reviewed: false}
+    icon: water
+    tags: [family]
+    bct_code: "12.1"
+    bct_name: "Restructuring the physical environment"
+    rationale: "Water in plain sight at meals is an easy cue for everyone at the table."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t2_family_fruit_bowl
+    behaviour: nutrition
+    tier: 2
+    title: {en: "Put a bowl of fruit or cut vegetables where the family can see it", ar: "ضع طبق فاكهة أو خضار مقطعة حيث تراه العائلة", ar_reviewed: false}
+    simple: {en: "Put fruit or vegetables out where the family can see them.", ar: "ضع فاكهة أو خضاراً أمام أهلك.", ar_reviewed: false}
+    icon: fruit
+    tags: [family]
+    bct_code: "12.1"
+    bct_name: "Restructuring the physical environment"
+    rationale: "When fruit is easy to see and reach, it becomes an easy choice for everyone."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: any
+    fasting_safe: false
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 5
+
+  - id: nu_t1_family_iftar_water
+    behaviour: nutrition
+    tier: 1
+    title: {en: "At the family iftar, put water on the table and break the fast with it together", ar: "في إفطار العائلة، ضع الماء على المائدة وأفطروا عليه معاً", ar_reviewed: false}
+    simple: {en: "At iftar, drink water first, all together.", ar: "عند الإفطار، اشربوا الماء أولاً معاً.", ar_reviewed: false}
+    icon: water
+    tags: [family_iftar, ramadan_only]
+    bct_code: "12.1"
+    bct_name: "Restructuring the physical environment"
+    rationale: "Starting iftar with water together is a small habit the whole table can share."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t2_family_iftar_salad
+    behaviour: nutrition
+    tier: 2
+    title: {en: "Start the family iftar with a shared salad or vegetable soup", ar: "ابدؤوا إفطار العائلة بسلطة أو شوربة خضار للجميع", ar_reviewed: false}
+    simple: {en: "Start the family iftar with salad or soup.", ar: "ابدؤوا الإفطار معاً بسلطة أو شوربة.", ar_reviewed: false}
+    icon: plate
+    tags: [family_iftar, ramadan_only]
+    bct_code: "3.1"
+    bct_name: "Social support (unspecified)"
+    rationale: "A shared dish at the start of iftar makes the lighter choice the family's choice."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10
+
+  - id: sm_t1_smoke_free_room
+    behaviour: smoking
+    tier: 1
+    title: {en: "Keep one room at home smoke-free for everyone", ar: "اجعل غرفة واحدة في البيت بلا تدخين للجميع", ar_reviewed: false}
+    simple: {en: "Do not smoke in one room at home.", ar: "لا تدخّن في غرفة واحدة من البيت.", ar_reviewed: false}
+    icon: no_smoking
+    tags: [family, cue_avoidance]
+    bct_code: "12.3"
+    bct_name: "Avoidance/reducing exposure to cues for the behavior"
+    rationale: "A smoke-free room is one place at home with no cue to smoke, for you and your family."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: rc_t1_caregiver_pause
+    behaviour: recovery
+    tier: 1
+    title: {en: "Take 5 quiet minutes for yourself while the person you care for is resting", ar: "خذ 5 دقائق هادئة لنفسك بينما يرتاح من تعتني به", ar_reviewed: false}
+    simple: {en: "When they rest, take 5 quiet minutes for you.", ar: "عندما يرتاح من ترعاه، خذ 5 دقائق لنفسك.", ar_reviewed: false}
+    icon: rest
+    tags: [caregiver]
+    bct_code: "11.2"
+    bct_name: "Reduce negative emotions"
+    rationale: "Caring for someone is tiring; a short pause is small enough to fit around it."
+    limits: "These are rest steps, not treatment. If you feel low for a long time or think about harming yourself, talk to someone you trust or call 800 SAKINA (800 725462)."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 5

@@ -57,17 +57,19 @@ def _body(**groups: dict[str, Any]) -> dict[str, Any]:
 DEMO_PERSONAS: list[tuple[str, dict[str, Any]]] = [
     ("Ahmed, night-shift worker", _body(
         basics={"language": "ar", "sex": "male", "age_years": 41, "schedule_type": "shift",
-                "usual_wake_time": "13:00", "usual_sleep_time": "05:00"},
+                "usual_wake_time": "13:00", "usual_sleep_time": "05:00",
+                "goals": ["movement", "sleep", "nutrition"]},
         screening={"pregnant": None},
         history={"motivation_reason": "أريد أن ألعب مع أطفالي"},
-        preferences={"fasting_ramadan": True},
+        # Part E: lives with his children and the family fasts together -> family steps and family iftar.
+        preferences={"fasting_ramadan": True, "household": "children", "family_fasting": True},
         conditions={"managing": ["high_blood_pressure"]},
     )),
     ("Sara, office worker", _body(basics={"age_years": 29})),  # no conditions: the plain plan, for contrast
     ("Mariam, uses a wheelchair", _body(
-        basics={"age_years": 52, "schedule_type": "home_caregiver"},
+        basics={"age_years": 52, "schedule_type": "home_caregiver", "goals": ["movement", "sleep", "recovery"]},
         screening={"mobility_limitation": "mobility_aid"},
-        preferences={"setting": "indoor"},
+        preferences={"setting": "indoor", "caregiver": True},  # Part E: short caregiver pause, caregiver reason
         conditions={"managing": ["recovering_from_illness_or_injury"]},
     )),
 ]

@@ -13,6 +13,7 @@ from .models import (
     Condition,
     Context,
     ContextFlag,
+    Household,
     PlaceSetting,
     UserProfile,
     UserState,
@@ -75,6 +76,10 @@ def _safe_floor(a: Action) -> bool:
     )
 
 
+def lives_with_family(profile: UserProfile) -> bool:
+    return profile.preferences.household not in (None, Household.alone)
+
+
 def filter_actions(
     profile: UserProfile,
     state: UserState,
@@ -92,6 +97,14 @@ def filter_actions(
         a for a in actions
         if ("after_illness" not in a.tags or recovering)  # rest-after-illness only when it fits
         and ("not_for_diabetes" not in a.tags or Condition.diabetes not in managing)  # e.g. dates at iftar
+    ]
+    # Task 05 Part E: family variants only when they fit, so an unset household (the simulator) changes nothing.
+    prefs = profile.preferences
+    actions = [
+        a for a in actions
+        if ("family" not in a.tags or lives_with_family(profile))
+        and ("family_iftar" not in a.tags or prefs.family_fasting)
+        and ("caregiver" not in a.tags or prefs.caregiver)
     ]
     if state.prefer_indoor or profile.preferences.setting == PlaceSetting.indoor:
         actions = [a for a in actions if a.setting != ActionSetting.outdoor]

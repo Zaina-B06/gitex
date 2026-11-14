@@ -445,13 +445,7 @@
       "schema": {
        "anyOf": [
         {
-         "enum": [
-          "alone",
-          "family",
-          "children",
-          "older_relatives"
-         ],
-         "type": "string"
+         "$ref": "#/components/schemas/Household"
         },
         {
          "type": "null"
@@ -2038,6 +2032,17 @@
     "type": "object",
     "title": "History"
    },
+   "Household": {
+    "type": "string",
+    "enum": [
+     "alone",
+     "family",
+     "children",
+     "older_relatives"
+    ],
+    "title": "Household",
+    "description": "Who the user lives with (Task 05 Part E). Nothing is stored about the other people."
+   },
    "Language": {
     "type": "string",
     "enum": [
@@ -2372,6 +2377,26 @@
      "read_aloud": {
       "type": "boolean",
       "title": "Read Aloud",
+      "default": false
+     },
+     "household": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Household"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "caregiver": {
+      "type": "boolean",
+      "title": "Caregiver",
+      "default": false
+     },
+     "family_fasting": {
+      "type": "boolean",
+      "title": "Family Fasting",
       "default": false
      }
     },

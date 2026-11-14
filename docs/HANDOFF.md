@@ -109,7 +109,26 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
     `phone_off`, `rest`, `family`). Map each to one icon.
   - **Arabic label:** when the language is Arabic, show `translation_note` ("Draft translation, pending native
     review") in Settings and on the onboarding welcome screen.
+- **Part E, family:**
+  - **Onboarding (optional, skippable):** "Who lives with you?" (`preferences.household`: `alone`, `family`,
+    `children`, `older_relatives`), "Do you care for someone at home?" (`preferences.caregiver`) and, for people who
+    fast, "Does your family fast together?" (`preferences.family_fasting`). All three can be changed in Settings.
+  - **Check-in:** add a "Family things" button that sends `social_family`. With a family at home the reply is the
+    family one, and today's step may become a family step.
+  - **Icons:** family steps use the `family`, `water`, `fruit`, `plate`, `no_smoking` and `rest` icons.
 - Re-generate types from `api/openapi.json`.
+
+## For the pitch: how Parts A–E answer the brief
+
+The brief asks for plans built from each person's goals, preferences, health context and data, across movement,
+nutrition, sleep, smoking and recovery, and for people of every health literacy level and family situation.
+**Part A** builds a personal plan from the health check and what someone is managing, and says why in plain
+reasons. **Part A2** fits the plan to life in the UAE without manual switches: Ramadan, Eid, summer heat, iftar time
+and real shift patterns. **Part B** covers all five behaviours the brief names, with at most three small steps a day
+and recipes from local kitchens. **Part C** replaces streaks with small moments of encouragement, so a missed day
+never feels like losing everything. **Part D** makes it readable for everyone: a simple reading level (tested at
+grade 6 or below), Arabic and English, icons and read-aloud. **Part E** brings in the family: family steps, family
+iftar, a shorter start for caregivers, and a family reply when family life gets in the way.
 
 ## Future scope (not in the prototype)
 
@@ -188,9 +207,9 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 **Check it works** (from the repo root)
 ```bash
 ruff check engine sim api
-pytest engine/tests          # 243 tests
-pytest sim/tests             # 49 tests
-pytest api/tests             # 114 tests
+pytest engine/tests          # 282 tests
+pytest sim/tests             # 50 tests
+pytest api/tests             # 120 tests
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

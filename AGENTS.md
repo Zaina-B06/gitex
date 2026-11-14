@@ -103,7 +103,7 @@ Plus: `pregnant` (shown only if sex = female; yes/no/prefer not to say), `mobili
 | `motivation_reason` | optional free text, ≤ 200 chars. "Why we ask": *"We'll remind you of this on tough days."* | Shown back on `low_motivation` (§6.3); red-flag checked (§6.4) at onboarding |
 
 ### 4.6 Preferences (optional)
-`setting`: `indoor` \| `outdoor` \| `either`; `social`: `alone` \| `with_others` \| `either`; `space_preference`: `home` \| `women_only_spaces` \| `any`; `fasting_ramadan`: bool; `iftar_time` (optional, overrides the Abu Dhabi sunset table); `notification_window`; `quiet_hours`; `channel`: `app` \| `whatsapp_style` \| `voice_note`; `accessibility`: `large_text`, `high_contrast`, `screen_reader`. `reading_level`: `standard` \| `simple` (Task 05 Part D: simple shows plain-language texts, FK grade ≤ 6); `read_aloud`: bool (frontend uses the browser's speech; the API only stores it).
+`setting`: `indoor` \| `outdoor` \| `either`; `social`: `alone` \| `with_others` \| `either`; `space_preference`: `home` \| `women_only_spaces` \| `any`; `fasting_ramadan`: bool; `iftar_time` (optional, overrides the Abu Dhabi sunset table); `notification_window`; `quiet_hours`; `channel`: `app` \| `whatsapp_style` \| `voice_note`; `accessibility`: `large_text`, `high_contrast`, `screen_reader`. `reading_level`: `standard` \| `simple` (Task 05 Part D: simple shows plain-language texts, FK grade ≤ 6); `read_aloud`: bool (frontend uses the browser's speech; the API only stores it). Task 05 Part E, all optional: `household`: `alone` \| `family` \| `children` \| `older_relatives`; `caregiver`: bool; `family_fasting`: bool. Nothing is stored about the other people.
 
 ### 4.7 Data controls
 Per-field consent stored with each profile (`consents: {field_group: bool}`); users can view, edit, export and delete. Sensitive groups (body, screening, history, conditions) are stored separately from behaviour events. Withdrawing consent for a group deletes its answers (screening can't be withdrawn on its own; it's needed for a safe plan).
@@ -114,7 +114,7 @@ One screen of tap-to-select chips with Skip: `diabetes`, `high_blood_pressure`, 
 ## 5. Core models (Pydantic)
 
 - `UserProfile`: all of §4 + `user_id`, `created_at`, `consents`.
-- `Action`: `id`, `behaviour` (`movement`/`sleep`/`nutrition`/`smoking`/`recovery`), `tier` (1–4), `title` (`en`/`ar`), `bct_code`, `bct_name`, `rationale`, `limits`, `setting` (`indoor`/`outdoor`/`any`), `fasting_safe` bool, `low_energy_ok` bool, `seated_variant_id` optional, `pregnancy_safe` bool, `contraindications` list, `duration_min`, `simple` (plain-language title), `icon` (fixed key), `tags` (variants: `ramadan_only`, `diabetes`, `after_illness`, `cooking`, `substitution`, `cue_avoidance`, `no_shopping`).
+- `Action`: `id`, `behaviour` (`movement`/`sleep`/`nutrition`/`smoking`/`recovery`), `tier` (1–4), `title` (`en`/`ar`), `bct_code`, `bct_name`, `rationale`, `limits`, `setting` (`indoor`/`outdoor`/`any`), `fasting_safe` bool, `low_energy_ok` bool, `seated_variant_id` optional, `pregnancy_safe` bool, `contraindications` list, `duration_min`, `simple` (plain-language title), `icon` (fixed key), `tags` (variants: `ramadan_only`, `diabetes`, `after_illness`, `cooking`, `substitution`, `cue_avoidance`, `no_shopping`; Part E: `family` (needs a household other than alone), `family_iftar` (needs `family_fasting`, Ramadan only), `caregiver` (needs `caregiver`)). Family variants are filtered out when they don't fit, so an unset household changes nothing (the simulator's case).
 - `Event`: `user_id`, `day`, `type` (`action_shown`/`completed`/`partial`/`skipped`/`no_response`/`checkin`/`pause`), `action_id?`, `payload`.
 - `UserState`: `habit_strength` per behaviour, `engagement_state`, `current_tier` per behaviour, `context_flags`, `bandit_params`, `last_barrier?`.
 - `PlanSummary` (Task 05): `active` behaviours (≤ 3), `queued` behaviours (internal until they have actions; never shown), `start_tiers`, `movement_tier_cap`, `reasons` (keys, most important first).
@@ -145,6 +145,8 @@ One screen of tap-to-select chips with Skip: `diabetes`, `high_blood_pressure`, 
    - `stress` → recovery first today; movement, nutrition, smoking tier −1
    - `others_smoking` → a cue-avoidance step
    - `no_healthy_food_nearby` → a use-what-you-have step
+   - `social_family` → with a household other than alone: a family-inclusive step and the "family_together" reply; otherwise unchanged ("thanks_for_sharing")
+   - Family/caregiver variants that fit come before other fitting variants (Task 05 Part E)
 3. **Bandit (Thompson sampling):** among allowed actions, arms = (tier, bct_code, time_window, channel). Beta priors per arm, warm-started from `past_helpers`. Reward = completion within 24h (1, partial 0.5).
 4. **Step-up:** after 4 consecutive successful days at a tier, go up one tier (never jump back to the pre-lapse tier directly). Max tier respects the safety cap. (Was 3; changed by the pre-registered test in `docs/ASSUMPTIONS.md`, "Step-up 3 → 4".)
 
@@ -155,6 +157,7 @@ Chest pain, fainting, severe breathlessness, self-harm language, disordered-eati
 `build_plan(profile)` describes what the engine does for this person and why, using the same safety and starting-tier functions.
 - Condition chips that match a health-check question take that question's rules even if it was answered "no": `high_blood_pressure` → Q1, `back_or_joint_pain` → Q6 (tier-2 cap, contraindications, "check with your doctor"). `recovering_from_illness_or_injury` → movement starts at tier 1. Chips only ever tighten.
 - Active behaviours ≤ 3; others are queued in this order: recovery (recovering or stress) → nutrition (diabetes) → smoking (current smoker).
+- `caregiver` with a recovery goal → a short caregiver pause first and the reason "caregiver" (Part E).
 - Reasons describe plan choices, never health outcomes; at most 3 shown (safety first), ≤ 12 words each; the full list behind "See why".
 
 ### 6.6 Encouragement moments (Task 05 Part C)

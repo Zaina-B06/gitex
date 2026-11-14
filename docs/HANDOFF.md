@@ -176,7 +176,7 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 ruff check engine sim api
 pytest engine/tests          # 240 tests
 pytest sim/tests             # 49 tests
-pytest api/tests             # 95 tests
+pytest api/tests             # 96 tests
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

@@ -252,9 +252,10 @@ def _encouragement_out(e: Encouragement | None, profile: UserProfile) -> Encoura
 
 def _plan_out(profile: UserProfile) -> PlanOut:
     plan = build_plan(profile)
-    reasons = [render_reason(k, profile) for k in plan.reasons]
     rotating = len(profile.basics.goals) > engine_config.MAX_ACTIVE_BEHAVIOURS
     note = ROTATION_NOTE["ar" if profile.basics.language == Language.ar else "en"] if rotating else None
+    # The rotation note says it already; don't repeat it as a reason.
+    reasons = [render_reason(k, profile) for k in plan.reasons if not (note and k == "rotating")]
     return PlanOut(behaviours=plan.active, reasons=reasons[:PLAN_REASONS_SHOWN], all_reasons=reasons,
                    rotation_note=note)
 

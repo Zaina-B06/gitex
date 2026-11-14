@@ -2,6 +2,7 @@
 
 import pytest
 from api.app import create_app
+from api.messages import REASONS
 from fastapi.testclient import TestClient
 from rebound_engine.models import Behaviour
 from test_api import Clock, _body, onboard
@@ -39,6 +40,14 @@ def test_rotation_note_only_with_more_than_three_goals(client):
     assert few["plan_summary"]["rotation_note"] is None
     _, _, ar = onboard(client, basics={"goals": ALL_GOALS, "language": "ar"}, history={"smoking_status": "current"})
     assert ar["plan_summary"]["rotation_note"].startswith("لديك")
+
+
+def test_rotation_is_said_once_not_also_as_a_reason(client):
+    _, _, data = onboard(client, basics={"goals": ALL_GOALS}, history={"smoking_status": "current"})
+    plan = data["plan_summary"]
+    assert plan["rotation_note"]
+    rotating = {REASONS["rotating"]["en"], REASONS["rotating"]["ar"]}
+    assert not rotating & set(plan["reasons"]) and not rotating & set(plan["all_reasons"])
 
 
 def test_smoking_goal_needs_a_current_smoker(client):

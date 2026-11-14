@@ -66,11 +66,13 @@ def filter_events(
     profile: UserProfile, household: Household | None = None, behaviour: Behaviour | None = None,
     city: str | None = None,
 ) -> list[CommunityEvent]:
-    """Events that fit the user's goals, space preference, mobility and language. Household and city come from the
-    request only (no location tracking, nothing stored)."""
+    """Events that fit the user's goals, space preference, mobility and language: a mobility aid shows only
+    wheelchair-accessible events, "some" limitation ranks them first. Household and city come from the request only
+    (no location tracking, nothing stored)."""
     goals = {behaviour} if behaviour else set(profile.basics.goals)
     women_only = profile.preferences.space_preference == SpacePreference.women_only_spaces
     needs_access = profile.screening.mobility_limitation == MobilityLimitation.mobility_aid
+    prefers_access = profile.screening.mobility_limitation == MobilityLimitation.some
     lang = profile.basics.language
 
     def fits(e: CommunityEvent) -> bool:
@@ -83,4 +85,7 @@ def filter_events(
             and (city is None or e.city.lower() == city.strip().lower())
         )
 
-    return [e for e in load_events() if fits(e)]
+    found = [e for e in load_events() if fits(e)]
+    if prefers_access:  # "some" limitation: everything, wheelchair-accessible first (stable sort keeps file order)
+        found.sort(key=lambda e: not e.wheelchair_accessible)
+    return found

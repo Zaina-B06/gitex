@@ -16,7 +16,7 @@ def client():
 
 
 def events(client, uid, headers, **params):
-    r = client.get("/community/events", headers=headers, params={"user_id": uid, **params})
+    r = client.get(f"/users/{uid}/community/events", headers=headers, params=params)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -33,14 +33,24 @@ def test_every_entry_is_real_with_a_source_or_labelled_example():
 
 def test_needs_the_users_token(client):
     uid, headers, _ = onboard(client)
-    assert client.get("/community/events", params={"user_id": uid}).status_code == 401
-    assert client.get("/community/events", params={"user_id": uid},
-                      headers={"Authorization": "Bearer nope"}).status_code == 401
+    _, other_headers, _ = onboard(client)
+    assert client.get(f"/users/{uid}/community/events").status_code == 401
+    assert client.get(f"/users/{uid}/community/events", headers={"Authorization": "Bearer nope"}).status_code == 401
+    assert client.get(f"/users/{uid}/community/events", headers=other_headers).status_code == 401
+    assert client.get(f"/users/{uid}/community/events", headers=headers).status_code == 200
+
+
+def test_some_mobility_limitation_ranks_accessible_events_first(client):
+    uid, h, _ = onboard(client, screening={"mobility_limitation": "some"})
+    got = events(client, uid, h)
+    flags = [e["wheelchair_accessible"] for e in got]
+    assert True in flags and False in flags  # nothing filtered out
+    assert flags == sorted(flags, reverse=True)  # accessible ones first
 
 
 def test_no_personal_data_in_the_response(client):
     uid, headers, _ = onboard(client, history={"motivation_reason": "Keep up with my kids"})
-    r = client.get("/community/events", headers=headers, params={"user_id": uid})
+    r = client.get(f"/users/{uid}/community/events", headers=headers)
     assert all(set(e) == FIELDS for e in r.json())
     assert uid not in r.text and "Keep up with my kids" not in r.text
 
@@ -64,4 +74,4 @@ def test_filters_follow_goals_space_mobility_language_and_household(client):
     family = events(client, uid, h, household="children")
     assert family and all(e["family_friendly"] for e in family)
     assert all(e["city"] == "Dubai" for e in events(client, uid, h, city="dubai"))
-    assert client.get("/community/events", headers=h, params={"user_id": uid, "household": "zoo"}).status_code == 422
+    assert client.get(f"/users/{uid}/community/events", headers=h, params={"household": "zoo"}).status_code == 422

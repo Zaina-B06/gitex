@@ -68,7 +68,7 @@ Group fields so the UI can show them in steps. **Required** = needed to build a 
 | `language` | `ar` \| `en` (\| `hi`/`ur` stretch) | All UI and messages |
 | `age_years` | int, 18–100 | Starting tier, safety (≥65 → balance-friendly start) |
 | `sex` | `female` \| `male` \| `prefer_not_to_say` | Pregnancy question visibility; sleep/activity norms in sim |
-| `goals` | list of `movement` \| `sleep` | Which behaviours get actions |
+| `goals` | list of `movement` \| `sleep` \| `nutrition` \| `smoking` (current smokers only) \| `recovery` | Which behaviours get actions (at most 3 a day; extra goals rotate) |
 | `schedule_type` | `office` \| `shift` \| `outdoor_manual` \| `home_caregiver` \| `student` \| `other` | Time windows, context |
 | `usual_wake_time`, `usual_sleep_time` | HH:MM | Action windows, sleep baseline |
 | `work_hours` | optional ranges; for shift workers a rotating pattern | Quiet hours, windows |
@@ -114,7 +114,7 @@ One screen of tap-to-select chips with Skip: `diabetes`, `high_blood_pressure`, 
 ## 5. Core models (Pydantic)
 
 - `UserProfile`: all of §4 + `user_id`, `created_at`, `consents`.
-- `Action`: `id`, `behaviour` (`movement`/`sleep`), `tier` (1–4), `title` (`en`/`ar`), `bct_code`, `bct_name`, `rationale`, `limits`, `setting` (`indoor`/`outdoor`/`any`), `fasting_safe` bool, `low_energy_ok` bool, `seated_variant_id` optional, `pregnancy_safe` bool, `contraindications` list, `duration_min`.
+- `Action`: `id`, `behaviour` (`movement`/`sleep`/`nutrition`/`smoking`/`recovery`), `tier` (1–4), `title` (`en`/`ar`), `bct_code`, `bct_name`, `rationale`, `limits`, `setting` (`indoor`/`outdoor`/`any`), `fasting_safe` bool, `low_energy_ok` bool, `seated_variant_id` optional, `pregnancy_safe` bool, `contraindications` list, `duration_min`, `simple` (plain-language title), `icon` (fixed key), `tags` (variants: `ramadan_only`, `diabetes`, `after_illness`, `cooking`, `substitution`, `cue_avoidance`, `no_shopping`).
 - `Event`: `user_id`, `day`, `type` (`action_shown`/`completed`/`partial`/`skipped`/`no_response`/`checkin`/`pause`), `action_id?`, `payload`.
 - `UserState`: `habit_strength` per behaviour, `engagement_state`, `current_tier` per behaviour, `context_flags`, `bandit_params`, `last_barrier?`.
 - `PlanSummary` (Task 05): `active` behaviours (≤ 3), `queued` behaviours (internal until they have actions; never shown), `start_tiers`, `movement_tier_cap`, `reasons` (keys, most important first).
@@ -129,7 +129,7 @@ One screen of tap-to-select chips with Skip: `diabetes`, `high_blood_pressure`, 
 - Automatic context (Task 05 A2, only when the engine has a calendar, i.e. the API): Ramadan and Eid for fasting users from a committed Umm al-Qura table (user tap corrects ±1–2 days), heat May–September, prompt hours from real `shifts` and iftar. Explicit flags win; the calendar never removes one. Eid days are rest-friendly (a miss counts like a paused day). The simulator uses explicit flags only.
 
 ### 6.2 Barrier taxonomy (fixed enum)
-`time`, `energy_fatigue`, `illness_pain`, `schedule_change`, `environment` (heat, no safe space), `low_motivation`, `social_family`, `forgot`, `other`.
+`time`, `energy_fatigue`, `illness_pain`, `schedule_change`, `environment` (heat, no safe space), `low_motivation`, `social_family`, `forgot`, `other`; Task 05: `craving`, `stress`, `others_smoking`, `no_healthy_food_nearby` (not used by the simulator or the risk features).
 
 ### 6.3 Policy (in this order)
 1. **Safety filter:** remove actions that break screening rules, pregnancy/mobility constraints or context (outdoor in heat mode between 11:00–16:00; strenuous while fasting; anything after an illness/pain flag until the user says they're OK).
@@ -141,6 +141,10 @@ One screen of tap-to-select chips with Skip: `diabetes`, `high_blood_pressure`, 
    - `forgot` → change prompt time/channel
    - `illness_pain` → pause movement and show a care message
    - `environment` → swap to indoor/home variant
+   - `craving` → smoking tier −1, a substitution step, quit-help message (doctor/pharmacist, government quit clinics; no medicines)
+   - `stress` → recovery first today; movement, nutrition, smoking tier −1
+   - `others_smoking` → a cue-avoidance step
+   - `no_healthy_food_nearby` → a use-what-you-have step
 3. **Bandit (Thompson sampling):** among allowed actions, arms = (tier, bct_code, time_window, channel). Beta priors per arm, warm-started from `past_helpers`. Reward = completion within 24h (1, partial 0.5).
 4. **Step-up:** after 4 consecutive successful days at a tier, go up one tier (never jump back to the pre-lapse tier directly). Max tier respects the safety cap. (Was 3; changed by the pre-registered test in `docs/ASSUMPTIONS.md`, "Step-up 3 → 4".)
 
@@ -163,6 +167,8 @@ POST   /users/{id}/events             body: { action_id, type: completed|partial
 POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
 GET    /actions/{id}/explain          → { bct_code, bct_name, rationale, limits, how_to_turn_off }
+GET    /recipes?tag=                  → curated recipes (general guidance, not medical advice); /recipes/{id}
+                                         /today also returns recipes: { action_id: recipe } for cooking steps
 PATCH  /users/{id}/settings           body: { preferences?, consents?, context?, conditions?, shifts?, ramadan?: "started_today"|"ended_today" } → { preferences, consents, state, plan_summary }
 DELETE /users/{id}                    → deletes all user data
 POST   /demo/users/{id}/advance       body: { days, scenario?: "ramadan"|"lapse"|"heat" }  (demo time travel)

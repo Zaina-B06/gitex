@@ -4,11 +4,13 @@ from dataclasses import dataclass
 
 import numpy as np
 from rebound_engine.actions import default_library
-from rebound_engine.models import Barrier, OnboardingPayload, PastHelper
+from rebound_engine.models import Barrier, Behaviour, OnboardingPayload, PastHelper
 from rebound_engine.safety import SCREENING_QUESTIONS, SEE_DOCTOR_QUESTIONS
 
-BCT_CODES = sorted({a.bct_code for a in default_library()})
-BARRIERS = [b.value for b in Barrier if b != Barrier.other]
+# Frozen to what personas used before Task 05 Part B (movement and sleep only), so their random draws don't change.
+BCT_CODES = sorted({a.bct_code for a in default_library() if a.behaviour in (Behaviour.movement, Behaviour.sleep)})
+BARRIERS = [b.value for b in (Barrier.time, Barrier.energy_fatigue, Barrier.illness_pain, Barrier.schedule_change,
+                              Barrier.environment, Barrier.low_motivation, Barrier.social_family, Barrier.forgot)]
 SEGMENTS = ("schedule_type", "language", "mobility_limitation", "health_literacy")
 
 

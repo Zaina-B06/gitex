@@ -305,3 +305,390 @@ actions:
     low_energy_ok: true
     pregnancy_safe: true
     duration_min: 1
+
+  # ================= Task 05 Part B: nutrition, smoking, recovery =================
+  # No calorie or weight numbers, no medicines or nicotine products, no treatment claims (tested).
+
+  # ---------------- nutrition ----------------
+  - id: nu_t1_water_meals
+    behaviour: nutrition
+    tier: 1
+    title: {en: "Drink a glass of water with each meal", ar: "اشرب كوباً من الماء مع كل وجبة", ar_reviewed: false}
+    simple: {en: "Drink water when you eat.", ar: "اشرب الماء عندما تأكل.", ar_reviewed: false}
+    icon: water
+    bct_code: "7.1"
+    bct_name: "Prompts/cues"
+    rationale: "Linking a small step to meals you already have makes it easy to remember."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t1_home_food
+    behaviour: nutrition
+    tier: 1
+    title: {en: "Plan one meal from food already in your kitchen", ar: "خطط لوجبة واحدة مما لديك في مطبخك", ar_reviewed: false}
+    simple: {en: "Make one meal with food you have.", ar: "حضّر وجبة مما لديك.", ar_reviewed: false}
+    icon: basket
+    tags: [no_shopping]
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "When healthy food is hard to buy nearby, starting from what you have keeps the habit going."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 5
+
+  - id: nu_t1_suhoor_water
+    behaviour: nutrition
+    tier: 1
+    title: {en: "Drink water at suhoor and between iftar and sleep", ar: "اشرب الماء في السحور وبين الإفطار والنوم", ar_reviewed: false}
+    simple: {en: "Drink water at suhoor and after iftar.", ar: "اشرب الماء في السحور وبعد الإفطار.", ar_reviewed: false}
+    icon: water
+    tags: [ramadan_only]
+    bct_code: "7.1"
+    bct_name: "Prompts/cues"
+    rationale: "During Ramadan, the hours between iftar and suhoor are when water counts."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t2_add_veg
+    behaviour: nutrition
+    tier: 2
+    title: {en: "Add one vegetable or piece of fruit to a meal", ar: "أضف خضاراً أو قطعة فاكهة إلى إحدى الوجبات", ar_reviewed: false}
+    simple: {en: "Add one fruit or vegetable today.", ar: "أضف فاكهة أو خضاراً اليوم.", ar_reviewed: false}
+    icon: fruit
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Adding something is easier than cutting something out."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: any
+    fasting_safe: false
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 5
+
+  - id: nu_t2_regular_meals
+    behaviour: nutrition
+    tier: 2
+    title: {en: "Eat your main meals at about the same times today", ar: "تناول وجباتك الرئيسية في أوقات متقاربة اليوم", ar_reviewed: false}
+    simple: {en: "Eat your meals at the usual times.", ar: "كُل وجباتك في أوقاتها المعتادة.", ar_reviewed: false}
+    icon: clock
+    tags: [diabetes]
+    bct_code: "8.3"
+    bct_name: "Habit formation"
+    rationale: "Regular meal times make a steady daily routine easier to keep."
+    limits: "General guidance, not medical advice. If you have diabetes or take medicines, follow your doctor's advice on meals."
+    setting: any
+    fasting_safe: false
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 5
+
+  - id: nu_t2_iftar_veg
+    behaviour: nutrition
+    tier: 2
+    title: {en: "At iftar, start with a salad or vegetable soup", ar: "ابدأ إفطارك بسلطة أو شوربة خضار", ar_reviewed: false}
+    simple: {en: "Start iftar with salad or soup.", ar: "ابدأ الإفطار بسلطة أو شوربة.", ar_reviewed: false}
+    icon: plate
+    tags: [ramadan_only]
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "A light start at iftar is a simple, familiar step."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10
+
+  - id: nu_t3_swap_drink
+    behaviour: nutrition
+    tier: 3
+    title: {en: "Swap one sugary drink for water, laban or unsweetened tea", ar: "استبدل مشروباً سكرياً واحداً بالماء أو اللبن أو الشاي بدون سكر", ar_reviewed: false}
+    simple: {en: "Have water instead of one sweet drink.", ar: "اشرب الماء بدل مشروب حلو.", ar_reviewed: false}
+    icon: cup
+    tags: [diabetes]
+    bct_code: "8.2"
+    bct_name: "Behavior substitution"
+    rationale: "Replacing a habit is easier than stopping it."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: any
+    fasting_safe: false
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t3_iftar_drink
+    behaviour: nutrition
+    tier: 3
+    title: {en: "Break your fast with water and dates, not a sugary drink", ar: "افطر على الماء والتمر بدل المشروب السكري", ar_reviewed: false}
+    simple: {en: "At iftar, have water, not a sweet drink.", ar: "عند الإفطار اشرب الماء بدل المشروب الحلو.", ar_reviewed: false}
+    icon: cup
+    tags: [ramadan_only, diabetes]
+    bct_code: "8.2"
+    bct_name: "Behavior substitution"
+    rationale: "Water and dates are a traditional way to break the fast."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t4_home_meal
+    behaviour: nutrition
+    tier: 4
+    title: {en: "Cook one simple meal at home (we'll suggest a recipe)", ar: "حضّر وجبة بسيطة في المنزل (سنقترح وصفة)", ar_reviewed: false}
+    simple: {en: "Cook one meal at home.", ar: "اطبخ وجبة في البيت.", ar_reviewed: false}
+    icon: cook
+    tags: [cooking]
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Cooking at home lets you choose what goes in, at your own pace."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check diet changes with your doctor."
+    setting: indoor
+    fasting_safe: false
+    low_energy_ok: false
+    pregnancy_safe: true
+    duration_min: 30
+
+  - id: nu_t4_iftar_home_meal
+    behaviour: nutrition
+    tier: 4
+    title: {en: "Cook a simple home iftar (we'll suggest a recipe)", ar: "حضّر إفطاراً بسيطاً في المنزل (سنقترح وصفة)", ar_reviewed: false}
+    simple: {en: "Cook iftar at home.", ar: "اطبخ الإفطار في البيت.", ar_reviewed: false}
+    icon: cook
+    tags: [ramadan_only, cooking]
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "A home iftar lets you choose what goes on the table."
+    limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: false
+    pregnancy_safe: true
+    duration_min: 30
+
+  # ---------------- smoking (reduce, then quit) ----------------
+  - id: sm_t1_delay_first
+    behaviour: smoking
+    tier: 1
+    title: {en: "Wait 15 minutes before your first cigarette of the day", ar: "انتظر 15 دقيقة قبل أول سيجارة في يومك", ar_reviewed: false}
+    simple: {en: "Wait a little before your first cigarette.", ar: "انتظر قليلاً قبل أول سيجارة.", ar_reviewed: false}
+    icon: clock
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "Small delays loosen the automatic link between waking up and smoking."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 15
+
+  - id: sm_t1_substitute
+    behaviour: smoking
+    tier: 1
+    title: {en: "When a craving comes, sip water or walk for 5 minutes, then decide", ar: "عندما تأتي الرغبة، اشرب الماء أو امشِ 5 دقائق ثم قرّر", ar_reviewed: false}
+    simple: {en: "Feel a craving? Drink water and wait.", ar: "تشعر برغبة؟ اشرب الماء وانتظر.", ar_reviewed: false}
+    icon: hand
+    tags: [substitution]
+    bct_code: "8.2"
+    bct_name: "Behavior substitution"
+    rationale: "Cravings usually fade within minutes; a short swap helps you ride one out."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 5
+
+  - id: sm_t1_avoid_cue
+    behaviour: smoking
+    tier: 1
+    title: {en: "Take one break away from your usual smoking spot", ar: "خذ استراحة واحدة بعيداً عن مكان تدخينك المعتاد", ar_reviewed: false}
+    simple: {en: "Take one break in a smoke-free place.", ar: "خذ استراحة في مكان بلا تدخين.", ar_reviewed: false}
+    icon: door
+    tags: [cue_avoidance]
+    bct_code: "12.3"
+    bct_name: "Avoidance/reducing exposure to cues for the behavior"
+    rationale: "Places and people who smoke are strong cues; stepping away makes not smoking easier."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10
+
+  - id: sm_t1_iftar_wait
+    behaviour: smoking
+    tier: 1
+    title: {en: "After iftar, wait 15 minutes before the first cigarette", ar: "بعد الإفطار، انتظر 15 دقيقة قبل أول سيجارة", ar_reviewed: false}
+    simple: {en: "After iftar, wait before you smoke.", ar: "بعد الإفطار، انتظر قبل التدخين.", ar_reviewed: false}
+    icon: clock
+    tags: [ramadan_only]
+    bct_code: "8.7"
+    bct_name: "Graded tasks"
+    rationale: "You already go all day without smoking; a few more minutes builds on that."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 15
+
+  - id: sm_t2_one_fewer
+    behaviour: smoking
+    tier: 2
+    title: {en: "Smoke one cigarette fewer than usual today", ar: "دخّن سيجارة واحدة أقل من المعتاد اليوم", ar_reviewed: false}
+    simple: {en: "Smoke one less today.", ar: "دخّن سيجارة أقل اليوم.", ar_reviewed: false}
+    icon: no_smoking
+    bct_code: "1.1"
+    bct_name: "Goal setting (behavior)"
+    rationale: "A small, clear target you can reach today."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: sm_t3_smoke_free_hour
+    behaviour: smoking
+    tier: 3
+    title: {en: "Keep one hour smoke-free today, for example after a meal", ar: "اجعل ساعة واحدة اليوم بلا تدخين، مثلاً بعد الوجبة", ar_reviewed: false}
+    simple: {en: "Have one hour with no smoking.", ar: "ساعة واحدة بلا تدخين.", ar_reviewed: false}
+    icon: clock
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Planning when you won't smoke turns intention into a routine."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 60
+
+  - id: sm_t3_iftar_free_hour
+    behaviour: smoking
+    tier: 3
+    title: {en: "Keep the hour after iftar smoke-free", ar: "اجعل الساعة بعد الإفطار بلا تدخين", ar_reviewed: false}
+    simple: {en: "No smoking for an hour after iftar.", ar: "لا تدخين لساعة بعد الإفطار.", ar_reviewed: false}
+    icon: clock
+    tags: [ramadan_only]
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "The hour after iftar is a common trigger; planning it helps."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 60
+
+  - id: sm_t4_smoke_free_day
+    behaviour: smoking
+    tier: 4
+    title: {en: "Try one smoke-free day", ar: "جرّب يوماً كاملاً بلا تدخين", ar_reviewed: false}
+    simple: {en: "Try one day with no smoking.", ar: "جرّب يوماً بلا تدخين.", ar_reviewed: false}
+    icon: no_smoking
+    bct_code: "1.1"
+    bct_name: "Goal setting (behavior)"
+    rationale: "One full day shows you it can be done; a slip just means a smaller step tomorrow."
+    limits: "This plan doesn't use medicines or nicotine products. For help quitting, talk to a doctor or pharmacist."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  # ---------------- recovery (rest and stress, not mental-health care) ----------------
+  - id: rc_t1_breathing
+    behaviour: recovery
+    tier: 1
+    title: {en: "Take a 2-minute breathing break", ar: "خذ استراحة تنفس لمدة دقيقتين", ar_reviewed: false}
+    simple: {en: "Breathe slowly for 2 minutes.", ar: "تنفّس ببطء لمدة دقيقتين.", ar_reviewed: false}
+    icon: breath
+    bct_code: "11.2"
+    bct_name: "Reduce negative emotions"
+    rationale: "A short pause with slow breathing helps you reset during a busy day."
+    limits: "These are rest steps, not treatment. If you feel low for a long time or think about harming yourself, talk to someone you trust or call 800 SAKINA (800 725462)."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 2
+
+  - id: rc_t1_rest_after_illness
+    behaviour: recovery
+    tier: 1
+    title: {en: "Rest for 10 minutes, sitting or lying comfortably", ar: "استرح 10 دقائق جالساً أو مستلقياً براحة", ar_reviewed: false}
+    simple: {en: "Rest for 10 minutes.", ar: "استرح 10 دقائق.", ar_reviewed: false}
+    icon: rest
+    tags: [after_illness]
+    bct_code: "11.2"
+    bct_name: "Reduce negative emotions"
+    rationale: "After illness or injury, planned rest is part of getting back to your routine."
+    limits: "These are rest steps, not treatment. Follow your doctor's advice about recovery."
+    setting: indoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10
+
+  - id: rc_t2_screen_free
+    behaviour: recovery
+    tier: 2
+    title: {en: "Spend 15 minutes without screens", ar: "اقضِ 15 دقيقة بدون شاشات", ar_reviewed: false}
+    simple: {en: "Put your phone away for 15 minutes.", ar: "ضع هاتفك جانباً 15 دقيقة.", ar_reviewed: false}
+    icon: phone_off
+    bct_code: "12.1"
+    bct_name: "Restructuring the physical environment"
+    rationale: "A short break from screens gives your mind a real pause."
+    limits: "These are rest steps, not treatment. If you feel low for a long time or think about harming yourself, talk to someone you trust or call 800 SAKINA (800 725462)."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 15
+
+  - id: rc_t3_planned_rest
+    behaviour: recovery
+    tier: 3
+    title: {en: "After a hard day, plan a lighter evening", ar: "بعد يوم صعب، خطط لمساء أخف", ar_reviewed: false}
+    simple: {en: "After a hard day, rest in the evening.", ar: "بعد يوم صعب، استرح في المساء.", ar_reviewed: false}
+    icon: moon
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Planning rest ahead makes it happen instead of being squeezed out."
+    limits: "These are rest steps, not treatment. If you feel low for a long time or think about harming yourself, talk to someone you trust or call 800 SAKINA (800 725462)."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10
+
+  - id: rc_t4_daylight
+    behaviour: recovery
+    tier: 4
+    title: {en: "Spend 10 minutes outside in daylight, walking or sitting", ar: "اقضِ 10 دقائق في ضوء النهار ماشياً أو جالساً", ar_reviewed: false}
+    simple: {en: "Go outside in daylight for 10 minutes.", ar: "اخرج في ضوء النهار 10 دقائق.", ar_reviewed: false}
+    icon: sun
+    bct_code: "1.4"
+    bct_name: "Action planning"
+    rationale: "Daylight and a change of scene are a simple way to reset."
+    limits: "These are rest steps, not treatment. Avoid the midday heat; go early or late."
+    setting: outdoor
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 10

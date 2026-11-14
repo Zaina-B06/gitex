@@ -91,7 +91,9 @@ def initial_habit_strength(profile: UserProfile, behaviour: Behaviour) -> float:
     b = profile.baseline
     if behaviour == Behaviour.movement:
         return config.HABIT_START_SCALE * b.active_days_per_week / 7
-    return config.HABIT_START_SCALE * (b.sleep_quality_self - 1) / 4
+    if behaviour == Behaviour.sleep:
+        return config.HABIT_START_SCALE * (b.sleep_quality_self - 1) / 4
+    return config.NEW_BEHAVIOUR_H0
 
 
 def initial_state(profile: UserProfile, screening: ScreeningResult) -> UserState:
@@ -101,6 +103,9 @@ def initial_state(profile: UserProfile, screening: ScreeningResult) -> UserState
         tiers[Behaviour.movement] = starting_movement_tier(profile, screening)
     if Behaviour.sleep in goals:
         tiers[Behaviour.sleep] = config.SLEEP_START_TIER
+    for b in (Behaviour.nutrition, Behaviour.smoking, Behaviour.recovery):
+        if b in goals:
+            tiers[b] = config.NEW_BEHAVIOUR_START_TIER
     flags = {ContextFlag.shift_pattern} if profile.basics.schedule_type == ScheduleType.shift else set()
     return UserState(
         user_id=profile.user_id,

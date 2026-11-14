@@ -13,6 +13,7 @@ from .models import (
     Barrier,
     Behaviour,
     CheckinResult,
+    Condition,
     ContextFlag,
     DayLog,
     DayOutcome,
@@ -27,6 +28,7 @@ from .models import (
     UserProfile,
     UserState,
 )
+from .plan import goal_order
 from .policy import (
     BARRIER_MESSAGE,
     Bandit,
@@ -161,6 +163,7 @@ class Engine:
         )
         screening = screening_flags(profile)
         state = initial_state(profile, screening)
+        state.order = goal_order(profile)  # [movement, sleep] for anyone without Task 05 answers
         if self.policy_mode == "bandit":
             state.bandit_params = init_bandit_params(profile, self.library)
         reason = profile.history.motivation_reason
@@ -198,6 +201,7 @@ class Engine:
             for b, h in state.habit_strength.items():
                 state.h_daily[b] = [*state.h_daily.get(b, []), h][-config.H_DAILY_KEEP :]
             self._set_day_context(profile, state, day)  # after closing yesterday, which keeps yesterday's context
+            state.rotation += 1  # rotates extra goals beyond the daily cap (no effect with 3 goals or fewer)
             scheduled = choose_actions(profile, state, library=self.library, bandit=self.bandit)
             self._risk_hook(profile, state, scheduled, day)
             state.day = day
@@ -440,6 +444,10 @@ class Engine:
             keys.append("see_doctor")
         elif screening.flag:
             keys.append("check_with_doctor")
+        if Behaviour.nutrition in state.current_tier and (
+            Condition.diabetes in profile.conditions.managing or screening.pregnancy_safe_only
+        ):
+            keys.append("diet_check_with_doctor")
         if state.red_flag and ContextFlag.paused in state.context_flags:
             keys.append("seek_care")
         if state.last_barrier is not None:

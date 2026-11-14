@@ -46,6 +46,8 @@ from rebound_engine.models import (
 )
 from rebound_engine.plan import build_plan
 from rebound_engine.policy import effective_flags
+from rebound_engine.recipes import NOTE as RECIPE_NOTE
+from rebound_engine.recipes import Recipe, load_recipes, suggest_recipe
 from rebound_engine.safety import detect_red_flags
 
 from .demo import (
@@ -110,8 +112,13 @@ class StateOut(BaseModel):
     history: list[DayLog]  # recent days only (engine keeps HISTORY_KEEP_DAYS)
 
 
+class RecipeOut(Recipe):
+    note: str = RECIPE_NOTE  # shown with every recipe
+
+
 class TodayOut(TodayResult):
     messages: list[str]  # message_keys rendered in the user's language
+    recipes: dict[str, RecipeOut] = Field(default_factory=dict)  # action id -> suggestion, for cooking steps only
 
 
 class PlanOut(BaseModel):
@@ -321,9 +328,14 @@ def create_app(
 
     def today_out(meta: UserMeta, result: TodayResult) -> TodayOut:
         profile = store.get_profile(meta.user_id)
-        return TodayOut.model_validate(
-            {**result.model_dump(), "messages": [render(k, profile) for k in result.message_keys]}
-        )
+        flags = effective_flags(engine.get_state(meta.user_id))
+        recipes = {
+            s.action.id: RecipeOut(**r.model_dump())
+            for s in result.actions if (r := suggest_recipe(profile, s.action, result.day, flags))
+        }
+        return TodayOut.model_validate({
+            **result.model_dump(), "messages": [render(k, profile) for k in result.message_keys], "recipes": recipes,
+        })
 
     @app.post("/users", status_code=201, response_model=OnboardOut)
     def onboard(body: OnboardIn) -> OnboardOut:
@@ -433,6 +445,18 @@ def create_app(
     def delete_user(meta: Authed) -> Response:
         engine.delete_user(meta.user_id)  # SQLiteStore also removes user_meta
         return Response(status_code=204)
+
+    @app.get("/recipes", response_model=list[RecipeOut])
+    def recipes(tag: str | None = None) -> list[RecipeOut]:
+        """The curated recipe set (general content, no auth), optionally filtered by one tag."""
+        return [RecipeOut(**r.model_dump()) for r in load_recipes() if tag is None or tag in r.tags]
+
+    @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
+    def recipe(recipe_id: str) -> RecipeOut:
+        found = next((r for r in load_recipes() if r.id == recipe_id), None)
+        if found is None:
+            raise HTTPException(404, "unknown recipe")
+        return RecipeOut(**found.model_dump())
 
     @app.get("/actions/{action_id}/explain", response_model=ExplainOut)
     def explain(action_id: str, lang: Language = Language.en) -> ExplainOut:

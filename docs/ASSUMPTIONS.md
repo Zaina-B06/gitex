@@ -784,6 +784,23 @@ exactly as before: explicit flags only (checked by a same-seed re-run against ru
 | Heat | on automatically May–September (`HEAT_MONTHS`) | Months when Abu Dhabi midday highs are routinely above 40 °C. Live weather is a later integration. |
 | Shift timings | weekly pattern (`basics.shifts`, e.g. Sun–Thu 22:00–06:00), editable in settings, takes effect the next day. Work hours are busy. After a night shift (overnight, ending before noon): sleep from 1 h after the shift ends for 7 h (busy), movement 1 h after waking, sleep wind-down prompt as the shift ends | Prompts follow the person's real day, not a 9-to-5 default. 1 h home and 7 h sleep are round defaults, not measured. |
 
+## New behaviours: nutrition, smoking, recovery (Task 05 Part B)
+
+| Choice | Value | Why |
+|---|---|---|
+| Goals | any of movement, sleep, nutrition, smoking, recovery; smoking only for current smokers (422 otherwise) | The brief's behaviours; a smoking plan for a non-smoker makes no sense. |
+| Plan order | recovery first if recovering or stressed, nutrition next with diabetes, then movement, sleep, nutrition, smoking, recovery | Rest before effort; then what the person manages. Unchanged ([movement, sleep]) for anyone without these answers. |
+| Burden cap | at most 3 actions a day (`MAX_ACTIVE_BEHAVIOURS`); with more goals the first 2 stay and the third slot rotates daily through the rest | Task 05 B5; rotation keeps every chosen goal alive without adding load. |
+| Starting level | tier 1, habit strength 0 (`NEW_BEHAVIOUR_START_TIER`, `NEW_BEHAVIOUR_H0`) | No baseline question for these; start with the smallest step. |
+| Ladders | nutrition: water with meals → add a fruit or vegetable → swap one sugary drink → cook at home (recipe); smoking: delay the first cigarette 15 min → one fewer → a smoke-free hour → a smoke-free day; recovery: 2-minute breathing → 15 min screen-free → plan a lighter evening → 10 min daylight | Task 05 B1–B3. BCT codes per step in `engine/data/actions.yaml`. |
+| Variants | suhoor/iftar steps (`ramadan_only`, only during Ramadan and preferred then), diabetes steps (regular meals, swap drinks; preferred with diabetes), rest after illness (preferred when recovering), substitution / cue-avoidance / use-what-you-have steps (chosen by barriers) | Tags rank variants inside a tier; movement and sleep have no tags, so their choice is unchanged. |
+| Prompt windows | nutrition at lunch (afternoon), smoking in the morning (first cigarette), recovery in the evening; during Ramadan nutrition and smoking at iftar | Typical moments for each behaviour. Two prompts can share an hour (e.g. movement and smoking in the morning). |
+| New barriers | `craving` → smoking tier −1 + a substitution step + quit-help message; `stress` → recovery first today, movement/nutrition/smoking tier −1; `others_smoking` → cue-avoidance step; `no_healthy_food_nearby` → use-what-you-have step | Task 05 B4. |
+| Safety | nutrition: no calorie or weight numbers, "general guidance, not medical advice", "check diet changes with your doctor" with diabetes or pregnancy; smoking: no medicines or nicotine products; quit help is "talk to your doctor, pharmacist or a licensed smoking-cessation clinic (ask your health centre)", with no phone number because none could be verified as current (Gulf News on ADPHC's 15 licensed clinics in Abu Dhabi, cited in `api/messages.py`); recovery: rest, not treatment, 800 SAKINA in its limits. Disordered-eating red flags pause all coaching (existing rule). All tested by banned-word checks. | §2.5. |
+| Recipes | 20 curated recipes (Emirati, wider Arab, South Asian) in `engine/data/recipes.yaml`, tagged `diabetes_friendly`, `fasting`, `family`, `quick`, `budget`; written by us, no calorie counts; suggested only for cooking steps, rotating by day, diabetes-friendly with diabetes, suhoor/iftar-friendly in Ramadan | Task 05 B1. Arabic titles only for now (draft); ingredients and steps English. |
+| While ill (`illness` flag, until "I'm OK") | no movement; nutrition and recovery at tier 1 only (`ILLNESS_MAX_TIER`); smoking-reduction steps allowed; sleep unchanged (all tiers, as before Task 05) | Gentle, non-physical steps only. Limiting sleep too would change the simulator (personas do report illness), so it would need a pre-registered re-run; left as before. |
+| Simulator and risk model | personas keep the original 8 barriers and the movement/sleep BCT codes; risk features stay on movement, sleep and the original barriers (`RISK_BEHAVIOURS`, `RISK_BARRIERS`) | So run_011 and the frozen risk_001 model are unchanged (same-seed check). |
+
 ## API (Task 03)
 
 | Choice | Value | Why |
@@ -826,6 +843,10 @@ exactly as before: explicit flags only (checked by a same-seed re-run against ru
   as a sha256 hash; no expiry, rotation, recovery or rate limiting, and a lost token means a lost account. Demo
   routes exist only with `DEMO_MODE=true`; `/demo/seed` needs the shared `DEMO_KEY` (`X-Demo-Key` header) and is
   refused when none is set. The employer view uses one shared org key from `.env`.
+- Nutrition, smoking and recovery are engine-tested but not yet simulation-evaluated. Their ladders, variants and
+  barrier rules are design choices, not results.
+- Recipes have Arabic titles only; ingredients, steps and swaps are English. Nutritional content isn't
+  professionally reviewed: "general guidance, not medical advice".
 - The simulator doesn't evaluate automatic context detection itself. The reported results (run_011) cover a world
   where the engine is told about Ramadan and heat, which is what the calendar delivers for fasting users.
 - Real shift timings are engine-tested but not simulation-evaluated; that would need a new, pre-registered study

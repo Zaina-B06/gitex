@@ -12,6 +12,7 @@ from .models import (
     Barrier,
     Behaviour,
     Channel,
+    Condition,
     Context,
     ContextFlag,
     DayOutcome,
@@ -36,20 +37,36 @@ BARRIER_MESSAGE = {
     Barrier.social_family: "thanks_for_sharing",
     Barrier.forgot: "new_reminder",
     Barrier.other: "thanks_for_sharing",
+    Barrier.craving: "craving_tip",
+    Barrier.stress: "stress_rest",
+    Barrier.others_smoking: "smoke_free_space",
+    Barrier.no_healthy_food_nearby: "pantry_swap",
 }
 
 # When several barriers are given, the first one in this order is applied (safety-relevant first).
+# Part B barriers slot in without changing the order of the original ones.
 BARRIER_PRIORITY = (
     Barrier.illness_pain,
     Barrier.environment,
     Barrier.energy_fatigue,
+    Barrier.stress,
     Barrier.schedule_change,
     Barrier.time,
+    Barrier.craving,
+    Barrier.others_smoking,
+    Barrier.no_healthy_food_nearby,
     Barrier.forgot,
     Barrier.low_motivation,
     Barrier.social_family,
     Barrier.other,
 )
+
+# A barrier that prefers steps with this tag (until the next full completion clears last_barrier).
+BARRIER_TAG = {
+    Barrier.craving: "substitution",
+    Barrier.others_smoking: "cue_avoidance",
+    Barrier.no_healthy_food_nearby: "no_shopping",
+}
 
 
 def primary_barrier(barriers: list[Barrier]) -> Barrier | None:
@@ -123,8 +140,19 @@ def effective_flags(state: UserState) -> set[ContextFlag]:
     return state.context_flags | state.auto_flags
 
 
+# Prompt windows per behaviour: movement can move between all three; meals at lunch, the first cigarette in the
+# morning, rest and sleep in the evening.
+_WINDOWS = {
+    Behaviour.movement: list(TimeWindow),
+    Behaviour.sleep: [TimeWindow.evening],
+    Behaviour.nutrition: [TimeWindow.afternoon],
+    Behaviour.smoking: [TimeWindow.morning],
+    Behaviour.recovery: [TimeWindow.evening],
+}
+
+
 def _candidate_windows(behaviour: Behaviour) -> list[TimeWindow]:
-    return list(TimeWindow) if behaviour == Behaviour.movement else [TimeWindow.evening]
+    return list(_WINDOWS[behaviour])
 
 
 def window_hour(profile: UserProfile, window: TimeWindow) -> int:
@@ -148,7 +176,7 @@ def prompt_options(
     """(window, hour) pairs outside quiet hours; the rules-mode default window comes first.
     If every window is quiet, the default window moves to the end of quiet hours."""
     windows = _candidate_windows(behaviour)
-    default = state.time_window if behaviour == Behaviour.movement else TimeWindow.evening
+    default = state.time_window if behaviour == Behaviour.movement else windows[0]
     i = windows.index(default)
     ordered = windows[i:] + windows[:i]  # default first, then the next windows in order
     quiet = profile.preferences.quiet_hours
@@ -177,6 +205,8 @@ def _calendar_options(
     fasting = ContextFlag.ramadan in (state.context_flags | state.auto_flags)
     if behaviour == Behaviour.movement and state.iftar_hour is not None and fasting:
         candidates = [(TimeWindow.evening, (state.iftar_hour + config.RAMADAN_MOVE_AFTER_IFTAR_H) % 24)]
+    elif behaviour in (Behaviour.nutrition, Behaviour.smoking) and state.iftar_hour is not None and fasting:
+        candidates = [(ordered[0], state.iftar_hour)]  # meals and the first cigarette come at iftar
     elif behaviour == Behaviour.sleep and t is not None and t.sleep_prompt is not None:
         candidates = [(TimeWindow.evening, t.sleep_prompt)]  # wind-down as the night shift ends
     else:
@@ -274,7 +304,39 @@ def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> s
         state.context_flags.add(ContextFlag.illness)
     elif barrier == Barrier.environment:
         state.prefer_indoor = True
+    elif barrier == Barrier.craving:
+        _tier_down(state, Behaviour.smoking)  # and a substitution step (BARRIER_TAG)
+    elif barrier == Barrier.stress:
+        for b in (Behaviour.movement, Behaviour.nutrition, Behaviour.smoking):
+            _tier_down(state, b)  # recovery comes first today (todays_behaviours)
     return BARRIER_MESSAGE[barrier]
+
+
+def _tag_rank(profile: UserProfile, state: UserState, a: Action) -> int:
+    """0 for a variant that fits this person right now (Ramadan, diabetes, recovering), else 1. Movement and sleep
+    actions carry no tags, so their order is unchanged."""
+    managing = profile.conditions.managing
+    fits = (
+        ("ramadan_only" in a.tags and ContextFlag.ramadan in effective_flags(state))
+        or ("diabetes" in a.tags and Condition.diabetes in managing)
+        or ("after_illness" in a.tags and Condition.recovering_from_illness_or_injury in managing)
+    )
+    return 0 if fits else 1
+
+
+def todays_behaviours(state: UserState) -> list[Behaviour]:
+    """Goals in plan order; stress puts recovery first. With more than MAX_ACTIVE_BEHAVIOURS goals, the first ones
+    stay and the last slot rotates daily through the rest (burden cap)."""
+    order = [b for b in (state.order or list(Behaviour)) if b in state.current_tier]
+    order += [b for b in Behaviour if b in state.current_tier and b not in order]
+    if state.last_barrier == Barrier.stress and Behaviour.recovery in order:
+        order.remove(Behaviour.recovery)
+        order.insert(0, Behaviour.recovery)
+    cap = config.MAX_ACTIVE_BEHAVIOURS
+    if len(order) <= cap:
+        return order
+    fixed, rest = order[: cap - 1], order[cap - 1 :]
+    return [*fixed, rest[state.rotation % len(rest)]]
 
 
 def _setting_rank(profile: UserProfile, a: Action) -> int:
@@ -317,12 +379,20 @@ def choose_action(
     if not pool:
         return None
     target = min(state.current_tier[behaviour], tier_cap(profile, behaviour))
+    # A Part B barrier (craving, others smoking, no healthy food nearby) prefers its kind of step when one fits.
+    tag = BARRIER_TAG.get(state.last_barrier) if state.last_barrier else None
+    if not (tag and any(tag in a.tags and a.tier <= target for a in pool)):
+        tag = None
+    pool = [a for a in pool if tag is None or tag in a.tags]
     at_or_below = [a.tier for a in pool if a.tier <= target]
     best = max(at_or_below) if at_or_below else min(a.tier for a in pool)
     arms = [
         ScheduledAction(action=a, time_window=w, hour=h, explanation_id=a.id)
         for (w, h), actions in allowed_at.items()
-        for a in sorted((a for a in actions if a.tier == best), key=lambda a: _setting_rank(profile, a))
+        for a in sorted(
+            (a for a in actions if a.tier == best and (tag is None or tag in a.tags)),
+            key=lambda a: (_tag_rank(profile, state, a), _setting_rank(profile, a)),
+        )
     ]
     return (bandit or RulesBandit()).select(arms, state)
 
@@ -333,8 +403,8 @@ def choose_actions(
     library: list[Action] | tuple[Action, ...] | None = None,
     bandit: Bandit | None = None,
 ) -> list[ScheduledAction]:
-    """One action per goal (movement first), each with its prompt window and hour."""
-    picks = (choose_action(profile, state, b, library=library, bandit=bandit) for b in Behaviour)
+    """One action per behaviour shown today (plan order, at most MAX_ACTIVE_BEHAVIOURS), with window and hour."""
+    picks = (choose_action(profile, state, b, library=library, bandit=bandit) for b in todays_behaviours(state))
     return [a for a in picks if a is not None]
 
 

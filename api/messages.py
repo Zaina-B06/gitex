@@ -47,6 +47,33 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Want to do it with someone? Inviting a friend or family member often helps.",
         "ar": "هل تريد القيام بها مع شخص آخر؟ دعوة صديق أو أحد أفراد العائلة تساعد غالباً.",
     },
+    # Quit-smoking help: no phone number, because we couldn't verify one as current. Licensed clinics exist: Gulf News
+    # reports 15 public and private clinics in the Emirate of Abu Dhabi licensed by ADPHC for smoking cessation:
+    # https://gulfnews.com/living-in-uae/health/want-to-quit-smoking-heres-how-you-can-get-help-in-abu-dhabi-1.1685528737946
+    "craving_tip": {
+        "en": "Cravings usually pass in a few minutes. Today's step is a swap to ride it out. "
+              "Want help quitting? Talk to your doctor, pharmacist or a licensed smoking-cessation clinic "
+              "(ask your health centre).",
+        "ar": "الرغبة في التدخين تزول غالباً خلال دقائق. خطوة اليوم بديل يساعدك على تجاوزها. "
+              "هل تريد مساعدة للإقلاع؟ تحدّث مع طبيبك أو الصيدلي أو عيادة مرخّصة للإقلاع عن التدخين "
+              "(اسأل مركزك الصحي).",
+    },
+    "stress_rest": {
+        "en": "Stressful days happen. Today starts with a short rest step, and the rest is lighter.",
+        "ar": "الأيام المجهدة تحدث. يبدأ اليوم بخطوة راحة قصيرة، وباقي الخطوات أخف.",
+    },
+    "smoke_free_space": {
+        "en": "Being around smokers makes it harder. Today's step helps you take a break somewhere smoke-free.",
+        "ar": "وجودك بين المدخنين يجعل الأمر أصعب. خطوة اليوم تساعدك على أخذ استراحة في مكان بلا تدخين.",
+    },
+    "pantry_swap": {
+        "en": "No healthy food nearby? Today's step works with what you already have at home.",
+        "ar": "لا يوجد طعام صحي قريب؟ خطوة اليوم تعتمد على ما لديك في المنزل.",
+    },
+    "diet_check_with_doctor": {
+        "en": "Before changing what you eat, check with your doctor, especially with diabetes or in pregnancy.",
+        "ar": "قبل تغيير طعامك، استشر طبيبك، خاصة مع السكري أو أثناء الحمل.",
+    },
     "eid_rest": {
         "en": "Eid Mubarak! Enjoy the celebrations. Rest days don't count against you.",
         "ar": "عيد مبارك! استمتع بالاحتفال. أيام الراحة لا تُحسب ضدك.",
@@ -107,6 +134,18 @@ REASONS: dict[str, dict[str, str]] = {
     "recovering": {
         "en": "You're recovering, so we start with the gentlest steps.",
         "ar": "أنت في فترة تعافٍ، لذلك نبدأ بأخف الخطوات.",
+    },
+    "recovery_first": {
+        "en": "You're recovering or stressed, so rest steps come first.",
+        "ar": "أنت في فترة تعافٍ أو ضغط، لذلك تأتي خطوات الراحة أولاً.",
+    },
+    "nutrition_first": {
+        "en": "You mentioned diabetes, so meal steps come early.",
+        "ar": "ذكرت السكري، لذلك تأتي خطوات الوجبات مبكراً.",
+    },
+    "rotating": {
+        "en": "You chose many goals, so we take turns, three a day.",
+        "ar": "اخترت أهدافاً كثيرة، لذلك نتناوب عليها، ثلاثة في اليوم.",
     },
     "senior_start": {
         "en": "We start with gentle, balance-friendly steps.",

@@ -35,9 +35,12 @@ BMI_START_CAPS = ((40.0, 1), (30.0, 2))
 SLEEP_START_TIER = 1
 
 # --- Plan builder (Task 05) ---
-MAX_ACTIVE_BEHAVIOURS = 3  # behaviours with daily actions at once; the rest are queued (burden cap)
+MAX_ACTIVE_BEHAVIOURS = 3  # at most this many actions a day; with more goals the last slot rotates (burden cap)
+NEW_BEHAVIOUR_START_TIER = 1  # nutrition, smoking, recovery start at their smallest step
+NEW_BEHAVIOUR_H0 = 0.0  # no baseline question for these, so habit strength starts empty and builds from there
 
 # --- Context ---
+ILLNESS_MAX_TIER = 1  # nutrition and recovery while ill (safety.ILLNESS_TIER1_ONLY); movement is removed entirely
 HEAT_START_HOUR = 11
 HEAT_END_HOUR = 16  # exclusive: 16:00 is outside the heat window
 

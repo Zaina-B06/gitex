@@ -28,6 +28,10 @@ SCREENING_QUESTIONS = (
 SEE_DOCTOR_QUESTIONS = ("chest_pain", "dizziness_or_fainting")
 
 
+# While ill: no movement; nutrition and recovery only at their smallest step; smoking-reduction steps stay; sleep
+# unchanged (as before Task 05; restricting it would change the simulator's results).
+ILLNESS_TIER1_ONLY = (Behaviour.nutrition, Behaviour.recovery)
+
 # Condition chips that match a health-check question get that question's rules (cap, contraindications, doctor line),
 # even if the question was answered "no". They can only tighten, never loosen.
 CONDITION_EQUIVALENTS = {
@@ -77,8 +81,11 @@ def context_filter(
             return False
         if ContextFlag.ramadan in context_flags and not a.fasting_safe:
             return False
-        if ContextFlag.illness in context_flags and movement:
-            return False
+        if ContextFlag.illness in context_flags:  # until the user says they're OK (ILLNESS_* in config)
+            if movement:
+                return False
+            if a.behaviour in ILLNESS_TIER1_ONLY and a.tier > config.ILLNESS_MAX_TIER:
+                return False
         if screening is None:
             return True
         if movement and a.tier > screening.movement_tier_cap:

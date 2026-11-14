@@ -23,13 +23,19 @@ _TIER = {a.id: a.tier for a in default_library()}
 _BEHAVIOUR = {a.id: a.behaviour for a in default_library()}
 _DAYS_CAP = 30  # "days since" features are capped here (and set to it when the thing never happened)
 
+# Frozen to the inputs risk_001 was trained on (before Task 05 Part B): movement and sleep, the original barriers.
+# New behaviours or barriers here would change the feature columns and break the saved model.
+RISK_BEHAVIOURS = (Behaviour.movement, Behaviour.sleep)
+RISK_BARRIERS = (Barrier.time, Barrier.energy_fatigue, Barrier.illness_pain, Barrier.schedule_change,
+                 Barrier.environment, Barrier.low_motivation, Barrier.social_family, Barrier.forgot, Barrier.other)
+
 FEATURE_NAMES: tuple[str, ...] = (
     "comp_rate_3", "comp_rate_7", "comp_rate_14", "comp_trend", "consecutive_misses",
     "partial_share_14", "no_response_share_14", "n_shown_7",
     "tier_movement", "tier_sleep", "tier_gap_movement", "tier_gap_sleep",
     "h_movement", "h_sleep", "h_slope_movement", "h_slope_sleep",
     "days_since_checkin", "checkin_due",
-    *(f"last_barrier_{b.value}" for b in Barrier),
+    *(f"last_barrier_{b.value}" for b in RISK_BARRIERS),
     "ctx_ramadan", "ctx_heat", "ctx_illness",
     *(f"schedule_{s.value}" for s in ScheduleType),
     "has_screening_flag",
@@ -100,7 +106,7 @@ def compute_features(profile: UserProfile, state: UserState, events: list[Event]
     }
 
     shown = [e for e in events if e.type == EventType.action_shown and e.day <= day and e.action_id in _TIER]
-    for b in Behaviour:
+    for b in RISK_BEHAVIOURS:
         current = state.current_tier.get(b, 0)
         max_seen = max((_TIER[e.action_id] for e in shown if _BEHAVIOUR[e.action_id] == b), default=current)
         hist = state.h_daily.get(b, [])
@@ -114,7 +120,7 @@ def compute_features(profile: UserProfile, state: UserState, events: list[Event]
     f["days_since_checkin"] = float(min(day - checkins[-1].day, _DAYS_CAP) if checkins else _DAYS_CAP)
     f["checkin_due"] = float(state.checkin_due)
     last_primary = checkins[-1].payload.get("primary") if checkins else None
-    for b in Barrier:
+    for b in RISK_BARRIERS:
         f[f"last_barrier_{b.value}"] = float(last_primary == b.value)
 
     for flag in (ContextFlag.ramadan, ContextFlag.heat, ContextFlag.illness):

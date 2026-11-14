@@ -418,6 +418,96 @@
     }
    }
   },
+  "/recipes": {
+   "get": {
+    "summary": "Recipes",
+    "description": "The curated recipe set (general content, no auth), optionally filtered by one tag.",
+    "operationId": "recipes_recipes_get",
+    "parameters": [
+     {
+      "name": "tag",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tag"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/RecipeOut"
+         },
+         "title": "Response Recipes Recipes Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/recipes/{recipe_id}": {
+   "get": {
+    "summary": "Recipe",
+    "operationId": "recipe_recipes__recipe_id__get",
+    "parameters": [
+     {
+      "name": "recipe_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Recipe Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecipeOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/actions/{action_id}/explain": {
    "get": {
     "summary": "Explain",
@@ -731,6 +821,34 @@
       "type": "integer",
       "exclusiveMinimum": 0.0,
       "title": "Duration Min"
+     },
+     "simple": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LocalizedText"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "icon": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Icon"
+     },
+     "tags": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Tags"
      }
     },
     "additionalProperties": false,
@@ -837,7 +955,11 @@
      "low_motivation",
      "social_family",
      "forgot",
-     "other"
+     "other",
+     "craving",
+     "stress",
+     "others_smoking",
+     "no_healthy_food_nearby"
     ],
     "title": "Barrier"
    },
@@ -992,7 +1114,10 @@
     "type": "string",
     "enum": [
      "movement",
-     "sleep"
+     "sleep",
+     "nutrition",
+     "smoking",
+     "recovery"
     ],
     "title": "Behaviour"
    },
@@ -1842,6 +1967,72 @@
     ],
     "title": "PregnancyAnswer"
    },
+   "RecipeOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "title": {
+      "$ref": "#/components/schemas/LocalizedText"
+     },
+     "cuisine": {
+      "type": "string",
+      "pattern": "^(emirati|arab|south_asian)$",
+      "title": "Cuisine"
+     },
+     "minutes": {
+      "type": "integer",
+      "exclusiveMinimum": 0.0,
+      "title": "Minutes"
+     },
+     "tags": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Tags"
+     },
+     "ingredients": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Ingredients"
+     },
+     "steps": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Steps"
+     },
+     "swap": {
+      "type": "string",
+      "title": "Swap"
+     },
+     "note": {
+      "type": "string",
+      "title": "Note",
+      "default": "General guidance, not medical advice."
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "cuisine",
+     "minutes",
+     "tags",
+     "ingredients",
+     "steps",
+     "swap"
+    ],
+    "title": "RecipeOut"
+   },
    "ScheduleType": {
     "type": "string",
     "enum": [
@@ -2428,6 +2619,13 @@
       },
       "type": "array",
       "title": "Messages"
+     },
+     "recipes": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/RecipeOut"
+      },
+      "type": "object",
+      "title": "Recipes"
      }
     },
     "type": "object",
@@ -2719,6 +2917,18 @@
         "type": "null"
        }
       ]
+     },
+     "order": {
+      "items": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "array",
+      "title": "Order"
+     },
+     "rotation": {
+      "type": "integer",
+      "title": "Rotation",
+      "default": 0
      }
     },
     "type": "object",

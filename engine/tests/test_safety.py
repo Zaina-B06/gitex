@@ -1,7 +1,7 @@
 import pytest
 
 from rebound_engine.actions import default_library, filter_actions
-from rebound_engine.models import ActionSetting, Behaviour, Context, ContextFlag
+from rebound_engine.models import ActionSetting, Barrier, Behaviour, Context, ContextFlag, Event, EventType
 from rebound_engine.policy import choose_action
 from rebound_engine.safety import (
     _RED_FLAG_PHRASES,
@@ -101,9 +101,29 @@ def test_fasting_removes_non_fasting_safe_actions():
     assert fasting and all(a.fasting_safe for a in fasting)
 
 
-def test_illness_flag_removes_movement():
-    left = context_filter(default_library(), {ContextFlag.illness}, 9)
-    assert left and all(a.behaviour == Behaviour.sleep for a in left)
+def test_illness_flag_allows_exactly_the_ill_day_steps():
+    """While ill: no movement; nutrition and recovery tier 1 only; all smoking-reduction steps; sleep unchanged."""
+    library = default_library()
+    left = context_filter(library, {ContextFlag.illness}, 9)
+    tiers = {b: {a.tier for a in left if a.behaviour == b} for b in Behaviour}
+    every = {b: {a.tier for a in library if a.behaviour == b} for b in Behaviour}
+    assert tiers[Behaviour.movement] == set()
+    assert tiers[Behaviour.nutrition] == {1} and tiers[Behaviour.recovery] == {1}
+    assert tiers[Behaviour.smoking] == every[Behaviour.smoking]
+    assert tiers[Behaviour.sleep] == every[Behaviour.sleep]
+
+
+def test_no_movement_action_is_ever_returned_while_ill(make_engine, make_payload):
+    engine = make_engine()
+    goals = ["movement", "sleep", "nutrition", "smoking", "recovery"]
+    engine.onboard(make_payload(basics={"goals": goals}, history={"smoking_status": "current"}), user_id="u1")
+    engine.checkin("u1", [Barrier.illness_pain])
+    for day in range(1, 8):
+        for s in engine.today("u1", day).actions:
+            assert s.action.behaviour != Behaviour.movement, (day, s.action.id)
+            if s.action.behaviour in (Behaviour.nutrition, Behaviour.recovery):
+                assert s.action.tier == 1, (day, s.action.id)
+            engine.record(Event(user_id="u1", day=day, type=EventType.completed, action_id=s.action.id))
 
 
 # ---------- red flags ----------

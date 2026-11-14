@@ -75,6 +75,14 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   - **Shifts:** shift workers enter a weekly pattern, `basics.shifts: [{days: ["sun",…], start, end}]`, at onboarding
     or with `PATCH /settings {"shifts": [...]}` (`[]` clears it). Windows move the next day.
   - **Demo panel:** the Ramadan and heat-wave demo buttons keep using `advance` scenarios; they're overrides.
+- **Part B, new behaviours:**
+  - **Onboarding goals:** offer all five: movement, sleep, nutrition, smoking (only show it if `smoking_status` is
+    `current`) and recovery.
+  - **Today:** at most 3 cards a day, in plan order. With more goals, the third card changes daily. Each action now
+    has `simple` (plain title), `icon` (fixed key) and `tags`.
+  - **Recipes:** `today.recipes` maps an action id to a recipe for cooking steps; show it with its `note`
+    ("General guidance, not medical advice"). There's also a browsable `GET /recipes?tag=`.
+  - **Check-in:** add buttons for `craving`, `stress`, `others_smoking` and `no_healthy_food_nearby`.
 - Re-generate types from `api/openapi.json`.
 
 ### For the frontend (Task 04)

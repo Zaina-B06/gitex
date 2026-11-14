@@ -23,6 +23,10 @@ class Sex(StrEnum):
 class Behaviour(StrEnum):
     movement = "movement"
     sleep = "sleep"
+    # Task 05 Part B. The lapse-risk features stay on movement and sleep (risk/features.py RISK_BEHAVIOURS).
+    nutrition = "nutrition"
+    smoking = "smoking"
+    recovery = "recovery"
 
 
 class ScheduleType(StrEnum):
@@ -54,6 +58,11 @@ class Barrier(StrEnum):
     social_family = "social_family"
     forgot = "forgot"
     other = "other"
+    # Task 05 Part B (not used by the simulator or the risk features)
+    craving = "craving"
+    stress = "stress"
+    others_smoking = "others_smoking"
+    no_healthy_food_nearby = "no_healthy_food_nearby"
 
 
 class SmokingStatus(StrEnum):
@@ -123,15 +132,7 @@ class Condition(StrEnum):
     recovering_from_illness_or_injury = "recovering_from_illness_or_injury"
 
 
-class PlanBehaviour(StrEnum):
-    """Behaviours the plan builder ranks. Only `Behaviour` (movement, sleep) has actions until Task 05 Part B; the
-    others are queued internally and never shown. Kept apart from Behaviour so the lapse-risk features don't change."""
-
-    movement = "movement"
-    sleep = "sleep"
-    nutrition = "nutrition"
-    smoking = "smoking"
-    recovery = "recovery"
+PlanBehaviour = Behaviour  # Part A's separate enum, merged into Behaviour in Part B
 
 
 class ActionSetting(StrEnum):
@@ -315,6 +316,8 @@ class OnboardingPayload(_Input):
     def _pregnancy_only_for_female(self) -> "OnboardingPayload":
         if self.basics.sex != Sex.female and self.screening.pregnant is not None:
             raise ValueError("pregnant is only asked when sex is female")
+        if Behaviour.smoking in self.basics.goals and self.history.smoking_status != SmokingStatus.current:
+            raise ValueError("the smoking goal is for people who currently smoke")
         return self
 
 
@@ -351,6 +354,11 @@ class Action(BaseModel):
     seated_variant_id: str | None = None
     contraindications: list[str] = Field(default_factory=list)  # screening question names
     duration_min: int = Field(gt=0)
+    # Task 05 Part B: plain-language variant, icon key (actions.ICONS), and tags the rules prefer (e.g. "substitution",
+    # "cue_avoidance", "no_shopping", "ramadan_only", "cooking", "diabetes", "after_illness").
+    simple: LocalizedText | None = None
+    icon: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 # ---------- Events and state ----------
@@ -421,6 +429,10 @@ class UserState(BaseModel):
     auto_flags: set[ContextFlag] = Field(default_factory=set)
     iftar_hour: int | None = None
     day_times: DayTimes | None = None
+    # Task 05 Part B: goals in plan order (most important first) and a day counter that rotates extra goals when
+    # there are more than MAX_ACTIVE_BEHAVIOURS. Empty order = Behaviour order (movement, sleep, …).
+    order: list[Behaviour] = Field(default_factory=list)
+    rotation: int = 0
 
 
 class Context(BaseModel):

@@ -799,8 +799,32 @@ exactly as before: explicit flags only (checked by a same-seed re-run against ru
 | Safety | nutrition: no calorie or weight numbers, "general guidance, not medical advice", "check diet changes with your doctor" with diabetes or pregnancy; smoking: no medicines or nicotine products; quit help is "talk to your doctor, pharmacist or a licensed smoking-cessation clinic (ask your health centre)", with no phone number because none could be verified as current (Gulf News on ADPHC's 15 licensed clinics in Abu Dhabi, cited in `api/messages.py`); recovery: rest, not treatment, 800 SAKINA in its limits. Disordered-eating red flags pause all coaching (existing rule). All tested by banned-word checks. | §2.5. |
 | Recipes | 20 curated recipes (Emirati, wider Arab, South Asian) in `engine/data/recipes.yaml`, tagged `diabetes_friendly`, `fasting`, `family`, `quick`, `budget`; written by us, no calorie counts; suggested only for cooking steps, rotating by day, diabetes-friendly with diabetes, suhoor/iftar-friendly in Ramadan | Task 05 B1. Arabic titles only for now (draft); ingredients and steps English. |
 | While ill (`illness` flag, until "I'm OK") | no movement; nutrition and recovery at tier 1 only (`ILLNESS_MAX_TIER`); smoking-reduction steps allowed; sleep unchanged (all tiers, as before Task 05) | Gentle, non-physical steps only. Limiting sleep too would change the simulator (personas do report illness), so it would need a pre-registered re-run; left as before. |
-| Community events | read-only `api/data/community_events.json`; real programmes need a source URL and a check date, everything else is titled "Example:" (enforced when loading). Filtered by goals (events with no behaviour tag, like screenings, show to everyone), women-only preference (movement events only), mobility aid → wheelchair-accessible only, language, and request-only household/city filters | Peer support and community campaigns without user posts or location tracking. Real entries were checked from published pages on 14 Nov 2026, not confirmed with organisers; schedules change. |
+| Community events | read-only `api/data/community_events.json`; real programmes need a source URL and a check date, everything else is titled "Example:" (enforced when loading). Filtered by goals (events with no behaviour tag, like screenings, show to everyone), women-only preference (movement events only), mobility aid → wheelchair-accessible only, "some" limitation → wheelchair-accessible ranked first, language, and request-only household/city filters | Peer support and community campaigns without user posts or location tracking. Real entries were checked from published pages on 14 Nov 2026, not confirmed with organisers; schedules change. |
 | Simulator and risk model | personas keep the original 8 barriers and the movement/sleep BCT codes; risk features stay on movement, sleep and the original barriers (`RISK_BEHAVIOURS`, `RISK_BARRIERS`) | So run_011 and the frozen risk_001 model are unchanged (same-seed check). |
+
+## Encouragement moments (Task 05 Part C)
+
+Positive moments replace streaks. They fire only after a completion (full or partial), at most one a day, never
+while coaching is paused or after a red flag, and users can turn them off (`preferences.encouragement`). They are
+observation only: they never change which actions are chosen, so the simulator's results are unchanged (same-seed
+check).
+
+| Moment | When | Repeats? | BCT (Taxonomy v1) |
+|---|---|---|---|
+| `first_day_done` | the first completion ever | once | 10.4 Social reward |
+| `three_good_days` | a completion on each of the last 3 days (`ENCOURAGE_GOOD_DAYS`) | once | 10.4 Social reward |
+| `comeback` | the first completion after slipping into drifting or lapsed ("We missed you, glad you're back") | after every slip | 10.4 Social reward; 15.1 Verbal persuasion about capability |
+| `habit_strength_50` | habit strength for a behaviour reaches 0.5 (`ENCOURAGE_HABIT_STRENGTH`) | once per behaviour | 2.2 Feedback on behaviour |
+| `first_week_done` | a completion on day 7 or later (`ENCOURAGE_FIRST_WEEK_DAY`) | once | 2.2 Feedback on behaviour |
+| `tried_something_new` | the first completion of a step not done before (not the very first step) | yes | 10.4 Social reward |
+
+When several moments fit the same day, the order above (comeback first) decides; a once-only moment that lost out
+fires on a later completion.
+
+**Rationale:** praise for real progress supports self-efficacy without the all-or-nothing pressure of a streak.
+**Limits:** frequent or empty praise loses meaning, hence one a day and only real moments. Messages never show a
+count, never use streak language and never mention how many days were missed (tested). Three variants per moment,
+rotated by day, EN + AR (draft) + a simple English variant.
 
 ## API (Task 03)
 

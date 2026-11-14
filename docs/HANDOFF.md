@@ -84,13 +84,17 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
     ("General guidance, not medical advice"). There's also a browsable `GET /recipes?tag=`.
   - **Check-in:** add buttons for `craving`, `stress`, `others_smoking` and `no_healthy_food_nearby`.
 - **Community events (read-only):** a "Community" page reading
-  `GET /community/events?user_id=<id>` with the Bearer token. It's already filtered to the user's goals,
-  women-only preference, mobility (wheelchair users see wheelchair-accessible events only) and language. Optional
+  `GET /users/{id}/community/events` with the Bearer token. It's already filtered to the user's goals,
+  women-only preference, mobility (wheelchair users see wheelchair-accessible events only; "some" limitation sees them first) and language. Optional
   filters: `household`, `behaviour`, `city`. No user posts and no location tracking.
   - **Real programmes:** show "Source" (link) and "Checked on <last_checked>", plus a line asking users to confirm
     times with the organiser.
   - **Examples:** entries with `example: true` must keep their "Example:" title and be visibly marked, never shown
     as real events.
+- **Part C, encouragement:** `POST /events` and `GET /today` may return
+  `encouragement: {moment, message, behaviour?}`. Show it as a small, dismissible pop-up, without counts or
+  confetti-style "streak" visuals. It's at most one a day. Settings has a toggle, `preferences.encouragement`
+  (default on).
 - Re-generate types from `api/openapi.json`.
 
 ## Future scope (not in the prototype)

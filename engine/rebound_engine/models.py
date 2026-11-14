@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, time
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -187,6 +187,7 @@ class EventType(StrEnum):
     red_flag = "red_flag"
     context_change = "context_change"
     risk_alert = "risk_alert"
+    encouragement = "encouragement"  # Task 05 Part C: payload {moment, behaviour?}
 
 
 class DayOutcome(StrEnum):
@@ -287,6 +288,7 @@ class Preferences(_Input):
     quiet_hours: TimeRange | None = None
     channel: Channel = Channel.app
     accessibility: list[Accessibility] = Field(default_factory=list)
+    encouragement: bool = True  # Task 05 Part C: small "well done" moments; users can turn them off
 
 
 class Conditions(_Input):
@@ -379,6 +381,19 @@ class DayLog(BaseModel):
     outcome: DayOutcome
 
 
+Moment = Literal[
+    "first_day_done", "three_good_days", "comeback", "habit_strength_50", "first_week_done", "tried_something_new",
+]
+
+
+class Encouragement(BaseModel):
+    """Task 05 Part C: a real moment worth a small "well done". Never a count, never a streak."""
+
+    moment: Moment
+    day: int
+    behaviour: Behaviour | None = None  # for habit_strength_50 and tried_something_new
+
+
 class DayTimes(BaseModel):
     """One day's timings from real shifts (Task 05 A2). Hours 0-23; busy ranges are [start, end), may wrap."""
 
@@ -433,6 +448,11 @@ class UserState(BaseModel):
     # there are more than MAX_ACTIVE_BEHAVIOURS. Empty order = Behaviour order (movement, sleep, …).
     order: list[Behaviour] = Field(default_factory=list)
     rotation: int = 0
+    # Task 05 Part C (observation only: nothing here changes which actions are chosen)
+    encouragement: Encouragement | None = None  # the latest one; shown on its own day
+    moments: dict[str, int] = Field(default_factory=dict)  # moment key -> day it last fired
+    done_actions: set[str] = Field(default_factory=set)  # action ids completed at least once
+    slip_day: int = -1  # last day the state entered drifting or lapsed
 
 
 class Context(BaseModel):
@@ -495,6 +515,7 @@ class TodayResult(BaseModel):
     state_summary: StateSummary
     risk: float | None = None  # lapse risk for the next 7 days, if a risk model is loaded
     risk_reasons: list[str] = Field(default_factory=list)  # plain-language, only when an alert fired
+    encouragement: Encouragement | None = None  # today's, if one fired (Task 05 Part C)
 
 
 class CheckinResult(BaseModel):

@@ -157,17 +157,20 @@ Chest pain, fainting, severe breathlessness, self-harm language, disordered-eati
 - Active behaviours ≤ 3; others are queued in this order: recovery (recovering or stress) → nutrition (diabetes) → smoking (current smoker).
 - Reasons describe plan choices, never health outcomes; at most 3 shown (safety first), ≤ 12 words each; the full list behind "See why".
 
+### 6.6 Encouragement moments (Task 05 Part C)
+After a completion only, at most one a day, never while paused or after a red flag, user can turn off: `first_day_done`, `three_good_days`, `first_week_done`, `habit_strength_50` (per behaviour) once; `comeback` after each slip; `tried_something_new`. Never a count, never streak language, never how many days were missed. Observation only (doesn't change the plan). Returned as `encouragement: {moment, message}` in `/today` and `/events`.
+
 ## 7. API contract (FastAPI) — frontend builds against this, using mocks until it's ready
 
 ```
 POST   /users                         body: OnboardingPayload (+ timezone?, org_id?)  → { user_id, token, screening, state, today, plan_summary: { behaviours, reasons (≤ 3), all_reasons } }
 GET    /users/{id}/plan               → { behaviours, reasons, all_reasons }   (Bearer token on every /users/{id}/* route)
 GET    /users/{id}/today              → { actions: [{ action, time_window, explanation_id }], message_keys, channel, checkin_due, state_summary }   (one per goal: movement, then sleep)
-POST   /users/{id}/events             body: { action_id, type: completed|partial|skipped } → { state }
+POST   /users/{id}/events             body: { action_id, type: completed|partial|skipped } → { state, encouragement? }
 POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
 GET    /actions/{id}/explain          → { bct_code, bct_name, rationale, limits, how_to_turn_off }
-GET    /community/events?user_id=     → read-only events filtered to the user (token required; real ones cite a source URL + date checked, others are labelled Example)
+GET    /users/{id}/community/events   → read-only events filtered to the user (Bearer token; real ones cite a source URL + date checked, others are labelled Example)
 GET    /recipes?tag=                  → curated recipes (general guidance, not medical advice); /recipes/{id}
                                          /today also returns recipes: { action_id: recipe } for cooking steps
 PATCH  /users/{id}/settings           body: { preferences?, consents?, context?, conditions?, shifts?, ramadan?: "started_today"|"ended_today" } → { preferences, consents, state, plan_summary }

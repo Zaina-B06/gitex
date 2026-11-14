@@ -31,6 +31,7 @@ from rebound_engine.models import (
     ContextFlag,
     DayContext,
     DayLog,
+    Encouragement,
     EngagementState,
     Event,
     EventType,
@@ -66,7 +67,7 @@ from .demo import (
     org_bodies,
 )
 from .llm_client import BarrierClassifier, default_classifier
-from .messages import HOW_TO_TURN_OFF, render, render_reason
+from .messages import HOW_TO_TURN_OFF, render, render_encouragement, render_reason
 from .store import SQLiteStore, UserMeta, sqlite_path
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
@@ -117,9 +118,18 @@ class RecipeOut(Recipe):
     note: str = RECIPE_NOTE  # shown with every recipe
 
 
+class EncouragementOut(BaseModel):
+    """A small pop-up: a real moment and its message (Task 05 Part C)."""
+
+    moment: str
+    message: str
+    behaviour: Behaviour | None = None
+
+
 class TodayOut(TodayResult):
     messages: list[str]  # message_keys rendered in the user's language
     recipes: dict[str, RecipeOut] = Field(default_factory=dict)  # action id -> suggestion, for cooking steps only
+    encouragement: EncouragementOut | None = None  # today's moment, if one happened
 
 
 class PlanOut(BaseModel):
@@ -148,6 +158,7 @@ class EventIn(BaseModel):
 
 class StateResponse(BaseModel):
     state: StateOut
+    encouragement: EncouragementOut | None = None  # set when this event created a moment (Task 05 Part C)
 
 
 class CheckinIn(BaseModel):
@@ -228,6 +239,13 @@ def _withdrawn(consents: dict[ConsentGroup, bool]) -> dict[str, Any]:
     """Groups whose consent is withdrawn, set back to empty: their answers are deleted, and stay deleted on
     every later save until consent is given again."""
     return {g.value: _EMPTY_GROUP[g]() for g, ok in consents.items() if not ok and g in _EMPTY_GROUP}
+
+
+def _encouragement_out(e: Encouragement | None, profile: UserProfile) -> EncouragementOut | None:
+    if e is None:
+        return None
+    return EncouragementOut(moment=e.moment, message=render_encouragement(e.moment, profile, e.day),
+                            behaviour=e.behaviour)
 
 
 def _plan_out(profile: UserProfile) -> PlanOut:
@@ -336,6 +354,7 @@ def create_app(
         }
         return TodayOut.model_validate({
             **result.model_dump(), "messages": [render(k, profile) for k in result.message_keys], "recipes": recipes,
+            "encouragement": _encouragement_out(result.encouragement, profile),
         })
 
     @app.post("/users", status_code=201, response_model=OnboardOut)
@@ -373,7 +392,11 @@ def create_app(
         if body.action_id not in state.pending:
             raise HTTPException(409, "not one of today's open actions (unknown, or already answered)")
         event = Event(user_id=meta.user_id, day=state.day, type=EventType(body.type), action_id=body.action_id)
-        return StateResponse(state=_state_out(engine.record(event)))
+        before = state.encouragement
+        after = engine.record(event)
+        fresh = after.encouragement if after.encouragement != before else None
+        return StateResponse(state=_state_out(after),
+                             encouragement=_encouragement_out(fresh, store.get_profile(meta.user_id)))
 
     @app.post("/users/{user_id}/checkin", response_model=CheckinOut)
     def checkin(body: CheckinIn, meta: Authed) -> CheckinOut:
@@ -447,7 +470,7 @@ def create_app(
         engine.delete_user(meta.user_id)  # SQLiteStore also removes user_meta
         return Response(status_code=204)
 
-    @app.get("/community/events", response_model=list[CommunityEvent])
+    @app.get("/users/{user_id}/community/events", response_model=list[CommunityEvent])
     def community_events(
         meta: Authed, household: Household | None = None, behaviour: Behaviour | None = None,
         city: str | None = Query(default=None, max_length=40),

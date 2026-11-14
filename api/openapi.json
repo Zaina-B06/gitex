@@ -418,17 +418,26 @@
     }
    }
   },
-  "/community/events": {
+  "/users/{user_id}/community/events": {
    "get": {
     "summary": "Community Events",
     "description": "Read-only events that fit the user (goals, women-only spaces, mobility, language). `household` and `city`\nare request filters only: no location tracking, nothing stored.",
-    "operationId": "community_events_community_events_get",
+    "operationId": "community_events_users__user_id__community_events_get",
     "security": [
      {
       "HTTPBearer": []
      }
     ],
     "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     },
      {
       "name": "household",
       "in": "query",
@@ -483,15 +492,6 @@
        ],
        "title": "City"
       }
-     },
-     {
-      "name": "user_id",
-      "in": "query",
-      "required": true,
-      "schema": {
-       "type": "string",
-       "title": "User Id"
-      }
      }
     ],
     "responses": {
@@ -504,7 +504,7 @@
          "items": {
           "$ref": "#/components/schemas/CommunityEvent"
          },
-         "title": "Response Community Events Community Events Get"
+         "title": "Response Community Events Users  User Id  Community Events Get"
         }
        }
       }
@@ -1691,6 +1691,72 @@
     "title": "EmployerOut",
     "description": "Aggregates for one org; only returned for groups of at least EMPLOYER_MIN_GROUP (AGENTS.md \u00a72.6)."
    },
+   "Encouragement": {
+    "properties": {
+     "moment": {
+      "type": "string",
+      "enum": [
+       "first_day_done",
+       "three_good_days",
+       "comeback",
+       "habit_strength_50",
+       "first_week_done",
+       "tried_something_new"
+      ],
+      "title": "Moment"
+     },
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "behaviour": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Behaviour"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "moment",
+     "day"
+    ],
+    "title": "Encouragement",
+    "description": "Task 05 Part C: a real moment worth a small \"well done\". Never a count, never a streak."
+   },
+   "EncouragementOut": {
+    "properties": {
+     "moment": {
+      "type": "string",
+      "title": "Moment"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "behaviour": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Behaviour"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "moment",
+     "message"
+    ],
+    "title": "EncouragementOut",
+    "description": "A small pop-up: a real moment and its message (Task 05 Part C)."
+   },
    "EngagementState": {
     "type": "string",
     "enum": [
@@ -1778,7 +1844,8 @@
      "screening_flag",
      "red_flag",
      "context_change",
-     "risk_alert"
+     "risk_alert",
+     "encouragement"
     ],
     "title": "EventType"
    },
@@ -2179,6 +2246,11 @@
       },
       "type": "array",
       "title": "Accessibility"
+     },
+     "encouragement": {
+      "type": "boolean",
+      "title": "Encouragement",
+      "default": true
      }
     },
     "additionalProperties": false,
@@ -2720,6 +2792,16 @@
     "properties": {
      "state": {
       "$ref": "#/components/schemas/StateOut"
+     },
+     "encouragement": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EncouragementOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "type": "object",
@@ -2839,6 +2921,16 @@
       },
       "type": "array",
       "title": "Risk Reasons"
+     },
+     "encouragement": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EncouragementOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "messages": {
       "items": {
@@ -3156,6 +3248,36 @@
       "type": "integer",
       "title": "Rotation",
       "default": 0
+     },
+     "encouragement": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Encouragement"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "moments": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Moments"
+     },
+     "done_actions": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true,
+      "title": "Done Actions"
+     },
+     "slip_day": {
+      "type": "integer",
+      "title": "Slip Day",
+      "default": -1
      }
     },
     "type": "object",

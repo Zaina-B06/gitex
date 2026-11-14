@@ -166,6 +166,65 @@ def render_reason(key: str, profile: UserProfile) -> str:
     return REASONS[key]["ar" if profile.basics.language == Language.ar else "en"]
 
 
+# Encouragement moments (Task 05 Part C). Several per moment, rotated by day. Never a count, never streak language,
+# never how many days were missed (tested). "simple" is the plain-language English variant (Part D adds the setting).
+ENCOURAGEMENT: dict[str, list[dict[str, str]]] = {
+    "first_day_done": [
+        {"en": "You did your first step. That's how every habit starts.",
+         "ar": "أنجزت خطوتك الأولى. هكذا تبدأ كل عادة.", "simple": "Well done on your first step!"},
+        {"en": "First step done. Small steps add up.",
+         "ar": "أنجزت الخطوة الأولى. الخطوات الصغيرة تتراكم.", "simple": "Your first step is done!"},
+        {"en": "A great start. Tomorrow's step will be just as small.",
+         "ar": "بداية رائعة. خطوة الغد ستكون صغيرة أيضاً.", "simple": "Great start!"},
+    ],
+    "three_good_days": [
+        {"en": "You keep showing up. That's how habits grow.",
+         "ar": "أنت تواصل الحضور. هكذا تنمو العادات.", "simple": "You keep going. Well done!"},
+        {"en": "A good few days. This is starting to feel like yours.",
+         "ar": "أيام جيدة. بدأت هذه العادة تصبح عادتك.", "simple": "Good days. Keep going!"},
+        {"en": "Steady and kind to yourself. Nice work.",
+         "ar": "ثابت ولطيف مع نفسك. عمل جميل.", "simple": "Nice work!"},
+    ],
+    "comeback": [
+        {"en": "We missed you. Glad you're back.",
+         "ar": "افتقدناك. سعداء بعودتك.", "simple": "Welcome back!"},
+        {"en": "Welcome back. Picking it up again is the skill that matters.",
+         "ar": "أهلاً بعودتك. العودة من جديد هي المهارة الأهم.", "simple": "Good to see you again!"},
+        {"en": "You're back. Every return makes the habit stronger.",
+         "ar": "لقد عدت. كل عودة تجعل العادة أقوى.", "simple": "You came back. Well done!"},
+    ],
+    "habit_strength_50": [
+        {"en": "This habit is halfway to feeling automatic.",
+         "ar": "هذه العادة في منتصف الطريق لتصبح تلقائية.", "simple": "This habit is getting easier!"},
+        {"en": "Your habit ring is half full. It's becoming part of your day.",
+         "ar": "حلقة عادتك نصف ممتلئة. أصبحت جزءاً من يومك.", "simple": "Your habit is growing!"},
+        {"en": "This one is really taking root.",
+         "ar": "هذه العادة تترسخ فعلاً.", "simple": "This habit is growing strong!"},
+    ],
+    "first_week_done": [
+        {"en": "Your first week with Rebound. Thank you for sticking with it.",
+         "ar": "أسبوعك الأول مع Rebound. شكراً لاستمرارك.", "simple": "Your first week is done!"},
+        {"en": "A whole week of looking after yourself.",
+         "ar": "أسبوع كامل من الاهتمام بنفسك.", "simple": "Your first week. Well done!"},
+        {"en": "First week done. You've made room for this in your life.",
+         "ar": "انتهى الأسبوع الأول. لقد أفسحت لهذا مكاناً في حياتك.", "simple": "Great first week!"},
+    ],
+    "tried_something_new": [
+        {"en": "You tried something new today. Nice.",
+         "ar": "جربت شيئاً جديداً اليوم. رائع.", "simple": "You tried something new!"},
+        {"en": "A new step, done. You're growing.",
+         "ar": "خطوة جديدة أنجزتها. أنت تتقدم.", "simple": "New step done!"},
+        {"en": "Trying new things keeps a habit fresh. Well done.",
+         "ar": "تجربة أشياء جديدة تبقي العادة متجددة. أحسنت.", "simple": "Well done trying something new!"},
+    ],
+}
+
+
+def render_encouragement(moment: str, profile: UserProfile, day: int) -> str:
+    variants = ENCOURAGEMENT[moment]
+    return variants[day % len(variants)]["ar" if profile.basics.language == Language.ar else "en"]
+
+
 HOW_TO_TURN_OFF = {
     "en": "You can remove this goal or pause coaching any time in Settings. Nothing you've built is lost.",
     "ar": "يمكنك إزالة هذا الهدف أو إيقاف التدريب مؤقتاً في أي وقت من الإعدادات. لن تفقد أي تقدم.",

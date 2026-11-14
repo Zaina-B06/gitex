@@ -34,6 +34,11 @@ SENIOR_START_TIER = 1
 BMI_START_CAPS = ((40.0, 1), (30.0, 2))
 SLEEP_START_TIER = 1
 
+# --- Encouragement moments (Task 05 Part C) ---
+ENCOURAGE_HABIT_STRENGTH = 0.5  # habit_strength_50: H reaches half, once per behaviour
+ENCOURAGE_FIRST_WEEK_DAY = 7  # first_week_done: a completion on or after this day
+ENCOURAGE_GOOD_DAYS = 3  # three_good_days: a completion on each of the last 3 days
+
 # --- Plan builder (Task 05) ---
 MAX_ACTIVE_BEHAVIOURS = 3  # at most this many actions a day; with more goals the last slot rotates (burden cap)
 NEW_BEHAVIOUR_START_TIER = 1  # nutrition, smoking, recovery start at their smallest step

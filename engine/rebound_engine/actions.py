@@ -10,6 +10,7 @@ from .models import (
     ActionSetting,
     Barrier,
     Behaviour,
+    Condition,
     Context,
     ContextFlag,
     PlaceSetting,
@@ -85,6 +86,13 @@ def filter_actions(
     actions = context_filter(actions, context.flags, context.hour, screening_flags(profile))
     if ContextFlag.ramadan not in context.flags:
         actions = [a for a in actions if "ramadan_only" not in a.tags]  # suhoor/iftar variants
+    managing = profile.conditions.managing
+    recovering = Condition.recovering_from_illness_or_injury in managing or ContextFlag.illness in context.flags
+    actions = [
+        a for a in actions
+        if ("after_illness" not in a.tags or recovering)  # rest-after-illness only when it fits
+        and ("not_for_diabetes" not in a.tags or Condition.diabetes not in managing)  # e.g. dates at iftar
+    ]
     if state.prefer_indoor or profile.preferences.setting == PlaceSetting.indoor:
         actions = [a for a in actions if a.setting != ActionSetting.outdoor]
     if state.last_barrier == Barrier.energy_fatigue:

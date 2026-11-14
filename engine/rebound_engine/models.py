@@ -357,7 +357,7 @@ class Action(BaseModel):
     contraindications: list[str] = Field(default_factory=list)  # screening question names
     duration_min: int = Field(gt=0)
     # Task 05 Part B: plain-language variant, icon key (actions.ICONS), and tags the rules prefer (e.g. "substitution",
-    # "cue_avoidance", "no_shopping", "ramadan_only", "cooking", "diabetes", "after_illness").
+    # "cue_avoidance", "no_shopping", "ramadan_only", "cooking", "diabetes", "not_for_diabetes", "after_illness").
     simple: LocalizedText | None = None
     icon: str | None = None
     tags: list[str] = Field(default_factory=list)

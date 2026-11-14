@@ -42,6 +42,7 @@ ENCOURAGE_GOOD_DAYS = 3  # three_good_days: a completion on each of the last 3 d
 # --- Plan builder (Task 05) ---
 MAX_ACTIVE_BEHAVIOURS = 3  # at most this many actions a day; with more goals the last slot rotates (burden cap)
 NEW_BEHAVIOUR_START_TIER = 1  # nutrition, smoking, recovery start at their smallest step
+SPREAD_MAX_SHIFT_H = 3  # a clashing action moves at most this many hours later (policy._spread_hours)
 NEW_BEHAVIOUR_H0 = 0.0  # no baseline question for these, so habit strength starts empty and builds from there
 
 # --- Context ---

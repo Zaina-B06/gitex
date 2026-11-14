@@ -32,6 +32,15 @@ def test_five_goals_give_at_most_three_actions_a_day(client, clock):
     assert seen == set(ALL_GOALS)
 
 
+def test_rotation_note_only_with_more_than_three_goals(client):
+    _, _, many = onboard(client, basics={"goals": ALL_GOALS}, history={"smoking_status": "current"})
+    assert many["plan_summary"]["rotation_note"] == "You have more than 3 goals, so your third step changes each day."
+    _, _, few = onboard(client)
+    assert few["plan_summary"]["rotation_note"] is None
+    _, _, ar = onboard(client, basics={"goals": ALL_GOALS, "language": "ar"}, history={"smoking_status": "current"})
+    assert ar["plan_summary"]["rotation_note"].startswith("لديك")
+
+
 def test_smoking_goal_needs_a_current_smoker(client):
     assert client.post("/users", json=_body(basics={"goals": ["smoking"]})).status_code == 422
 

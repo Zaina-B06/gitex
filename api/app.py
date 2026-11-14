@@ -20,6 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from rebound_engine import config as engine_config
 from rebound_engine.calendar import RAMADAN, day_context
 from rebound_engine.engine import Engine
 from rebound_engine.models import (
@@ -67,7 +68,7 @@ from .demo import (
     org_bodies,
 )
 from .llm_client import BarrierClassifier, default_classifier
-from .messages import HOW_TO_TURN_OFF, render, render_encouragement, render_reason
+from .messages import HOW_TO_TURN_OFF, ROTATION_NOTE, render, render_encouragement, render_reason
 from .store import SQLiteStore, UserMeta, sqlite_path
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
@@ -138,6 +139,7 @@ class PlanOut(BaseModel):
     behaviours: list[Behaviour]  # with daily actions, in order
     reasons: list[str]  # at most PLAN_REASONS_SHOWN, most important first
     all_reasons: list[str]  # the full list, for "See why"
+    rotation_note: str | None = None  # only with more goals than daily actions: the third step changes each day
 
 
 class OnboardOut(BaseModel):
@@ -251,7 +253,10 @@ def _encouragement_out(e: Encouragement | None, profile: UserProfile) -> Encoura
 def _plan_out(profile: UserProfile) -> PlanOut:
     plan = build_plan(profile)
     reasons = [render_reason(k, profile) for k in plan.reasons]
-    return PlanOut(behaviours=plan.active, reasons=reasons[:PLAN_REASONS_SHOWN], all_reasons=reasons)
+    rotating = len(profile.basics.goals) > engine_config.MAX_ACTIVE_BEHAVIOURS
+    note = ROTATION_NOTE["ar" if profile.basics.language == Language.ar else "en"] if rotating else None
+    return PlanOut(behaviours=plan.active, reasons=reasons[:PLAN_REASONS_SHOWN], all_reasons=reasons,
+                   rotation_note=note)
 
 
 def _state_out(s: UserState) -> StateOut:

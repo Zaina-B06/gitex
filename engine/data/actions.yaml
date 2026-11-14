@@ -433,11 +433,28 @@ actions:
     title: {en: "Break your fast with water and dates, not a sugary drink", ar: "افطر على الماء والتمر بدل المشروب السكري", ar_reviewed: false}
     simple: {en: "At iftar, have water, not a sweet drink.", ar: "عند الإفطار اشرب الماء بدل المشروب الحلو.", ar_reviewed: false}
     icon: cup
-    tags: [ramadan_only, diabetes]
+    tags: [ramadan_only, not_for_diabetes]
     bct_code: "8.2"
     bct_name: "Behavior substitution"
     rationale: "Water and dates are a traditional way to break the fast."
     limits: "General guidance, not medical advice. If you have diabetes, are pregnant or take medicines, check fasting and diet with your doctor."
+    setting: any
+    fasting_safe: true
+    low_energy_ok: true
+    pregnancy_safe: true
+    duration_min: 1
+
+  - id: nu_t3_iftar_water_first
+    behaviour: nutrition
+    tier: 3
+    title: {en: "Break your fast with water first, then your meal", ar: "افطر على الماء أولاً ثم تناول وجبتك", ar_reviewed: false}
+    simple: {en: "At iftar, drink water first.", ar: "عند الإفطار، اشرب الماء أولاً.", ar_reviewed: false}
+    icon: water
+    tags: [ramadan_only, diabetes]
+    bct_code: "8.2"
+    bct_name: "Behavior substitution"
+    rationale: "Starting with water instead of a sweet drink is a simple swap at iftar."
+    limits: "General guidance, not medical advice. With diabetes, check fasting and iftar choices with your doctor."
     setting: any
     fasting_safe: true
     low_energy_ok: true

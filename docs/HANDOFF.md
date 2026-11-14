@@ -78,7 +78,7 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
 - **Part B, new behaviours:**
   - **Onboarding goals:** offer all five: movement, sleep, nutrition, smoking (only show it if `smoking_status` is
     `current`) and recovery.
-  - **Today:** at most 3 cards a day, in plan order. With more goals, the third card changes daily. Each action now
+  - **Today:** at most 3 cards a day, in plan order. With more goals, the third card changes daily; show `plan_summary.rotation_note` (already in the user's language) on the plan card. Each action now
     has `simple` (plain title), `icon` (fixed key) and `tags`.
   - **Recipes:** `today.recipes` maps an action id to a recipe for cooking steps; show it with its `note`
     ("General guidance, not medical advice"). There's also a browsable `GET /recipes?tag=`.
@@ -115,7 +115,7 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   allowed by CORS.
 - **Auth:** `POST /users` returns `token` once. Store it; send `Authorization: Bearer <token>` on every
   `/users/{id}/*` and `/demo/users/{id}/advance` call. A 401 means a lost or wrong token.
-- **Today:** `actions[]` (movement first, then sleep), each with `hour` and `explanation_id`; `messages[]` are already
+- **Today:** `actions[]` (plan order, at most 3 a day), each with `hour` and `explanation_id`; `messages[]` are already
   rendered in the user's language. After a check-in, `adjusted_actions[]` *replace* today's actions; re-fetch `/today`.
 - **Check-in:** at most one per day (409 on a second); free text is optional and a red flag always gets through.
   On `red_flag: true`, show `message` (care guidance, 998 and 800 SAKINA) and no coaching.
@@ -174,9 +174,9 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 **Check it works** (from the repo root)
 ```bash
 ruff check engine sim api
-pytest engine/tests          # 165 tests
-pytest sim/tests             # 47 tests
-pytest api/tests             # 57 tests
+pytest engine/tests          # 240 tests
+pytest sim/tests             # 49 tests
+pytest api/tests             # 95 tests
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

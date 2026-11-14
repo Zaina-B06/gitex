@@ -319,7 +319,8 @@ def _tag_rank(profile: UserProfile, state: UserState, a: Action) -> int:
     fits = (
         ("ramadan_only" in a.tags and ContextFlag.ramadan in effective_flags(state))
         or ("diabetes" in a.tags and Condition.diabetes in managing)
-        or ("after_illness" in a.tags and Condition.recovering_from_illness_or_injury in managing)
+        or ("after_illness" in a.tags and (Condition.recovering_from_illness_or_injury in managing
+                                           or ContextFlag.illness in effective_flags(state)))
     )
     return 0 if fits else 1
 
@@ -405,7 +406,37 @@ def choose_actions(
 ) -> list[ScheduledAction]:
     """One action per behaviour shown today (plan order, at most MAX_ACTIVE_BEHAVIOURS), with window and hour."""
     picks = (choose_action(profile, state, b, library=library, bandit=bandit) for b in todays_behaviours(state))
-    return [a for a in picks if a is not None]
+    return _spread_hours(profile, state, [a for a in picks if a is not None])
+
+
+# Movement and sleep can already share an hour in the simulator (movement moved to the evening); moving one would
+# change run_011, so only clashes involving another behaviour are spread.
+_SIM_BEHAVIOURS = frozenset({Behaviour.movement, Behaviour.sleep})
+
+
+def _spread_hours(profile: UserProfile, state: UserState, scheduled: list[ScheduledAction]) -> list[ScheduledAction]:
+    """When a later action shares an hour with an earlier one, move it 1-3 hours later to a free hour (outside quiet
+    hours, work/post-shift sleep and, for outdoor steps, the heat window). If none is free it stays."""
+    quiet = profile.preferences.quiet_hours
+    busy = state.day_times.busy if state.day_times else []
+    heat = ContextFlag.heat in effective_flags(state)
+
+    def free(h: int, a: Action, used: dict[int, Behaviour]) -> bool:
+        hot = heat and a.setting == ActionSetting.outdoor and config.HEAT_START_HOUR <= h < config.HEAT_END_HOUR
+        return h not in used and not _in_quiet_hours(h, quiet) and not in_busy(h, busy) and not hot
+
+    used: dict[int, Behaviour] = {}
+    out = []
+    for s in scheduled:
+        other = used.get(s.hour)
+        if other is not None and not {other, s.action.behaviour} <= _SIM_BEHAVIOURS:
+            later = next(((s.hour + k) % 24 for k in range(1, config.SPREAD_MAX_SHIFT_H + 1)
+                          if free((s.hour + k) % 24, s.action, used)), None)
+            if later is not None:
+                s = s.model_copy(update={"hour": later})
+        used.setdefault(s.hour, s.action.behaviour)
+        out.append(s)
+    return out
 
 
 def lighter_option(

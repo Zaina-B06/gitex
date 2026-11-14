@@ -2174,6 +2174,17 @@
       },
       "type": "array",
       "title": "All Reasons"
+     },
+     "rotation_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rotation Note"
      }
     },
     "type": "object",

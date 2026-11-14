@@ -162,6 +162,12 @@ REASONS: dict[str, dict[str, str]] = {
 }
 
 
+ROTATION_NOTE = {
+    "en": "You have more than 3 goals, so your third step changes each day.",
+    "ar": "لديك أكثر من 3 أهداف، لذلك تتغير خطوتك الثالثة كل يوم.",
+}
+
+
 def render_reason(key: str, profile: UserProfile) -> str:
     return REASONS[key]["ar" if profile.basics.language == Language.ar else "en"]
 

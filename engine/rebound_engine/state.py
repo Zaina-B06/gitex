@@ -3,6 +3,7 @@
 from . import config
 from .models import (
     Behaviour,
+    Condition,
     ContextFlag,
     DayLog,
     DayOutcome,
@@ -74,6 +75,8 @@ def starting_movement_tier(profile: UserProfile, screening: ScreeningResult) -> 
     tier = next(t for max_days, t in config.START_TIER_BY_ACTIVE_DAYS if days <= max_days)
     if profile.basics.age_years >= config.SENIOR_AGE:
         tier = min(tier, config.SENIOR_START_TIER)
+    if Condition.recovering_from_illness_or_injury in profile.conditions.managing:
+        tier = config.MIN_TIER  # starting level only; steps up as usual from there
     body = profile.body
     if body and body.height_cm and body.weight_kg:
         bmi = body.weight_kg / (body.height_cm / 100) ** 2  # internal only, never shown

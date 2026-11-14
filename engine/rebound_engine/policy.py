@@ -5,6 +5,7 @@ from typing import Protocol
 
 from . import config
 from .actions import filter_actions
+from .calendar import in_busy
 from .models import (
     Action,
     ActionSetting,
@@ -117,6 +118,11 @@ def tier_cap(profile: UserProfile, behaviour: Behaviour) -> int:
     return config.MAX_TIER
 
 
+def effective_flags(state: UserState) -> set[ContextFlag]:
+    """Explicit flags plus what the calendar worked out (Task 05 A2); the calendar never removes a flag."""
+    return state.context_flags | state.auto_flags
+
+
 def _candidate_windows(behaviour: Behaviour) -> list[TimeWindow]:
     return list(TimeWindow) if behaviour == Behaviour.movement else [TimeWindow.evening]
 
@@ -146,8 +152,45 @@ def prompt_options(
     i = windows.index(default)
     ordered = windows[i:] + windows[:i]  # default first, then the next windows in order
     quiet = profile.preferences.quiet_hours
-    free = [(w, h) for w in ordered if not _in_quiet_hours(h := window_hour(profile, w), quiet)]
-    return free or [(default, quiet.end.hour)]
+    if state.day_times is None and state.iftar_hour is None:  # no calendar context: unchanged (the simulator)
+        free = [(w, h) for w in ordered if not _in_quiet_hours(h := window_hour(profile, w), quiet)]
+        return free or [(default, quiet.end.hour)]
+    return _calendar_options(profile, state, behaviour, ordered, quiet)
+
+
+def _calendar_options(
+    profile: UserProfile, state: UserState, behaviour: Behaviour, ordered: list[TimeWindow], quiet: TimeRange | None
+) -> list[tuple[TimeWindow, int]]:
+    """Task 05 A2: prompt hours from real shift timings and iftar; never in quiet, work or post-night-shift sleep."""
+    t = state.day_times
+    busy = t.busy if t else []
+    wake = t.wake if t else profile.basics.usual_wake_time.hour
+    sleep = t.sleep if t else profile.basics.usual_sleep_time.hour
+
+    def hour(w: TimeWindow) -> int:
+        if w == TimeWindow.morning:
+            return (wake + config.MORNING_OFFSET_H) % 24
+        if w == TimeWindow.afternoon:
+            return config.AFTERNOON_HOUR
+        return (sleep + config.EVENING_OFFSET_H) % 24
+
+    fasting = ContextFlag.ramadan in (state.context_flags | state.auto_flags)
+    if behaviour == Behaviour.movement and state.iftar_hour is not None and fasting:
+        candidates = [(TimeWindow.evening, (state.iftar_hour + config.RAMADAN_MOVE_AFTER_IFTAR_H) % 24)]
+    elif behaviour == Behaviour.sleep and t is not None and t.sleep_prompt is not None:
+        candidates = [(TimeWindow.evening, t.sleep_prompt)]  # wind-down as the night shift ends
+    else:
+        candidates = [(w, hour(w)) for w in ordered]
+
+    def free(h: int) -> bool:
+        return not _in_quiet_hours(h, quiet) and not in_busy(h, busy)
+
+    options = [(w, h) for w, h in candidates if free(h)]
+    if options:
+        return options
+    w, h = candidates[0]
+    later = next(((h + k) % 24 for k in range(1, 24) if free((h + k) % 24)), h)
+    return [(w, later)]
 
 
 def _next_window(w: TimeWindow) -> TimeWindow:
@@ -265,7 +308,7 @@ def choose_action(
     allowed_at = {
         (w, h): [
             a
-            for a in filter_actions(profile, state, Context(flags=state.context_flags, hour=h), library)
+            for a in filter_actions(profile, state, Context(flags=effective_flags(state), hour=h), library)
             if a.behaviour == behaviour
         ]
         for w, h in options
@@ -307,7 +350,7 @@ def lighter_option(
     target = scheduled.action.tier - 1
     if target < config.MIN_TIER:
         return None
-    allowed = filter_actions(profile, state, Context(flags=state.context_flags, hour=scheduled.hour), library)
+    allowed = filter_actions(profile, state, Context(flags=effective_flags(state), hour=scheduled.hour), library)
     pool = [a for a in allowed if a.behaviour == behaviour and a.tier <= target]
     if not pool:
         return None

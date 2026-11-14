@@ -34,9 +34,20 @@ SENIOR_START_TIER = 1
 BMI_START_CAPS = ((40.0, 1), (30.0, 2))
 SLEEP_START_TIER = 1
 
+# --- Plan builder (Task 05) ---
+MAX_ACTIVE_BEHAVIOURS = 3  # behaviours with daily actions at once; the rest are queued (burden cap)
+
 # --- Context ---
 HEAT_START_HOUR = 11
 HEAT_END_HOUR = 16  # exclusive: 16:00 is outside the heat window
+
+# --- Calendar context (Task 05 A2; only when the engine is given a calendar) ---
+HEAT_MONTHS = (5, 6, 7, 8, 9)  # May-September: heat mode on automatically
+EID_REST_DAYS = 3  # first days of Shawwal (Eid al-Fitr) are rest-friendly for fasting users
+RAMADAN_MOVE_AFTER_IFTAR_H = 1  # movement prompt this many hours after iftar
+SHIFT_HOME_H = 1  # sleep starts this long after a night shift ends
+SHIFT_SLEEP_H = 7  # sleep length after a night shift
+NIGHT_SHIFT_ENDS_BEFORE_H = 12  # an overnight shift ending before noon is a night shift
 
 # --- Prompt windows (hour of day an action is prompted) ---
 MORNING_OFFSET_H = 1  # after usual wake time

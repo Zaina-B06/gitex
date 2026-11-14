@@ -76,6 +76,9 @@ def audit(action: Action, hour: int, payload: OnboardingPayload, flags: set[Cont
     """Comma-separated safety rules this shown action breaks, re-derived from AGENTS.md §4.3/§6.3."""
     s = payload.screening
     positive = {q for q in SCREENING_QUESTIONS if getattr(s, q)}
+    # Task 05 chips take the rules of the health-check question they match (personas don't answer them yet).
+    chips = {"high_blood_pressure": "heart_condition_or_high_bp", "back_or_joint_pain": "bone_joint_muscle_problem"}
+    positive |= {chips[c.value] for c in payload.conditions.managing if c.value in chips}
     cap = 1 if s.chest_pain or s.dizziness_or_fainting else 2 if positive else 4
     movement = action.behaviour.value == "movement"
     problems = []

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from . import config
 from .actions import default_library
+from .calendar import Calendar
 from .models import (
     Action,
     Barrier,
@@ -126,12 +127,15 @@ class Engine:
         policy_mode: PolicyMode = "rules",
         rng: random.Random | None = None,
         risk_model: RiskModel | None = None,
+        calendar: Calendar | None = None,
     ) -> None:
         """policy_mode="rules": deterministic choice, default window (Task 01 behaviour).
         policy_mode="bandit": Thompson sampling over (action, window) arms, seeded by `rng`.
         risk_model: optional lapse-risk model (Task 02b). When risk is above its threshold and the user is still
         active, each action comes with a lighter option, plus a gentle check-in at most once per 7 days."""
         self.risk_model = risk_model
+        # Task 05 A2: Ramadan, Eid, heat and shift timings worked out per day. None (the simulator) = explicit flags only.
+        self.calendar = calendar
         if policy_mode not in ("rules", "bandit"):
             raise ValueError(f"unknown policy_mode {policy_mode!r}")
         self.store = store or InMemoryStore()
@@ -173,7 +177,8 @@ class Engine:
                 profile.user_id,
                 0,
                 EventType.screening_flag,
-                payload={"positive": screening.positive, "see_doctor": screening.see_doctor},
+                payload={"positive": screening.positive, "see_doctor": screening.see_doctor,
+                         "contraindicated": screening.contraindicated},
             )
         return OnboardResult(
             user_id=profile.user_id, state=state, screening=screening, red_flag=red_flag
@@ -192,6 +197,7 @@ class Engine:
                 self._end_day(profile, state)
             for b, h in state.habit_strength.items():
                 state.h_daily[b] = [*state.h_daily.get(b, []), h][-config.H_DAILY_KEEP :]
+            self._set_day_context(profile, state, day)  # after closing yesterday, which keeps yesterday's context
             scheduled = choose_actions(profile, state, library=self.library, bandit=self.bandit)
             self._risk_hook(profile, state, scheduled, day)
             state.day = day
@@ -294,6 +300,29 @@ class Engine:
         self.store.save_state(state)
         return state
 
+    def refresh_context(self, user_id: str) -> UserState:
+        """Re-read the calendar for today (e.g. after "Ramadan started today") and re-choose today's still-open
+        actions, so a fasting user isn't left with a step that isn't fasting-safe."""
+        profile, state = self._load(user_id)
+        if self.calendar is None or state.day < 1:
+            return state
+        self._set_day_context(profile, state, state.day)
+        for s in choose_actions(profile, state, library=self.library, bandit=self.bandit):
+            old = next((i for i in state.pending if self._by_id[i].behaviour == s.action.behaviour), None)
+            if old is None:
+                continue
+            shown = next(((w, h) for i, w, h in state.shown_today if i == old), None)
+            if old == s.action.id and shown == (s.time_window, s.hour):
+                continue
+            state.pending[state.pending.index(old)] = s.action.id
+            state.shown_today = [
+                (s.action.id, s.time_window, s.hour) if i == old else (i, w, h) for i, w, h in state.shown_today
+            ]
+            self._log(user_id, state.day, EventType.action_shown, action_id=s.action.id,
+                      payload={"window": s.time_window.value, "hour": s.hour, "replaces": old})
+        self.store.save_state(state)
+        return state
+
     def get_state(self, user_id: str) -> UserState:
         return self.store.get_state(user_id)
 
@@ -315,6 +344,8 @@ class Engine:
             outcome = DayOutcome.paused
         elif ContextFlag.illness in state.context_flags:
             outcome = DayOutcome.illness
+        elif ContextFlag.eid in state.auto_flags and outcome in (DayOutcome.skipped, DayOutcome.no_response):
+            outcome = DayOutcome.paused  # Eid is rest-friendly: a missed step doesn't count
         b = action.behaviour
         state.habit_strength[b] = update_habit_strength(state.habit_strength[b], outcome)
         state.history.append(DayLog(day=day, behaviour=b, action_id=action.id, outcome=outcome))
@@ -417,7 +448,15 @@ class Engine:
                 keys.append("buddy_offer")
         if state.lighter_offers:
             keys.append("lighter_option")  # "Busy week ahead? Here's a lighter version"
+        if ContextFlag.eid in state.auto_flags:
+            keys.append("eid_rest")
         return keys
+
+    def _set_day_context(self, profile: UserProfile, state: UserState, day: int) -> None:
+        if self.calendar is None:
+            return
+        ctx = self.calendar.day(profile, day)
+        state.auto_flags, state.iftar_hour, state.day_times = set(ctx.flags), ctx.iftar_hour, ctx.day_times
 
     @staticmethod
     def _summary(state: UserState) -> StateSummary:

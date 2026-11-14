@@ -8,6 +8,7 @@ from .models import (
     Action,
     ActionSetting,
     Behaviour,
+    Condition,
     ContextFlag,
     MobilityLimitation,
     PregnancyAnswer,
@@ -27,24 +28,35 @@ SCREENING_QUESTIONS = (
 SEE_DOCTOR_QUESTIONS = ("chest_pain", "dizziness_or_fainting")
 
 
+# Condition chips that match a health-check question get that question's rules (cap, contraindications, doctor line),
+# even if the question was answered "no". They can only tighten, never loosen.
+CONDITION_EQUIVALENTS = {
+    Condition.high_blood_pressure: "heart_condition_or_high_bp",
+    Condition.back_or_joint_pain: "bone_joint_muscle_problem",
+}
+
+
 def screening_flags(profile: UserProfile) -> ScreeningResult:
     s = profile.screening
     positive = [q for q in SCREENING_QUESTIONS if getattr(s, q)]
+    chips = [CONDITION_EQUIVALENTS[c] for c in profile.conditions.managing if c in CONDITION_EQUIVALENTS]
+    contraindicated = list(dict.fromkeys(positive + chips))
     see_doctor = any(q in positive for q in SEE_DOCTOR_QUESTIONS)
     if see_doctor:
         cap = config.GENTLE_TIER_CAP
-    elif positive:
+    elif contraindicated:
         cap = config.SCREENING_TIER_CAP
     else:
         cap = config.MAX_TIER
     return ScreeningResult(
-        flag=bool(positive),
+        flag=bool(contraindicated),
         positive=positive,
         movement_tier_cap=cap,
         see_doctor=see_doctor,
         # "prefer not to say" gets the pregnancy-safe subset too (safer default).
         pregnancy_safe_only=s.pregnant in (PregnancyAnswer.yes, PregnancyAnswer.prefer_not_to_say),
         seated_only=s.mobility_limitation != MobilityLimitation.none,
+        contraindicated=contraindicated,
     )
 
 
@@ -75,7 +87,7 @@ def context_filter(
             return False
         if screening.seated_only and movement and not a.seated:
             return False
-        return not set(a.contraindications) & set(screening.positive)
+        return not set(a.contraindications) & set(screening.contraindicated)
 
     return [a for a in actions if allowed(a)]
 

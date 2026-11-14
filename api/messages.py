@@ -47,6 +47,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Want to do it with someone? Inviting a friend or family member often helps.",
         "ar": "هل تريد القيام بها مع شخص آخر؟ دعوة صديق أو أحد أفراد العائلة تساعد غالباً.",
     },
+    "eid_rest": {
+        "en": "Eid Mubarak! Enjoy the celebrations. Rest days don't count against you.",
+        "ar": "عيد مبارك! استمتع بالاحتفال. أيام الراحة لا تُحسب ضدك.",
+    },
     "lighter_option": {
         "en": "Busy week ahead? Here's a lighter version.",
         "ar": "أسبوع مزدحم؟ إليك نسخة أخف.",
@@ -73,6 +77,55 @@ MESSAGES: dict[str, dict[str, str]] = {
               "على مدار الساعة 800 SAKINA (800725462).",
     },
 }
+
+# Plan reasons (Task 05 Part A): plan choices only, never health outcomes; English <= 12 words.
+REASONS: dict[str, dict[str, str]] = {
+    "see_doctor_gentle": {
+        "en": "Your health check suggests seeing a doctor, so we start gently.",
+        "ar": "تشير إجاباتك الصحية إلى مراجعة الطبيب، لذلك نبدأ بلطف.",
+    },
+    "high_blood_pressure": {
+        "en": "You mentioned high blood pressure, so movement stays at a moderate level.",
+        "ar": "ذكرت ارتفاع ضغط الدم، لذلك تبقى الحركة بمستوى معتدل.",
+    },
+    "back_or_joint_pain": {
+        "en": "You mentioned back or joint pain, so we chose low-impact movement.",
+        "ar": "ذكرت ألماً في الظهر أو المفاصل، لذلك اخترنا حركة خفيفة على الجسم.",
+    },
+    "health_check": {
+        "en": "Your health check answers keep movement at a moderate level.",
+        "ar": "إجاباتك في الفحص الصحي تُبقي الحركة بمستوى معتدل.",
+    },
+    "pregnancy": {
+        "en": "We picked pregnancy-safe steps for you.",
+        "ar": "اخترنا لكِ خطوات آمنة أثناء الحمل.",
+    },
+    "mobility": {
+        "en": "You told us about your mobility, so movement steps are seated.",
+        "ar": "أخبرتنا عن حركتك، لذلك خطوات الحركة تكون جلوساً.",
+    },
+    "recovering": {
+        "en": "You're recovering, so we start with the gentlest steps.",
+        "ar": "أنت في فترة تعافٍ، لذلك نبدأ بأخف الخطوات.",
+    },
+    "senior_start": {
+        "en": "We start with gentle, balance-friendly steps.",
+        "ar": "نبدأ بخطوات لطيفة تساعد على التوازن.",
+    },
+    "small_start": {
+        "en": "You're active on few days now, so we start small.",
+        "ar": "أنت نشط في أيام قليلة حالياً، لذلك نبدأ بخطوات صغيرة.",
+    },
+    "fasting": {
+        "en": "You fast in Ramadan, so steps then are fasting-friendly.",
+        "ar": "أنت تصوم في رمضان، لذلك تكون الخطوات مناسبة للصيام.",
+    },
+}
+
+
+def render_reason(key: str, profile: UserProfile) -> str:
+    return REASONS[key]["ar" if profile.basics.language == Language.ar else "en"]
+
 
 HOW_TO_TURN_OFF = {
     "en": "You can remove this goal or pause coaching any time in Settings. Nothing you've built is lost.",

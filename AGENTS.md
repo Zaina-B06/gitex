@@ -72,6 +72,7 @@ Group fields so the UI can show them in steps. **Required** = needed to build a 
 | `schedule_type` | `office` \| `shift` \| `outdoor_manual` \| `home_caregiver` \| `student` \| `other` | Time windows, context |
 | `usual_wake_time`, `usual_sleep_time` | HH:MM | Action windows, sleep baseline |
 | `work_hours` | optional ranges; for shift workers a rotating pattern | Quiet hours, windows |
+| `shifts` | optional weekly pattern `[{days: [sun..sat], start, end}]` (end before start = overnight), editable in settings | Task 05 A2: prompt windows, post-shift sleep, wind-down timing (API only, takes effect next day) |
 
 ### 4.2 Body (optional; "used only to set a safe starting intensity, never shown as a target")
 `height_cm`, `weight_kg` → internal BMI band only, to cap starting intensity. Never displayed, never a goal.
@@ -102,10 +103,13 @@ Plus: `pregnant` (shown only if sex = female; yes/no/prefer not to say), `mobili
 | `motivation_reason` | optional free text, ≤ 200 chars. "Why we ask": *"We'll remind you of this on tough days."* | Shown back on `low_motivation` (§6.3); red-flag checked (§6.4) at onboarding |
 
 ### 4.6 Preferences (optional)
-`setting`: `indoor` \| `outdoor` \| `either`; `social`: `alone` \| `with_others` \| `either`; `space_preference`: `home` \| `women_only_spaces` \| `any`; `fasting_ramadan`: bool; `notification_window`; `quiet_hours`; `channel`: `app` \| `whatsapp_style` \| `voice_note`; `accessibility`: `large_text`, `high_contrast`, `screen_reader`.
+`setting`: `indoor` \| `outdoor` \| `either`; `social`: `alone` \| `with_others` \| `either`; `space_preference`: `home` \| `women_only_spaces` \| `any`; `fasting_ramadan`: bool; `iftar_time` (optional, overrides the Abu Dhabi sunset table); `notification_window`; `quiet_hours`; `channel`: `app` \| `whatsapp_style` \| `voice_note`; `accessibility`: `large_text`, `high_contrast`, `screen_reader`.
 
 ### 4.7 Data controls
-Per-field consent stored with each profile (`consents: {field_group: bool}`); users can view, edit, export and delete. Sensitive groups (body, screening, history) are stored separately from behaviour events.
+Per-field consent stored with each profile (`consents: {field_group: bool}`); users can view, edit, export and delete. Sensitive groups (body, screening, history, conditions) are stored separately from behaviour events. Withdrawing consent for a group deletes its answers (screening can't be withdrawn on its own; it's needed for a safe plan).
+
+### 4.8 Anything you're managing? (optional, Task 05)
+One screen of tap-to-select chips with Skip: `diabetes`, `high_blood_pressure`, `back_or_joint_pain`, `stress`, `recovering_from_illness_or_injury` (`conditions.managing`; consent group `conditions`). Pregnancy and smoking are shown as chips too but stored in their existing fields. No free-text medical history. "Why we ask": *"So your plan fits what you're dealing with."*
 
 ## 5. Core models (Pydantic)
 
@@ -113,6 +117,7 @@ Per-field consent stored with each profile (`consents: {field_group: bool}`); us
 - `Action`: `id`, `behaviour` (`movement`/`sleep`), `tier` (1–4), `title` (`en`/`ar`), `bct_code`, `bct_name`, `rationale`, `limits`, `setting` (`indoor`/`outdoor`/`any`), `fasting_safe` bool, `low_energy_ok` bool, `seated_variant_id` optional, `pregnancy_safe` bool, `contraindications` list, `duration_min`.
 - `Event`: `user_id`, `day`, `type` (`action_shown`/`completed`/`partial`/`skipped`/`no_response`/`checkin`/`pause`), `action_id?`, `payload`.
 - `UserState`: `habit_strength` per behaviour, `engagement_state`, `current_tier` per behaviour, `context_flags`, `bandit_params`, `last_barrier?`.
+- `PlanSummary` (Task 05): `active` behaviours (≤ 3), `queued` behaviours (internal until they have actions; never shown), `start_tiers`, `movement_tier_cap`, `reasons` (keys, most important first).
 
 ## 6. Engine rules
 
@@ -120,7 +125,8 @@ Per-field consent stored with each profile (`consents: {field_group: bool}`); us
 - Habit strength per behaviour: `H_t = λ·H_{t-1} + (1−λ)·a_t`, λ = 0.9, `a_t` = 1.0 full, 0.5 smaller version, 0 skip/no response. **Paused days and declared illness days don't update H.**
 - Engagement state over a rolling 7-day window (completions incl. partials):
   `active` ≥ 4/7 · `drifting` 2–3/7, or a drop of ≥ 50% vs. the user's own previous 7 days · `lapsed` 0–1/7, or ≥ 3 consecutive no-response days · `recovering` = was lapsed and now has ≥ 2 completions in the last 4 days.
-- Context flags: `ramadan`, `heat`, `shift_pattern`, `travel`, `illness`, `paused`.
+- Context flags: `ramadan`, `heat`, `shift_pattern`, `travel`, `illness`, `paused`, `eid`.
+- Automatic context (Task 05 A2, only when the engine has a calendar, i.e. the API): Ramadan and Eid for fasting users from a committed Umm al-Qura table (user tap corrects ±1–2 days), heat May–September, prompt hours from real `shifts` and iftar. Explicit flags win; the calendar never removes one. Eid days are rest-friendly (a miss counts like a paused day). The simulator uses explicit flags only.
 
 ### 6.2 Barrier taxonomy (fixed enum)
 `time`, `energy_fatigue`, `illness_pain`, `schedule_change`, `environment` (heat, no safe space), `low_motivation`, `social_family`, `forgot`, `other`.
@@ -141,16 +147,23 @@ Per-field consent stored with each profile (`consents: {field_group: bool}`); us
 ### 6.4 Red flags (in any free text)
 Chest pain, fainting, severe breathlessness, self-harm language, disordered-eating signals → stop coaching, show a supportive message + "seek care" guidance, write a `red_flag` event. Keyword + LLM check; keyword match alone is enough to trigger.
 
+### 6.5 Plan builder (Task 05)
+`build_plan(profile)` describes what the engine does for this person and why, using the same safety and starting-tier functions.
+- Condition chips that match a health-check question take that question's rules even if it was answered "no": `high_blood_pressure` → Q1, `back_or_joint_pain` → Q6 (tier-2 cap, contraindications, "check with your doctor"). `recovering_from_illness_or_injury` → movement starts at tier 1. Chips only ever tighten.
+- Active behaviours ≤ 3; others are queued in this order: recovery (recovering or stress) → nutrition (diabetes) → smoking (current smoker).
+- Reasons describe plan choices, never health outcomes; at most 3 shown (safety first), ≤ 12 words each; the full list behind "See why".
+
 ## 7. API contract (FastAPI) — frontend builds against this, using mocks until it's ready
 
 ```
-POST   /users                         body: OnboardingPayload  → { user_id, state, today }
+POST   /users                         body: OnboardingPayload (+ timezone?, org_id?)  → { user_id, token, screening, state, today, plan_summary: { behaviours, reasons (≤ 3), all_reasons } }
+GET    /users/{id}/plan               → { behaviours, reasons, all_reasons }   (Bearer token on every /users/{id}/* route)
 GET    /users/{id}/today              → { actions: [{ action, time_window, explanation_id }], message_keys, channel, checkin_due, state_summary }   (one per goal: movement, then sleep)
 POST   /users/{id}/events             body: { action_id, type: completed|partial|skipped } → { state }
 POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
 GET    /actions/{id}/explain          → { bct_code, bct_name, rationale, limits, how_to_turn_off }
-PATCH  /users/{id}/settings           body: partial preferences/consents
+PATCH  /users/{id}/settings           body: { preferences?, consents?, context?, conditions?, shifts?, ramadan?: "started_today"|"ended_today" } → { preferences, consents, state, plan_summary }
 DELETE /users/{id}                    → deletes all user data
 POST   /demo/users/{id}/advance       body: { days, scenario?: "ramadan"|"lapse"|"heat" }  (demo time travel)
 GET    /dashboard/outcomes?run_id=    → simulation metrics by arm + segment

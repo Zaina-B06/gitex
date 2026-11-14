@@ -54,6 +54,29 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
    eval set. See "For the LLM layer" below.
 3. **Tue 17:** deploy. **Wed 18:** docs + demo video. **Thu 19:** buffer. **Fri 20:** submit.
 
+### Frontend changes (Task 05)
+- **Part A, personal plan:**
+  - **Onboarding:** add one optional "Anything you're managing?" screen of tap-to-select chips with Skip. Put it on
+    an existing screen (e.g. with the health check) so sign-up stays ≤ 5 screens. Send
+    `conditions: {managing: [...]}` with values `diabetes`, `high_blood_pressure`, `back_or_joint_pain`, `stress`,
+    `recovering_from_illness_or_injury`. Pregnancy and smoking chips map to `screening.pregnant` and
+    `history.smoking_status`. Consent group: `conditions`.
+  - **Plan card:** `POST /users` now returns `plan_summary: {behaviours, reasons, all_reasons}`, and
+    `GET /users/{id}/plan` returns the same. Show `reasons` (at most 3 short lines), with `all_reasons` behind a
+    "See why" link. The text is already in the user's language.
+  - **Settings:** `PATCH /settings` takes `conditions` and returns the re-built `plan_summary`.
+- **Part A2, automatic context (no manual Ramadan/heat switches for users):**
+  - **Ramadan, Eid, heat:** turn on by themselves from the date. `GET /state` `context_flags` shows `ramadan`, `eid`
+    or `heat`; `today.messages` includes the Eid greeting.
+  - **Moon-sighting correction:** for fasting users during Ramadan's first and last days, show two buttons, "Ramadan
+    started today" and "Ramadan is over (today is Eid)". They call `PATCH /settings` with
+    `{"ramadan": "started_today" | "ended_today"}` and apply the same day; 409 means no Ramadan is near.
+  - **Preferences:** `preferences.iftar_time` ("HH:MM") lets users adjust iftar.
+  - **Shifts:** shift workers enter a weekly pattern, `basics.shifts: [{days: ["sun",…], start, end}]`, at onboarding
+    or with `PATCH /settings {"shifts": [...]}` (`[]` clears it). Windows move the next day.
+  - **Demo panel:** the Ramadan and heat-wave demo buttons keep using `advance` scenarios; they're overrides.
+- Re-generate types from `api/openapi.json`.
+
 ### For the frontend (Task 04)
 - **Types:** generate them from `api/openapi.json` (includes the demo routes). Run the API with
   `uvicorn api.main:app --reload`; set `DEV_MODE=true` (or `DEMO_MODE=true`) in `.env` so `http://localhost:5173` is

@@ -43,6 +43,50 @@
     }
    }
   },
+  "/users/{user_id}/plan": {
+   "get": {
+    "summary": "Plan",
+    "operationId": "plan_users__user_id__plan_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/users/{user_id}/today": {
    "get": {
     "summary": "Today",
@@ -915,6 +959,20 @@
        }
       ],
       "title": "Shift Cycle"
+     },
+     "shifts": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/Shift"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Shifts"
      }
     },
     "additionalProperties": false,
@@ -1049,13 +1107,41 @@
     ],
     "title": "CheckinOut"
    },
+   "Condition": {
+    "type": "string",
+    "enum": [
+     "diabetes",
+     "high_blood_pressure",
+     "back_or_joint_pain",
+     "stress",
+     "recovering_from_illness_or_injury"
+    ],
+    "title": "Condition",
+    "description": "\"Anything you're managing?\" chips (Task 05). Pregnancy and smoking come from their existing fields."
+   },
+   "Conditions": {
+    "properties": {
+     "managing": {
+      "items": {
+       "$ref": "#/components/schemas/Condition"
+      },
+      "type": "array",
+      "title": "Managing"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "Conditions",
+    "description": "Optional and sensitive. No free-text medical history."
+   },
    "ConsentGroup": {
     "type": "string",
     "enum": [
      "body",
      "screening",
      "history",
-     "preferences"
+     "preferences",
+     "conditions"
     ],
     "title": "ConsentGroup"
    },
@@ -1067,7 +1153,8 @@
      "shift_pattern",
      "travel",
      "illness",
-     "paused"
+     "paused",
+     "eid"
     ],
     "title": "ContextFlag"
    },
@@ -1161,6 +1248,53 @@
      "checkin_due"
     ],
     "title": "DayRow"
+   },
+   "DayTimes": {
+    "properties": {
+     "wake": {
+      "type": "integer",
+      "title": "Wake"
+     },
+     "sleep": {
+      "type": "integer",
+      "title": "Sleep"
+     },
+     "sleep_prompt": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sleep Prompt"
+     },
+     "busy": {
+      "items": {
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        }
+       ],
+       "type": "array",
+       "maxItems": 2,
+       "minItems": 2
+      },
+      "type": "array",
+      "title": "Busy"
+     }
+    },
+    "type": "object",
+    "required": [
+     "wake",
+     "sleep"
+    ],
+    "title": "DayTimes",
+    "description": "One day's timings from real shifts (Task 05 A2). Hours 0-23; busy ranges are [start, end), may wrap."
    },
    "EmployerOut": {
     "properties": {
@@ -1493,6 +1627,9 @@
      "history": {
       "$ref": "#/components/schemas/History"
      },
+     "conditions": {
+      "$ref": "#/components/schemas/Conditions"
+     },
      "preferences": {
       "$ref": "#/components/schemas/Preferences"
      },
@@ -1557,6 +1694,9 @@
      },
      "today": {
       "$ref": "#/components/schemas/TodayOut"
+     },
+     "plan_summary": {
+      "$ref": "#/components/schemas/PlanOut"
      }
     },
     "type": "object",
@@ -1566,7 +1706,8 @@
      "screening",
      "red_flag",
      "state",
-     "today"
+     "today",
+     "plan_summary"
     ],
     "title": "OnboardOut"
    },
@@ -1592,6 +1733,39 @@
     ],
     "title": "PlaceSetting"
    },
+   "PlanOut": {
+    "properties": {
+     "behaviours": {
+      "items": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "array",
+      "title": "Behaviours"
+     },
+     "reasons": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Reasons"
+     },
+     "all_reasons": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "All Reasons"
+     }
+    },
+    "type": "object",
+    "required": [
+     "behaviours",
+     "reasons",
+     "all_reasons"
+    ],
+    "title": "PlanOut",
+    "description": "What the user sees of their plan. Queued behaviours are internal and never included."
+   },
    "Preferences": {
     "properties": {
      "setting": {
@@ -1610,6 +1784,18 @@
       "type": "boolean",
       "title": "Fasting Ramadan",
       "default": false
+     },
+     "iftar_time": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Iftar Time"
      },
      "notification_window": {
       "anyOf": [
@@ -1791,6 +1977,13 @@
      "seated_only": {
       "type": "boolean",
       "title": "Seated Only"
+     },
+     "contraindicated": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Contraindicated"
      }
     },
     "type": "object",
@@ -1900,6 +2093,45 @@
        }
       ],
       "title": "Context"
+     },
+     "conditions": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Conditions"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "shifts": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/Shift"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Shifts"
+     },
+     "ramadan": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "started_today",
+         "ended_today"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ramadan"
      }
     },
     "additionalProperties": false,
@@ -1923,13 +2155,17 @@
      },
      "state": {
       "$ref": "#/components/schemas/StateOut"
+     },
+     "plan_summary": {
+      "$ref": "#/components/schemas/PlanOut"
      }
     },
     "type": "object",
     "required": [
      "preferences",
      "consents",
-     "state"
+     "state",
+     "plan_summary"
     ],
     "title": "SettingsOut"
    },
@@ -1941,6 +2177,37 @@
      "prefer_not_to_say"
     ],
     "title": "Sex"
+   },
+   "Shift": {
+    "properties": {
+     "days": {
+      "items": {
+       "$ref": "#/components/schemas/Weekday"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Days"
+     },
+     "start": {
+      "type": "string",
+      "format": "time",
+      "title": "Start"
+     },
+     "end": {
+      "type": "string",
+      "format": "time",
+      "title": "End"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "days",
+     "start",
+     "end"
+    ],
+    "title": "Shift",
+    "description": "One line of a weekly shift pattern, e.g. Sun-Thu 22:00-06:00 (end before start = overnight)."
    },
    "SmokingStatus": {
     "type": "string",
@@ -2199,6 +2466,9 @@
      "history": {
       "$ref": "#/components/schemas/History"
      },
+     "conditions": {
+      "$ref": "#/components/schemas/Conditions"
+     },
      "preferences": {
       "$ref": "#/components/schemas/Preferences"
      },
@@ -2420,6 +2690,35 @@
       "type": "integer",
       "title": "Last Checkin Sent Day",
       "default": -999
+     },
+     "auto_flags": {
+      "items": {
+       "$ref": "#/components/schemas/ContextFlag"
+      },
+      "type": "array",
+      "uniqueItems": true,
+      "title": "Auto Flags"
+     },
+     "iftar_hour": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Iftar Hour"
+     },
+     "day_times": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DayTimes"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "type": "object",
@@ -2471,6 +2770,19 @@
      "type"
     ],
     "title": "ValidationError"
+   },
+   "Weekday": {
+    "type": "string",
+    "enum": [
+     "mon",
+     "tue",
+     "wed",
+     "thu",
+     "fri",
+     "sat",
+     "sun"
+    ],
+    "title": "Weekday"
    }
   },
   "securitySchemes": {

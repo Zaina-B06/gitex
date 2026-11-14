@@ -11,7 +11,7 @@ from rebound_engine.demo import demo_payload
 from rebound_engine.policy import BARRIER_MESSAGE
 
 BARRIER_ENGINE_KEYS = set(BARRIER_MESSAGE.values())
-OTHER_ENGINE_KEYS = {"see_doctor", "check_with_doctor", "seek_care", "buddy_offer", "lighter_option"}
+OTHER_ENGINE_KEYS = {"see_doctor", "check_with_doctor", "seek_care", "buddy_offer", "lighter_option", "eid_rest"}
 
 
 class Clock:

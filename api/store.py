@@ -11,7 +11,7 @@ from datetime import date
 from pydantic import BaseModel
 from rebound_engine.models import Event, UserProfile, UserState
 
-SENSITIVE_GROUPS = ("body", "screening", "history")
+SENSITIVE_GROUPS = ("body", "screening", "history", "conditions")
 
 
 class UserMeta(BaseModel):
@@ -24,6 +24,9 @@ class UserMeta(BaseModel):
     org_id: str | None = None
     token_hash: str  # sha256 of the bearer token; the token itself is never stored
     last_checkin_day: int | None = None  # engine day of the last check-in (one per day)
+    # "Ramadan started today / ended" corrections to the Umm al-Qura table, in days (Task 05 A2)
+    ramadan_start_shift: int = 0
+    ramadan_end_shift: int = 0
 
 
 _SCHEMA = """

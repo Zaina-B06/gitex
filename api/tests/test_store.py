@@ -125,8 +125,8 @@ def test_sensitive_groups_stored_apart(tmp_path):
     main = json.loads(conn.execute("SELECT data FROM profiles").fetchone()[0])
     sensitive = json.loads(conn.execute("SELECT data FROM profiles_sensitive").fetchone()[0])
     conn.close()
-    assert set(sensitive) == {"body", "screening", "history"}
-    assert not {"body", "screening", "history"} & set(main)
+    assert set(sensitive) == {"body", "screening", "history", "conditions"}
+    assert not {"body", "screening", "history", "conditions"} & set(main)
     assert "Keep up with my kids" not in json.dumps(main)
 
 

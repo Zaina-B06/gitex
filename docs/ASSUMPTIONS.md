@@ -753,6 +753,37 @@ The persistence results fit Rebound asking for more than a static easy plan (lap
 | Engagement inputs (§6.1) | completions, check-in responses and app opens | action outcomes only |
 | Actions per day (§2) | one | one per goal |
 
+## Personal plan builder (Task 05 Part A)
+
+| Choice | Value | Why |
+|---|---|---|
+| "Anything you're managing?" | optional chips: diabetes, high blood pressure, back or joint pain, stress, recovering from illness or injury; own consent group `conditions` (sensitive table, withdrawable, deleted on withdrawal, never in employer views). Pregnancy and smoking come from `screening.pregnant` and `history.smoking_status` | Collect only what changes the plan (§2.4); no free-text medical history. |
+| Chips that match a health-check question | high blood pressure → Q1 rules, back or joint pain → Q6 rules: tier-2 movement cap, that question's contraindications (no home workouts for joints), "check with your doctor", even if the question was answered "no" | Reuses rules we already justify instead of inventing new ones. A chip can only tighten, never loosen (tested over every combination). |
+| Recovering from illness or injury | movement starts at tier 1 (starting level only; steps up as usual) | Gentle return. |
+| Queued behaviours | order: recovery (recovering, or stress) → nutrition (diabetes) → smoking (current smoker); internal only until Part B gives them actions | Rest before effort; then what the person is managing. |
+| Active behaviours | at most 3 (`MAX_ACTIVE_BEHAVIOURS`); in Part A the goals (movement, sleep) | Burden cap (Task 05 B5). |
+| Reasons | plan choices only, never health outcomes; at most 3 shown (safety first), each ≤ 12 English words; full list behind "See why". A test bans outcome claims ("lower your blood pressure", "cure", "weight", …) | No information dumping; no medical claims (§2.5). |
+| Simulator | personas give no condition answers, so every persona's plan and actions are unchanged; checked by a same-seed re-run against run_011 | Keeps the reported results valid without a re-run. |
+
+**When Part B merges nutrition, smoking and recovery into `Behaviour`:** the lapse-risk features
+(`engine/rebound_engine/risk/features.py`, which loops over `Behaviour`) must stay limited to movement and sleep, so
+the frozen risk_001 model still loads; otherwise the model must be retrained and the model card updated. That's why
+Part A keeps them in a separate `PlanBehaviour` enum.
+
+## Context the app works out by itself (Task 05 Part A2)
+
+Only when the engine is given a calendar (the API does). `Engine()` without one, as the simulator uses it, behaves
+exactly as before: explicit flags only (checked by a same-seed re-run against run_011). Explicit flags (demo
+`advance` scenarios, "I'm OK now") win; the calendar adds flags and never removes one.
+
+| Choice | Value | Why / source |
+|---|---|---|
+| Ramadan dates | 1447: 18 Feb–19 Mar 2026; 1448: 8 Feb–8 Mar 2027; 1449: 28 Jan–25 Feb 2028 (Eid al-Fitr the day after) | Pre-computed Umm al-Qura calendar, R.H. van Gent, Utrecht University (URL in `engine/rebound_engine/calendar.py`). UAE moon-sighting can differ by about a day: the user's "Ramadan started today / ended" tap moves the date (at most ±2 days) and applies the same day. Only for users who said they fast. |
+| Iftar and suhoor | Abu Dhabi, 15th of the month: Jan dawn 05:47 / sunset 17:55, Feb 05:39 / 18:17, Mar 05:15 / 18:31; movement prompt 1 h after iftar | Computed offline with the NOAA solar-position equations (Meeus), sun −18.2° for dawn (UAE Fajr angle) and −0.833° for sunset; not read from an official timetable, so within a few minutes. Users can set their own iftar time. Only Jan–Mar (where Ramadan falls in 2026–2028). |
+| Eid al-Fitr | first 3 days of Shawwal are rest-friendly for fasting users: a skipped or unanswered step counts like a paused day; an "Eid Mubarak" message | Celebration days shouldn't count as slips. |
+| Heat | on automatically May–September (`HEAT_MONTHS`) | Months when Abu Dhabi midday highs are routinely above 40 °C. Live weather is a later integration. |
+| Shift timings | weekly pattern (`basics.shifts`, e.g. Sun–Thu 22:00–06:00), editable in settings, takes effect the next day. Work hours are busy. After a night shift (overnight, ending before noon): sleep from 1 h after the shift ends for 7 h (busy), movement 1 h after waking, sleep wind-down prompt as the shift ends | Prompts follow the person's real day, not a 9-to-5 default. 1 h home and 7 h sleep are round defaults, not measured. |
+
 ## API (Task 03)
 
 | Choice | Value | Why |
@@ -795,6 +826,14 @@ The persistence results fit Rebound asking for more than a static easy plan (lap
   as a sha256 hash; no expiry, rotation, recovery or rate limiting, and a lost token means a lost account. Demo
   routes exist only with `DEMO_MODE=true`; `/demo/seed` needs the shared `DEMO_KEY` (`X-Demo-Key` header) and is
   refused when none is set. The employer view uses one shared org key from `.env`.
+- The simulator doesn't evaluate automatic context detection itself. The reported results (run_011) cover a world
+  where the engine is told about Ramadan and heat, which is what the calendar delivers for fasting users.
+- Real shift timings are engine-tested but not simulation-evaluated; that would need a new, pre-registered study
+  (personas with shift patterns and calendar-based Ramadan, fresh seeds).
+- The iftar/suhoor table is astronomically computed, not an official timetable, and covers January–March only;
+  extend it (and the Ramadan table) for 2029 onwards.
+- The high-blood-pressure and back/joint-pain chips cap movement at tier 2 for as long as they're selected. There is
+  no "my doctor cleared me" switch: we can't verify a self-declared clearance. The user can remove the chip.
 - Changing `preferences.channel` in settings is saved but doesn't change the engine's channel (set at onboarding,
   then only by the `forgot` rule); the engine has no call for it yet.
 - Withdrawing consent for body, history or preferences deletes those answers (preferences go back to defaults,

@@ -10,7 +10,7 @@ import random
 import secrets
 from collections import Counter
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -20,13 +20,16 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from rebound_engine.calendar import RAMADAN, day_context
 from rebound_engine.engine import Engine
 from rebound_engine.models import (
     Barrier,
     Behaviour,
     CheckinResult,
+    Conditions,
     ConsentGroup,
     ContextFlag,
+    DayContext,
     DayLog,
     EngagementState,
     Event,
@@ -36,10 +39,13 @@ from rebound_engine.models import (
     OnboardingPayload,
     Preferences,
     ScreeningResult,
+    Shift,
     TodayResult,
     UserProfile,
     UserState,
 )
+from rebound_engine.plan import build_plan
+from rebound_engine.policy import effective_flags
 from rebound_engine.safety import detect_red_flags
 
 from .demo import (
@@ -57,13 +63,15 @@ from .demo import (
     org_bodies,
 )
 from .llm_client import BarrierClassifier, default_classifier
-from .messages import HOW_TO_TURN_OFF, render
+from .messages import HOW_TO_TURN_OFF, render, render_reason
 from .store import SQLiteStore, UserMeta, sqlite_path
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
 LOCAL_FRONTEND = "http://localhost:5173"  # allowed only with DEMO_MODE or DEV_MODE
 CATCH_UP_MAX_DAYS = 60  # unopened days filled in on return (docs/ASSUMPTIONS.md, API)
 EMPLOYER_MIN_GROUP = 10  # k for employer aggregates (AGENTS.md §2.6)
+PLAN_REASONS_SHOWN = 3  # the rest are behind "See why" (Task 05: no information dumping)
+RAMADAN_MAX_SHIFT_DAYS = 2  # a "started today / ended" tap may move the table date by at most this many days
 
 
 # ---------- request / response shapes ----------
@@ -106,6 +114,14 @@ class TodayOut(TodayResult):
     messages: list[str]  # message_keys rendered in the user's language
 
 
+class PlanOut(BaseModel):
+    """What the user sees of their plan. Queued behaviours are internal and never included."""
+
+    behaviours: list[Behaviour]  # with daily actions, in order
+    reasons: list[str]  # at most PLAN_REASONS_SHOWN, most important first
+    all_reasons: list[str]  # the full list, for "See why"
+
+
 class OnboardOut(BaseModel):
     user_id: str
     token: str  # shown once; send as "Authorization: Bearer <token>"
@@ -113,6 +129,7 @@ class OnboardOut(BaseModel):
     red_flag: bool
     state: StateOut
     today: TodayOut
+    plan_summary: PlanOut
 
 
 class EventIn(BaseModel):
@@ -148,12 +165,16 @@ class SettingsIn(BaseModel):
     preferences: dict[str, Any] | None = None  # partial Preferences, merged then validated
     consents: dict[ConsentGroup, bool] | None = None
     context: dict[ContextFlag, bool] | None = None  # e.g. {"heat": true}, {"illness": false} = "I'm OK now"
+    conditions: Conditions | None = None  # replaces the "Anything you're managing?" answers
+    shifts: list[Shift] | None = None  # replaces the weekly shift pattern; [] clears it. Takes effect the next day
+    ramadan: Literal["started_today", "ended_today"] | None = None  # moon-sighting correction, applies today
 
 
 class SettingsOut(BaseModel):
     preferences: Preferences
     consents: dict[ConsentGroup, bool]
     state: StateOut
+    plan_summary: PlanOut  # re-built from the updated answers
 
 
 class AdvanceOut(BaseModel):
@@ -191,6 +212,7 @@ _EMPTY_GROUP: dict[ConsentGroup, Callable[[], Any]] = {
     ConsentGroup.body: lambda: None,
     ConsentGroup.history: History,
     ConsentGroup.preferences: Preferences,
+    ConsentGroup.conditions: Conditions,
 }
 
 
@@ -200,11 +222,32 @@ def _withdrawn(consents: dict[ConsentGroup, bool]) -> dict[str, Any]:
     return {g.value: _EMPTY_GROUP[g]() for g, ok in consents.items() if not ok and g in _EMPTY_GROUP}
 
 
+def _plan_out(profile: UserProfile) -> PlanOut:
+    plan = build_plan(profile)
+    reasons = [render_reason(k, profile) for k in plan.reasons]
+    return PlanOut(behaviours=plan.active, reasons=reasons[:PLAN_REASONS_SHOWN], all_reasons=reasons)
+
+
 def _state_out(s: UserState) -> StateOut:
     return StateOut(
         day=s.day, habit_strength=s.habit_strength, engagement_state=s.engagement_state, tiers=s.current_tier,
-        context_flags=s.context_flags, checkin_due=s.checkin_due, history=s.history,
+        context_flags=effective_flags(s), checkin_due=s.checkin_due, history=s.history,
     )
+
+
+def local_date_of(meta: UserMeta, day: int) -> date:
+    """Engine day -> local date. Includes demo time travel, so `advance` moves the calendar too."""
+    return meta.onboard_date + timedelta(days=day - 1)
+
+
+def _ramadan_shift(today: date, tap: str) -> tuple[str, int] | None:
+    """("start"/"end", days) to move the nearest Umm al-Qura date onto today; None if no Ramadan is that close."""
+    field, index = ("ramadan_start_shift", 0) if tap == "started_today" else ("ramadan_end_shift", 1)
+    for dates in RAMADAN:
+        shift = (today - dates[index]).days
+        if abs(shift) <= RAMADAN_MAX_SHIFT_DAYS:
+            return field, shift
+    return None
 
 
 def _hash(token: str) -> str:
@@ -226,7 +269,16 @@ def create_app(
     dashboard_path: Path | None = None,
 ) -> FastAPI:
     store = SQLiteStore(sqlite_path(database_url))
-    engine = Engine(store=store)  # rules mode, no risk model (hook off: ASSUMPTIONS.md, "Arm D")
+
+    class UserCalendar:
+        """Engine day -> the user's local date (onboarding day = day 1), then the offline calendar rules."""
+
+        def day(self, profile: UserProfile, day: int) -> DayContext:
+            meta = store.get_meta(profile.user_id)
+            return day_context(profile, local_date_of(meta, day), meta.ramadan_start_shift, meta.ramadan_end_shift)
+
+    # Rules mode, no risk model (hook off: ASSUMPTIONS.md, "Arm D"); calendar context on (the simulator has none).
+    engine = Engine(store=store, calendar=UserCalendar())
     classifier = classifier or default_classifier()
 
     app = FastAPI(title="Rebound API", version="0.1.0")
@@ -290,7 +342,12 @@ def create_app(
         return OnboardOut(
             user_id=result.user_id, token=token, screening=result.screening, red_flag=result.red_flag,
             state=_state_out(engine.get_state(result.user_id)), today=today,
+            plan_summary=_plan_out(store.get_profile(result.user_id)),
         )
+
+    @app.get("/users/{user_id}/plan", response_model=PlanOut)
+    def plan(meta: Authed) -> PlanOut:
+        return _plan_out(store.get_profile(meta.user_id))
 
     @app.get("/users/{user_id}/today", response_model=TodayOut)
     def today(meta: Authed) -> TodayOut:
@@ -336,17 +393,32 @@ def create_app(
             raise HTTPException(409, "coaching stays paused after a safety concern until a person has checked in")
         if (body.consents or {}).get(ConsentGroup.screening) is False:
             raise HTTPException(409, "the health check is needed for a safe plan; delete your account instead")
+        ramadan_fix = None
+        if body.ramadan is not None:
+            ramadan_fix = _ramadan_shift(local_date_of(meta, engine.get_state(uid).day), body.ramadan)
+            if ramadan_fix is None:
+                raise HTTPException(409, f"no Ramadan within {RAMADAN_MAX_SHIFT_DAYS} days of today in the calendar")
         try:
             prefs = Preferences.model_validate({**profile.preferences.model_dump(), **(body.preferences or {})})
         except ValidationError as e:
             raise RequestValidationError(e.errors(include_url=False)) from None
         consents = {**profile.consents, **(body.consents or {})}
-        profile = profile.model_copy(update={"preferences": prefs, "consents": consents, **_withdrawn(consents)})
+        update: dict[str, Any] = {"preferences": prefs, "consents": consents}
+        if body.conditions is not None:
+            update["conditions"] = body.conditions
+        if body.shifts is not None:  # takes effect when the next day opens
+            update["basics"] = profile.basics.model_copy(update={"shifts": body.shifts or None})
+        profile = profile.model_copy(update={**update, **_withdrawn(consents)})
         store.save_profile(profile)
         for flag, on in (body.context or {}).items():
             engine.set_context(uid, flag, on)
+        if ramadan_fix is not None:
+            field, shift = ramadan_fix
+            store.save_meta(meta.model_copy(update={field: shift}))
+        if ramadan_fix is not None or "iftar_time" in (body.preferences or {}):
+            engine.refresh_context(uid)  # applies today: today's open steps become fasting-safe at the right hour
         return SettingsOut(preferences=profile.preferences, consents=profile.consents,
-                           state=_state_out(engine.get_state(uid)))
+                           state=_state_out(engine.get_state(uid)), plan_summary=_plan_out(profile))
 
     @app.get("/users/{user_id}/export", response_model=ExportOut)
     def export(meta: Authed) -> ExportOut:

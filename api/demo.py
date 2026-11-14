@@ -61,12 +61,14 @@ DEMO_PERSONAS: list[tuple[str, dict[str, Any]]] = [
         screening={"pregnant": None},
         history={"motivation_reason": "أريد أن ألعب مع أطفالي"},
         preferences={"fasting_ramadan": True},
+        conditions={"managing": ["high_blood_pressure"]},
     )),
-    ("Sara, office worker", _body(basics={"age_years": 29})),
+    ("Sara, office worker", _body(basics={"age_years": 29})),  # no conditions: the plain plan, for contrast
     ("Mariam, uses a wheelchair", _body(
         basics={"age_years": 52, "schedule_type": "home_caregiver"},
         screening={"mobility_limitation": "mobility_aid"},
         preferences={"setting": "indoor"},
+        conditions={"managing": ["recovering_from_illness_or_injury"]},
     )),
 ]
 

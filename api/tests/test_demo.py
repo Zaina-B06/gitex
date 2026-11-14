@@ -6,7 +6,6 @@ from api.demo import ORG_DAYS, ORG_SIZE, PERSONA_WARMUP_DAYS
 from fastapi.testclient import TestClient
 from test_api import Clock, complete_all, onboard
 
-
 DEMO_KEY = {"X-Demo-Key": "test-demo-key"}
 
 
@@ -99,9 +98,23 @@ def test_seed_creates_three_personas_and_an_org(demo):
     assert ahmed[0]["profile"]["basics"]["language"] == "ar"
     mariam = next(v for k, v in profiles.items() if k.startswith("Mariam"))
     assert all(a["action"]["seated"] for a in mariam[1]["actions"] if a["action"]["behaviour"] == "movement")
+    assert all(a["action"]["tier"] <= 2 for a in ahmed[1]["actions"] if a["action"]["behaviour"] == "movement")
 
     store = demo.app.state.store
     members = store.org_user_ids(data["org_id"])
     assert len(members) == ORG_SIZE
     assert {store.get_state(uid).day for uid in members} == {ORG_DAYS}
     assert demo.post("/demo/seed", headers=DEMO_KEY).json()["org_id"] != data["org_id"]  # a fresh org every time
+
+
+def test_seeded_personas_show_different_plans(demo):
+    personas = demo.post("/demo/seed", headers=DEMO_KEY).json()["personas"]
+    plans = {
+        p["name"].split(",")[0]: demo.get(f"/users/{p['user_id']}/plan",
+                                          headers={"Authorization": f"Bearer {p['token']}"}).json()
+        for p in personas
+    }
+    assert len({tuple(p["all_reasons"]) for p in plans.values()}) == 3  # all different
+    assert any("ضغط الدم" in r for r in plans["Ahmed"]["all_reasons"])  # Ahmed is Arabic: high blood pressure
+    assert len(plans["Mariam"]["all_reasons"]) >= 2  # mobility + recovering
+    assert all(len(p["reasons"]) <= 3 for p in plans.values())

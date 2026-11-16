@@ -26,13 +26,7 @@ models/*.joblib
 
 # Frontend
 node_modules/
-web/node_modules/
 web/dist/
-web/.env*
-!web/.env.example
-*.tsbuildinfo
-web/vite.config.d.ts
-web/vite.config.js
 
 # Editors, OS, logs, local agent settings
 .vscode/
@@ -40,3 +34,14 @@ web/vite.config.js
 *.log
 Thumbs.db
 .DS_Store
+
+# Arabic review sheet (python -m api.review_arabic)
+review/
+
+# Frontend build files
+web/node_modules/
+web/.env*
+!web/.env.example
+*.tsbuildinfo
+web/vite.config.d.ts
+web/vite.config.js

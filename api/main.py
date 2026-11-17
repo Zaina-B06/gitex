@@ -1,5 +1,6 @@
 """Entry point: uvicorn api.main:app --reload (from the repo root). Settings come from .env."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -8,6 +9,13 @@ from dotenv import load_dotenv
 from .app import create_app
 
 load_dotenv()
+
+# Show which check-in classifier answered ("llm" | "keywords") in the server terminal; never sent to users.
+_handler = logging.StreamHandler()
+_handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+_checkin_log = logging.getLogger("rebound.checkin")
+_checkin_log.addHandler(_handler)
+_checkin_log.setLevel(logging.INFO)
 
 
 def _flag(name: str) -> bool:

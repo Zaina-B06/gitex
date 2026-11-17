@@ -69,7 +69,7 @@ from .demo import (
     SeedPersona,
     org_bodies,
 )
-from .llm_client import BarrierClassifier, default_classifier
+from .llm_client import BarrierClassifier, RedFlagCheck, default_classifier, default_red_flag_check
 from .messages import (
     HOW_TO_TURN_OFF,
     onboarding_text,
@@ -320,6 +320,7 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
     classifier: BarrierClassifier | None = None,
     dev_mode: bool = False,
+    red_flag_check: RedFlagCheck | None = None,
     demo_key: str | None = None,
     org_key: str | None = None,
     dashboard_path: Path | None = None,
@@ -336,6 +337,8 @@ def create_app(
     # Rules mode, no risk model (hook off: ASSUMPTIONS.md, "Arm D"); calendar context on (the simulator has none).
     engine = Engine(store=store, calendar=UserCalendar())
     classifier = classifier or default_classifier()
+    # Optional LLM second safety check (LLM_RED_FLAG_CHECK=true); it can only add a red flag.
+    red_flag_check = red_flag_check or default_red_flag_check()
 
     app = FastAPI(title="Rebound API", version="0.1.0")
     app.state.store, app.state.engine, app.state.demo_mode = store, engine, demo_mode
@@ -432,21 +435,39 @@ def create_app(
         return StateResponse(state=_state_out(after),
                              encouragement=_encouragement_out(fresh, store.get_profile(meta.user_id)))
 
+    def _llm_red_flag(meta: UserMeta, day: int, profile: UserProfile) -> CheckinOut:
+        """The engine's keyword red-flag response, done in the API for a flag the LLM added (engine/ unchanged):
+        stop coaching, log a red_flag event, return the care message."""
+        state = engine.get_state(meta.user_id)
+        state.red_flag = True
+        state.context_flags.add(ContextFlag.paused)
+        state.checkin_due = False
+        store.append_event(Event(user_id=meta.user_id, day=day, type=EventType.red_flag, payload={"source": "llm"}))
+        store.save_state(state)
+        store.save_meta(meta.model_copy(update={"last_checkin_day": day}))
+        return CheckinOut(barrier=None, adjusted_actions=[], message_key="seek_care", red_flag=True,
+                          message=render("seek_care", profile))
+
     @app.post("/users/{user_id}/checkin", response_model=CheckinOut)
     def checkin(body: CheckinIn, meta: Authed) -> CheckinOut:
         open_day(meta)  # check in on today's state, or a lapse found later would ask again the same day
         day = engine.get_state(meta.user_id).day
+        profile = store.get_profile(meta.user_id)
+        lang = profile.basics.language.value
         red_flag_text = bool(body.free_text) and detect_red_flags(body.free_text)
-        if meta.last_checkin_day == day and not red_flag_text:  # a red flag always gets through
+        # Optional LLM second check, only on text the keywords didn't flag (so red-flag text never reaches it).
+        llm_flag = bool(body.free_text) and not red_flag_text and red_flag_check is not None             and red_flag_check(body.free_text, lang)
+        if meta.last_checkin_day == day and not (red_flag_text or llm_flag):  # a red flag always gets through
             raise HTTPException(409, "already checked in today")
+        if llm_flag:
+            return _llm_red_flag(meta, day, profile)
         barriers = list(body.barriers)  # buttons decide; free text only fills in when none were pressed
         # The engine's red-flag keywords run first (inside checkin); red-flag text never goes to the classifier.
         if not barriers and body.free_text and not red_flag_text:
-            guess = classifier.classify_barrier(body.free_text)
+            guess = classifier.classify_barrier(body.free_text, lang)
             barriers = [guess] if guess else []
         result = engine.checkin(meta.user_id, barriers, free_text=body.free_text, replace_pending=True)
         store.save_meta(meta.model_copy(update={"last_checkin_day": day}))
-        profile = store.get_profile(meta.user_id)
         adjusted = [_leveled(a, profile).model_dump() for a in result.adjusted_actions]
         return CheckinOut.model_validate({**result.model_dump(), "adjusted_actions": adjusted,
                                           "message": render(result.message_key, profile)})

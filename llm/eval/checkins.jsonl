@@ -1,0 +1,61 @@
+{"text": "no time today, back to back meetings", "lang": "en", "barrier": "time"}
+{"text": "work ran super late again", "lang": "en", "barrier": "time"}
+{"text": "too busy with deadlines this week", "lang": "en", "barrier": "time"}
+{"text": "didnt get a free minute all day", "lang": "en", "barrier": "time"}
+{"text": "ما عندي وقت اليوم", "lang": "ar", "barrier": "time"}
+{"text": "mashghool kteer el yom", "lang": "ar", "barrier": "time"}
+{"text": "so tired after work", "lang": "en", "barrier": "energy_fatigue"}
+{"text": "exhausted, slept 4 hours", "lang": "en", "barrier": "energy_fatigue"}
+{"text": "zero energy today honestly", "lang": "en", "barrier": "energy_fatigue"}
+{"text": "tird and sleepy all day", "lang": "en", "barrier": "energy_fatigue"}
+{"text": "تعبان جدا اليوم", "lang": "ar", "barrier": "energy_fatigue"}
+{"text": "ana ta3ban mara", "lang": "ar", "barrier": "energy_fatigue"}
+{"text": "I have a cold and fever", "lang": "en", "barrier": "illness_pain"}
+{"text": "my back hurts since yesterday", "lang": "en", "barrier": "illness_pain"}
+{"text": "twisted my ankle playing football", "lang": "en", "barrier": "illness_pain"}
+{"text": "عندي وجع في الركبة", "lang": "ar", "barrier": "illness_pain"}
+{"text": "feeling sik with flu", "lang": "en", "barrier": "illness_pain"}
+{"text": "my shifts changed to nights", "lang": "en", "barrier": "schedule_change"}
+{"text": "travelling for work this week", "lang": "en", "barrier": "schedule_change"}
+{"text": "rota got moved around, all over the place", "lang": "en", "barrier": "schedule_change"}
+{"text": "تغير الدوام هالاسبوع", "lang": "ar", "barrier": "schedule_change"}
+{"text": "msafer el usboo3 hatha", "lang": "ar", "barrier": "schedule_change"}
+{"text": "way too hot to go outside", "lang": "en", "barrier": "environment"}
+{"text": "no space at home to exercise", "lang": "en", "barrier": "environment"}
+{"text": "the heat is unbearable today", "lang": "en", "barrier": "environment"}
+{"text": "الجو حار مرة", "lang": "ar", "barrier": "environment"}
+{"text": "no women only gym near me", "lang": "en", "barrier": "environment"}
+{"text": "just wasnt in the mood", "lang": "en", "barrier": "low_motivation"}
+{"text": "couldn't be bothered honestly", "lang": "en", "barrier": "low_motivation"}
+{"text": "lost my motivation this week", "lang": "en", "barrier": "low_motivation"}
+{"text": "ما لي خلق", "lang": "ar", "barrier": "low_motivation"}
+{"text": "kasal shway el yom", "lang": "ar", "barrier": "low_motivation"}
+{"text": "family visiting all weekend", "lang": "en", "barrier": "social_family"}
+{"text": "kids were sick so I was with them", "lang": "en", "barrier": "social_family"}
+{"text": "wedding preparations for my sister", "lang": "en", "barrier": "social_family"}
+{"text": "عندنا ضيوف في البيت", "lang": "ar", "barrier": "social_family"}
+{"text": "busy with my mum's appointments", "lang": "en", "barrier": "social_family"}
+{"text": "forgot completely", "lang": "en", "barrier": "forgot"}
+{"text": "it slipped my mind", "lang": "en", "barrier": "forgot"}
+{"text": "نسيت", "lang": "ar", "barrier": "forgot"}
+{"text": "totally forgt about it lol", "lang": "en", "barrier": "forgot"}
+{"text": "really wanted a cigarette all day", "lang": "en", "barrier": "craving"}
+{"text": "cravings were bad after lunch", "lang": "en", "barrier": "craving"}
+{"text": "everyone at work smokes on the break", "lang": "en", "barrier": "others_smoking"}
+{"text": "my friends were smoking shisha around me", "lang": "en", "barrier": "others_smoking"}
+{"text": "so stressed about exams", "lang": "en", "barrier": "stress"}
+{"text": "anxious and overwhelmed this week", "lang": "en", "barrier": "stress"}
+{"text": "متوتر بسبب الشغل", "lang": "ar", "barrier": "stress"}
+{"text": "only fast food near my office", "lang": "en", "barrier": "no_healthy_food_nearby"}
+{"text": "no healthy options at the canteen", "lang": "en", "barrier": "no_healthy_food_nearby"}
+{"text": "ok", "lang": "en", "barrier": null}
+{"text": "hmm", "lang": "en", "barrier": null}
+{"text": "it was a normal day", "lang": "en", "barrier": null}
+{"text": "شكرا", "lang": "ar", "barrier": null}
+{"text": "asdfgh", "lang": "en", "barrier": null}
+{"text": "my chest feels tight when I walk", "lang": "en", "barrier": null, "red_flag": true}
+{"text": "I nearly blacked out on the stairs", "lang": "en", "barrier": null, "red_flag": true}
+{"text": "صدري يضيق لما أمشي", "lang": "ar", "barrier": null, "red_flag": true}
+{"text": "I haven't eaten in days on purpose", "lang": "en", "barrier": null, "red_flag": true}
+{"text": "I had chest pain on my walk", "lang": "en", "barrier": null, "red_flag": true}
+{"text": "I passed out yesterday", "lang": "en", "barrier": null, "red_flag": true}

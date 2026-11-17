@@ -147,3 +147,39 @@ design.
 2. After 8–12 weeks, retrain on pilot data, split by user.
 3. Re-check calibration, fairness by segment, and the alert threshold against the message cap.
 4. Compare against the drifting rule and the completion heuristic again: keep the model only if it beats both.
+
+## Check-in barrier classifier (TASK_01_C, lean)
+
+### Intended use
+Sorts check-in free text, typed when no barrier button was pressed, into one `Barrier` value so the rules layer can
+adjust the plan. It never writes user-facing text and is not a red-flag guarantee: the engine's keyword check runs
+first and red-flag text never reaches it. Optional: with `LLM_RED_FLAG_CHECK=true` it may add (never remove) a red
+flag the keywords missed.
+
+### Model
+A hosted chat model (Groq, OpenAI or Azure OpenAI, picked in `.env`), temperature 0, JSON-only reply
+`{"barrier", "confidence"}`; confidence < 0.6 or invalid output → no barrier. Input: the free text and the language,
+nothing else. Fallback on any error or a 3-second timeout: the keyword classifier in `api/llm_client.py`.
+
+### Languages
+English and Arabic (Gulf/Levantine wording in the eval set), Arabizi and mixed text. The Arabic prompts and
+keywords are unreviewed by a native speaker.
+
+### Evaluation (`llm/eval/checkins.jsonl`, `python -m llm.eval`)
+61 made-up check-ins, no real people: 55 barrier texts (all 13 barriers, EN / AR / Arabizi / typos, 5 with no
+barrier) and 6 red-flag texts (3 the keyword list catches, 3 paraphrases it doesn't).
+
+| Classifier | Barrier accuracy | Notes |
+|---|---|---|
+| Keywords | 29 / 55 (53%) | Misses are mostly "no barrier found": Arabizi, paraphrases, and the four Task 05 barriers it has no words for. Red-flag keywords catch 3 / 6 (the other 3 are paraphrases written to test the optional LLM check). |
+| LLM (provider, model) | _fill in after a run with a key_ | |
+| LLM red-flag check | _adds x / 3 missed; false alarms y / 55_ | only with `LLM_RED_FLAG_CHECK=true` |
+
+Report the numbers as they come out, including where keywords already do as well. The set is small and written by
+us, so it is a sanity check, not evidence of real-world accuracy.
+
+### Known limitations
+- The keyword fallback has no Arabizi and few Arabic words, and no keywords for `craving`, `stress`,
+  `others_smoking` or `no_healthy_food_nearby`, so those depend on the buttons or the LLM.
+- A wrong barrier only changes how today's step is adjusted (e.g. smaller step vs. new time); buttons always win.
+- The hosted model sees the check-in text; see `docs/ASSUMPTIONS.md` ("LLM layer") for what is sent.

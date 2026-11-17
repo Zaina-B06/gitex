@@ -242,9 +242,9 @@ def test_red_flag_text_never_reaches_the_classifier(clock):
     seen = []
 
     class Spy(KeywordClassifier):
-        def classify_barrier(self, text):
+        def classify_barrier(self, text, lang="en"):
             seen.append(text)
-            return super().classify_barrier(text)
+            return super().classify_barrier(text, lang)
 
     with TestClient(create_app(database_url="sqlite:///:memory:", clock=clock, classifier=Spy())) as c:
         uid, headers, _ = onboard(c)

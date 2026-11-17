@@ -898,6 +898,18 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 | Export | `GET /users/{id}/export`: profile, state, full event log, account fields; never the token hash | §4.7 "view … export". |
 | Policy mode | rules (`Engine()` default), no risk model | Bandit adds nothing at 90 days (run_007); hook failed its test (run_008). |
 
+## LLM layer (TASK_01_C, lean)
+
+| Choice | Value | Why |
+|---|---|---|
+| What the LLM does | Classifies check-in free text into one `Barrier` (only when no button was pressed). Never writes user-facing text. | Messages and safety numbers stay in the tested templates (`api/messages.py`). |
+| What is sent | The free text and the language only; no user id, profile or health answers. Temperature 0. | §2.4 data minimisation. |
+| Red flags | Keyword check first (the guarantee); flagged text never reaches the LLM. Optional `LLM_RED_FLAG_CHECK=true`: the LLM may only add a red flag, handled in the API like a keyword one (coaching paused, `red_flag` event with `source: llm`, care message). | §6.4; engine/ unchanged. |
+| Confidence | < 0.6 or invalid JSON → no barrier | Better no barrier than a wrong one; the rules layer then uses `other`. |
+| Timeout | 3 s, then keywords | A check-in must never fail or wait on the LLM. |
+| Without a key | Keywords only; the app works fully | Optional bonus layer. |
+| Which one answered | Logged (`rebound.checkin` logger), not in the response | For the demo and honesty, without changing the API contract. |
+
 ## Dependencies
 - Engine: Python 3.11+, Pydantic v2, PyYAML. Dev: pytest, ruff.
 - Simulator: numpy, pandas, pyarrow (Parquet; falls back to CSV without it), matplotlib.

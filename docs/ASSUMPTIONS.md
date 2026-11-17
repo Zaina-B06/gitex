@@ -898,6 +898,20 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 | Export | `GET /users/{id}/export`: profile, state, full event log, account fields; never the token hash | §4.7 "view … export". |
 | Policy mode | rules (`Engine()` default), no risk model | Bandit adds nothing at 90 days (run_007); hook failed its test (run_008). |
 
+## Frontend (web/)
+
+| Choice | Value | Why |
+|---|---|---|
+| Baseline questions skipped by goal | Activity is asked only with the movement goal, sleep only with the sleep goal. Unasked fields are sent as `active_days_per_week = 3`, `sleep_hours_typical = 7`, `sleep_quality_self = 3` because `Baseline` requires them. | §2.4 data minimisation. The engine reads `active_days_per_week` only for movement (`starting_movement_tier`, `initial_habit_strength`) and `sleep_*` only for sleep, so the placeholders never reach a plan. If the engine starts using them elsewhere, ask the questions again. |
+| First name | Optional, kept in the browser only (`localStorage` `rebound.name`), never sent to the API | §2.4: a name doesn't change the plan or safety. Used only for the greeting and the report header. |
+| Height and weight | Optional at sign-up, sent as `body` with `consents.body = true` only when given; Settings shows "given / not given", never the values or a BMI | §2.5 and §4.2: internal intensity cap only, never displayed or a goal. |
+| Health-check pre-fill | High blood pressure → Q1 yes, diabetes → "other long-term condition" yes, back/joint pain → "bone, joint or muscle problem" yes; only if still unanswered, shown with "Filled in from what you told us" | Saves answering the same thing twice; the user can change each answer. |
+| Pregnancy question | Shown only for sex = female; an unanswered question is sent as `prefer_not_to_say` | §4.3. |
+| Shift pattern | Shift workers give one weekly pattern (start days + start/end time) → `basics.shifts` | Enough for the engine's quiet hours; more lines can be added in a later settings editor. |
+| Calendar outcomes | My plan shows a mark per behaviour per day (done / smaller / skipped / paused); no streaks, counters or "N in a row" | §2.1. |
+| Progress report | Built on the device from `GET /export`; "Save as PDF" uses the browser's print dialog; weekly summary in words ("most days", "some days") | No PDF library or server rendering; plain words instead of counts (§2.1). The habit-strength chart covers the engine's last 15 daily values (`H_DAILY_KEEP`). |
+| Tomorrow preview | Shows the plan's behaviours and active context only, not specific steps | The engine picks steps when a day opens, from how the previous day went; showing a guess would be misleading. |
+
 ## LLM layer (TASK_01_C, lean)
 
 | Choice | Value | Why |

@@ -164,7 +164,11 @@ iftar, a shorter start for caregivers, and a family reply when family life gets 
 - **Employer page:** `GET /dashboard/employer?org_id=<from seed>` with `X-Org-Key`; show the friendly message on 403.
 - **Not in the API:** changing `channel` in settings has no effect yet (documented limitation).
 
-### For the LLM layer (TASK_01_C)
+### For the LLM layer (TASK_01_C): done (lean)
+- **Built:** `llm/` classifies check-in free text into a barrier (Groq / OpenAI / Azure from `.env`, 3 s timeout,
+  keyword fallback), optional `LLM_RED_FLAG_CHECK` that can only add a red flag, eval set + `python -m llm.eval`,
+  offline tests in `api/tests/test_llm.py`. See `llm/README.md`. Templates stay in `api/messages.py` (not moved).
+- The notes below are the original brief, kept for reference.
 - **Plug-in point:** `api/llm_client.py` imports `llm.classify_barrier` if it exists, else uses the keyword fallback.
   It currently expects `classify_barrier(text) -> Barrier | None`. TASK_01_C specifies
   `classify_barrier(text, lang) -> {barrier, confidence, red_flag, ...}`: when the package lands, adapt the small

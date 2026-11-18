@@ -4,51 +4,35 @@ back-translation, for a human reviewer. Safety-critical rows come first.
     python -m api.review_arabic            # writes review/arabic_review.csv (git-ignored)
 
 This is not a test and doesn't make the Arabic "reviewed": a person must read the sheet and fix what drifted.
-Without an LLM key (.env: LLM_PROVIDER=openai + OPENAI_API_KEY + OPENAI_MODEL, or LLM_PROVIDER=azure +
-AZURE_OPENAI_*), the sheet is still written with the back-translation column empty, as a checklist."""
+Without an LLM key (.env: LLM_PROVIDER=groq|openai|azure and that provider's keys, see llm/README.md), the sheet
+is still written with the back-translation column empty, as a checklist."""
 
 import csv
-import json
-import os
 import sys
-import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
 from dotenv import load_dotenv
+from llm.providers import chat_from_env
 
 from .messages import catalogue
 
 OUT = Path(__file__).resolve().parents[1] / "review" / "arabic_review.csv"
-AZURE_API_VERSION = "2024-10-21"
 PROMPT = "Translate this Arabic text into English as literally as you can. Reply with the translation only."
 
 
 def _llm() -> Callable[[str], str] | None:
-    """A back-translate function from .env, or None (with the reason printed) if no provider is set up."""
-    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
-    if provider == "openai" and os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL"):
-        url = "https://api.openai.com/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
-        extra = {"model": os.environ["OPENAI_MODEL"]}
-    elif provider == "azure" and all(os.getenv(k) for k in ("AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY",
-                                                             "AZURE_OPENAI_DEPLOYMENT")):
-        url = (f"{os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')}/openai/deployments/"
-               f"{os.environ['AZURE_OPENAI_DEPLOYMENT']}/chat/completions?api-version={AZURE_API_VERSION}")
-        headers = {"api-key": os.environ["AZURE_OPENAI_API_KEY"]}
-        extra = {}
-    else:
-        print("No LLM key in .env (set LLM_PROVIDER=openai with OPENAI_API_KEY and OPENAI_MODEL, or "
-              "LLM_PROVIDER=azure with AZURE_OPENAI_*). Writing the sheet with back_translation left empty.")
+    """A back-translate function from .env (provider setup shared with the check-in classifier, llm/providers.py),
+    or None (with the reason printed) if no provider is set up."""
+    chat = chat_from_env(timeout=60)
+    if chat is None:
+        print("No LLM key in .env (set LLM_PROVIDER=groq with GROQ_API_KEY and GROQ_MODEL, LLM_PROVIDER=openai with "
+              "OPENAI_API_KEY and OPENAI_MODEL, or LLM_PROVIDER=azure with AZURE_OPENAI_*). Writing the sheet with "
+              "back_translation left empty.")
         return None
 
     def translate(arabic: str) -> str:
-        body = {**extra, "temperature": 0,
-                "messages": [{"role": "system", "content": PROMPT}, {"role": "user", "content": arabic}]}
-        req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
-                                     headers={**headers, "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            return json.load(r)["choices"][0]["message"]["content"].strip()
+        return chat([{"role": "system", "content": PROMPT}, {"role": "user", "content": arabic}])
 
     return translate
 

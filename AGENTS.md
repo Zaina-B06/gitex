@@ -169,13 +169,15 @@ After a completion only, at most one a day, never while paused or after a red fl
 POST   /users                         body: OnboardingPayload (+ timezone?, org_id?, login?: { username, password })  → { user_id, token, screening, state, today, plan_summary: { behaviours, reasons (≤ 3), all_reasons, rotation_note? } }   (409 if the username is taken)
 POST   /auth/login                    body: { username, password } → { user_id, token }   (a new token per device; same 401 for wrong username or password; 5 failed tries per username per 15 min → 429)
 POST   /auth/logout                   → 204   (Bearer token; revokes only that token)
-GET    /users/{id}/plan               → { behaviours, reasons, all_reasons }   (Bearer token on every /users/{id}/* route)
+GET    /users/{id}/plan               → { behaviours, reasons, all_reasons, rotation_note?, goals: [{ behaviour, tier, max_tier, start_reason, good_days_to_next?, last_change?: { day, kind, reason, barrier? }, today_note? }] }   (Bearer token on every /users/{id}/* route)
 GET    /users/{id}/today              → { actions: [{ action, time_window, explanation_id }], message_keys, channel, checkin_due, state_summary }   (one per goal: movement, then sleep)
 POST   /users/{id}/events             body: { action_id, type: completed|partial|skipped } → { state, encouragement? }
 POST   /users/{id}/checkin            body: { barriers: [enum], free_text?: str } → { barrier, adjusted_actions: [action], message, red_flag: bool }
 GET    /users/{id}/state              → { habit_strength, engagement_state, tiers, history[] }
 GET    /actions/{id}/explain?lang=&reading_level= → { bct_code, bct_name, rationale, limits, how_to_turn_off }
-GET    /content/onboarding?lang=&reading_level=    → { questions, why_we_ask, reading_level_examples, translation_note }   (no auth; Task 05 Part D)
+GET    /content/onboarding?lang=&reading_level=    → { questions, why_we_ask, reading_level_examples, translation_note, follow_ups: [{ id, fills, show_if, text }] }   (no auth; Task 05 Part D)
+POST   /content/onboarding/suggest    body: { text (≤ 1000 chars), lang } → { red_flag, message?, suggestions?, follow_ups, source }   (no auth; optional LLM, keyword fallback; red-flag text never sent; never the health check; 10 calls per IP per hour → 429)
+GET    /users/{id}/recap?days=7       → { days, facts, summary, written_by: llm|template }   (rules-computed facts; LLM text checked or template; cached per user per day; 409 after a red flag)
 GET    /users/{id}/community/events   → read-only events filtered to the user (Bearer token; real ones cite a source URL + date checked, others are labelled Example)
 GET    /recipes?tag=                  → curated recipes (general guidance, not medical advice); /recipes/{id}
                                          /today also returns recipes: { action_id: recipe } for cooking steps

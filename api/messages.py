@@ -430,6 +430,217 @@ WHY_WE_ASK: dict[str, dict[str, str]] = {
     },
 }
 
+# Per-goal plan details (GET /plan "goals"): why it started here, why it last changed, why today looks different.
+# Plan choices only, never health outcomes; never how many days were missed.
+PLAN_TEXT: dict[str, dict[str, str]] = {
+    "start.active_days": {
+        "en": "We started at this level because of how active you are now.",
+        "ar": "بدأنا بهذا المستوى بناءً على نشاطك الحالي.",
+        "simple_en": "This level fits how much you move now.",
+        "simple_ar": "هذا المستوى يناسب حركتك الآن.",
+    },
+    "start.senior": {
+        "en": "We started gently, with steps that help your balance.",
+        "ar": "بدأنا بلطف، بخطوات تساعد توازنك.",
+        "simple_en": "We start easy, to help your balance.",
+        "simple_ar": "نبدأ بخطوات سهلة لتوازنك.",
+    },
+    "start.recovering": {
+        "en": "You're recovering, so we started at the gentlest level.",
+        "ar": "أنت تتعافى، لذلك بدأنا بأخف مستوى.",
+        "simple_en": "You are getting better, so we start with the easiest level.",
+        "simple_ar": "أنت تتعافى، فنبدأ بأسهل مستوى.",
+    },
+    "start.safe_start": {
+        "en": "We started at a level that is safe for you.",
+        "ar": "بدأنا بمستوى آمن لك.",
+        "simple_en": "We start at a safe level for you.",
+        "simple_ar": "نبدأ بمستوى يناسبك بأمان.",
+    },
+    "start.health_check": {
+        "en": "Your health check answers keep this at a moderate level.",
+        "ar": "إجاباتك في الفحص الصحي تُبقي هذا بمستوى معتدل.",
+        "simple_en": "Because of your health answers, this is not too hard.",
+        "simple_ar": "بسبب إجاباتك الصحية، لن يكون هذا صعباً.",
+    },
+    "start.smallest_step": {
+        "en": "Everyone starts this at the smallest step.",
+        "ar": "يبدأ الجميع هذا بأصغر خطوة.",
+        "simple_en": "Everyone starts with the smallest step.",
+        "simple_ar": "الكل يبدأ بأصغر خطوة.",
+    },
+    "change.stepped_up": {
+        "en": "You did well at the last level, so we moved up one.",
+        "ar": "أحسنت في المستوى السابق، فانتقلنا مستوى واحداً للأعلى.",
+        "simple_en": "You did well, so we moved up a level.",
+        "simple_ar": "أحسنت، فصعدنا مستوى.",
+    },
+    "change.eased_checkin": {
+        "en": "You told us something got in the way, so we made it easier.",
+        "ar": "أخبرتنا بما أعاقك، فجعلناها أسهل.",
+        "simple_en": "You told us what got in the way. So we made it easier.",
+        "simple_ar": "أخبرتنا بالمشكلة. فجعلنا الخطوة أسهل.",
+    },
+    "change.eased_missed": {
+        "en": "Some days were hard, so we made it a little easier.",
+        "ar": "بعض الأيام كانت صعبة، فجعلناها أسهل قليلاً.",
+        "simple_en": "Some days were hard. So we made it easier.",
+        "simple_ar": "بعض الأيام صعبة. فجعلنا الخطوة أسهل.",
+    },
+    "change.shrunk_after_slip": {
+        "en": "After a quieter stretch, we made it smaller so it's easy to restart.",
+        "ar": "بعد فترة هادئة، جعلناها أصغر لتسهل العودة.",
+        "simple_en": "You had a break. We made the step smaller, so it is easy to start again.",
+        "simple_ar": "أخذت استراحة. جعلنا الخطوة أصغر لتعود بسهولة.",
+    },
+    "today.illness": {
+        "en": "Movement is paused while you're unwell.",
+        "ar": "خطوات الحركة متوقفة وأنت مريض.",
+        "simple_en": "No movement steps while you are sick.",
+        "simple_ar": "لا خطوات حركة وأنت مريض.",
+    },
+    "today.illness_gentle": {
+        "en": "Today's step is extra gentle while you're unwell.",
+        "ar": "خطوة اليوم خفيفة جداً وأنت مريض.",
+        "simple_en": "Today's step is very easy while you are sick.",
+        "simple_ar": "خطوة اليوم سهلة جداً وأنت مريض.",
+    },
+    "today.ramadan": {
+        "en": "It's Ramadan, so today's step fits around fasting.",
+        "ar": "إنه رمضان، فخطوة اليوم تناسب الصيام.",
+        "simple_en": "It is Ramadan. Today's step is safe when you fast.",
+        "simple_ar": "رمضان كريم. خطوة اليوم تناسب صيامك.",
+    },
+    "today.heat": {
+        "en": "It's hot today, so outdoor steps avoid the middle of the day.",
+        "ar": "الجو حار اليوم، فالخطوات الخارجية بعيدة عن وقت الظهيرة.",
+        "simple_en": "It is hot. Do outside steps early or late in the day.",
+        "simple_ar": "الجو حار. قم بالخطوات الخارجية صباحاً أو مساءً.",
+    },
+    "today.checkin": {
+        "en": "After your check-in, today's step was adjusted.",
+        "ar": "بعد تسجيل حالتك، عدّلنا خطوة اليوم.",
+        "simple_en": "We changed today's step after your check-in.",
+        "simple_ar": "غيّرنا خطوة اليوم بعد ما أخبرتنا.",
+    },
+}
+
+# Weekly recap template (GET /recap without an LLM, or when the LLM's text fails the checks). No counts, no streaks.
+RECAP: dict[str, dict[str, str]] = {
+    "good": {
+        "en": "This week went well: you did most of your steps.",
+        "ar": "كان أسبوعك جيداً: أنجزت معظم خطواتك.",
+        "simple_en": "Good week! You did most of your steps.",
+        "simple_ar": "أسبوع جيد! أنجزت معظم خطواتك.",
+    },
+    "mixed": {
+        "en": "This week was a mix, and that's normal. Every step you did still counts.",
+        "ar": "كان أسبوعك متنوعاً، وهذا طبيعي. كل خطوة أنجزتها لها قيمة.",
+        "simple_en": "This week had ups and downs. That is normal. Every step counts.",
+        "simple_ar": "أسبوع فيه صعود وهبوط. هذا طبيعي. كل خطوة مهمة.",
+    },
+    "hard": {
+        "en": "This week was hard. What you built is still there, and the next step is small.",
+        "ar": "كان أسبوعك صعباً. ما بنيته لا يزال موجوداً، والخطوة القادمة صغيرة.",
+        "simple_en": "This week was hard. You did not lose your progress. The next step is small.",
+        "simple_ar": "أسبوع صعب. تقدمك باقٍ. والخطوة القادمة صغيرة.",
+    },
+    "quiet": {
+        "en": "There's nothing to look back on yet. Your first steps are coming up.",
+        "ar": "لا يوجد ما نراجعه بعد. خطواتك الأولى قادمة.",
+        "simple_en": "Nothing to show yet. Your first steps are coming.",
+        "simple_ar": "لا شيء بعد. خطواتك الأولى قريبة.",
+    },
+    "comeback": {
+        "en": "You came back after a break, and that matters most.",
+        "ar": "عدت بعد استراحة، وهذا هو الأهم.",
+        "simple_en": "You came back after a break. Well done!",
+        "simple_ar": "عدت بعد استراحة. أحسنت!",
+    },
+    "stepped_up": {
+        "en": "One of your steps moved up a level.",
+        "ar": "انتقلت إحدى خطواتك إلى مستوى أعلى.",
+        "simple_en": "One step went up a level.",
+        "simple_ar": "خطوة صعدت مستوى.",
+    },
+    "eased": {
+        "en": "We made a step easier, so it fits your week.",
+        "ar": "جعلنا إحدى الخطوات أسهل لتناسب أسبوعك.",
+        "simple_en": "We made one step easier for you.",
+        "simple_ar": "جعلنا خطوة أسهل لك.",
+    },
+    "barrier": {
+        "en": "You told us what got in the way, and we changed the plan.",
+        "ar": "أخبرتنا بما أعاقك، فغيّرنا الخطة.",
+        "simple_en": "You told us what was hard. We changed the plan.",
+        "simple_ar": "أخبرتنا بما صعُب عليك. فغيّرنا الخطة.",
+    },
+}
+
+# The generic anchor phrase in step titles, replaced by the user's own anchor (wording only, never in safety text).
+ANCHOR_PHRASES = {"en": "something you already do daily", "simple_en": "something you do each day",
+                  "ar": "شيء تفعله يوميًا", "simple_ar": "عمل تقوم به كل يوم"}
+
+# Follow-up questions after the basics (GET /content/onboarding "follow_ups"). The frontend shows one only when
+# every show_if rule matches the answers so far. The health check is never here: it is always asked in full.
+_NOT_ALONE = {"field": "preferences.household", "op": "not_in", "value": [None, "alone"]}
+_FASTS = {"field": "preferences.fasting_ramadan", "op": "equals", "value": True}
+FOLLOW_UPS: list[dict[str, Any]] = [
+    {"id": "anchor", "fills": "preferences.anchor",
+     "show_if": [{"field": "basics.goals", "op": "contains", "value": "movement"}],
+     "en": "Is there something you do every day that a step could follow? For example: after maghrib, or after "
+           "your morning coffee.",
+     "ar": "هل هناك شيء تفعله كل يوم يمكن أن تأتي الخطوة بعده؟ مثلاً: بعد المغرب، أو بعد قهوة الصباح.",
+     "simple_en": "What do you do every day? Your step can come after it. For example: after maghrib.",
+     "simple_ar": "ماذا تفعل كل يوم؟ تأتي خطوتك بعده. مثلاً: بعد المغرب."},
+    {"id": "shifts", "fills": "basics.shifts",
+     "show_if": [{"field": "basics.schedule_type", "op": "equals", "value": "shift"}],
+     "en": "What are your usual shift days and times?",
+     "ar": "ما هي أيام وأوقات مناوبتك المعتادة؟",
+     "simple_en": "When do you usually work your shifts?",
+     "simple_ar": "متى تعمل مناوباتك عادة؟"},
+    {"id": "iftar_time", "fills": "preferences.iftar_time", "show_if": [_FASTS],
+     "en": "When do you usually have iftar? Leave it blank to use sunset in Abu Dhabi.",
+     "ar": "متى تفطر عادة؟ اتركه فارغاً لنستخدم وقت المغرب في أبوظبي.",
+     "simple_en": "What time do you eat iftar? You can skip this.",
+     "simple_ar": "متى تفطر؟ يمكنك تخطي هذا."},
+    {"id": "family_fasting", "fills": "preferences.family_fasting", "show_if": [_FASTS, _NOT_ALONE],
+     "en": "Does your family fast together in Ramadan?",
+     "ar": "هل تصوم عائلتك معاً في رمضان؟",
+     "simple_en": "Does your family fast with you?",
+     "simple_ar": "هل يصوم أهلك معك؟"},
+    {"id": "caregiver", "fills": "preferences.caregiver", "show_if": [_NOT_ALONE],
+     "en": "Do you look after someone at home, like a child, a parent or a relative who is unwell?",
+     "ar": "هل تعتني بشخص في البيت، مثل طفل أو أحد الوالدين أو قريب مريض؟",
+     "simple_en": "Do you care for someone at home?",
+     "simple_ar": "هل ترعى أحداً في البيت؟"},
+    {"id": "quiet_hours", "fills": "preferences.quiet_hours",
+     "show_if": [{"field": "basics.goals", "op": "contains", "value": "sleep"}],
+     "en": "When should we never send you messages, for example while you sleep?",
+     "ar": "متى لا نرسل لك أي رسائل، مثلاً أثناء نومك؟",
+     "simple_en": "When should we not message you? For example, when you sleep.",
+     "simple_ar": "متى لا نرسل لك؟ مثلاً وقت نومك."},
+    {"id": "smoking_goal", "fills": "basics.goals",
+     "show_if": [{"field": "history.smoking_status", "op": "equals", "value": "current"}],
+     "en": "Would you like small steps to help you smoke less?",
+     "ar": "هل تريد خطوات صغيرة تساعدك على تقليل التدخين؟",
+     "simple_en": "Do you want small steps to smoke less?",
+     "simple_ar": "تريد خطوات صغيرة لتدخين أقل؟"},
+]
+
+
+def show_follow_up(question: dict[str, Any], answers: dict[str, Any]) -> bool:
+    """True when every show_if rule matches `answers` (profile-shaped, e.g. {"basics": {"goals": [...]}})."""
+    def value(path: str) -> Any:
+        node: Any = answers
+        for part in path.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        return node
+
+    ops = {"contains": lambda v, x: x in (v or []), "equals": lambda v, x: v == x, "not_in": lambda v, x: v not in x}
+    return all(ops[r["op"]](value(r["field"]), r["value"]) for r in question["show_if"])
+
+
 # Shown first on the Arabic review sheet: a wrong word here could hurt someone.
 SAFETY_KEYS = frozenset({
     "message.seek_care", "message.see_doctor", "message.check_with_doctor", "message.care",
@@ -481,6 +692,8 @@ def onboarding_text(lang: Language, level: ReadingLevel) -> dict[str, Any]:
         # One plain example of each level, so people can choose (Task 05 Part D).
         "reading_level_examples": {"standard": getattr(example.title, code), "simple": getattr(example.simple, code)},
         "translation_note": None if AR_REVIEWED or lang != Language.ar else TRANSLATION_NOTE[code],
+        "follow_ups": [{"id": q["id"], "fills": q["fills"], "show_if": q["show_if"], "text": pick(q, lang, level)}
+                       for q in FOLLOW_UPS],
     }
 
 
@@ -493,9 +706,12 @@ def catalogue() -> list[dict[str, Any]]:
         rows.append({"key": key, "safety": key in SAFETY_KEYS,
                      **{v: entry.get(v) for v in ("en", "ar", "simple_en", "simple_ar")}})
 
-    for prefix, table in (("message", MESSAGES), ("reason", REASONS), ("question", QUESTIONS), ("why", WHY_WE_ASK)):
+    for prefix, table in (("message", MESSAGES), ("reason", REASONS), ("question", QUESTIONS), ("why", WHY_WE_ASK),
+                          ("plan", PLAN_TEXT), ("recap", RECAP)):
         for k, entry in table.items():
             add(f"{prefix}.{k}", entry)
+    for q in FOLLOW_UPS:
+        add(f"follow_up.{q['id']}", q)
     add("rotation_note", ROTATION_NOTE)
     add("how_to_turn_off", HOW_TO_TURN_OFF)
     for moment, variants in ENCOURAGEMENT.items():

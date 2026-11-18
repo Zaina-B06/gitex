@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import random
+import re
 import secrets
 from collections import Counter
 from collections.abc import Callable
@@ -15,7 +16,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +31,7 @@ from rebound_engine.models import (
     Barrier,
     Behaviour,
     CheckinResult,
+    Condition,
     Conditions,
     ConsentGroup,
     ContextFlag,
@@ -41,22 +43,37 @@ from rebound_engine.models import (
     EventType,
     History,
     Language,
+    LocalizedText,
     OnboardingPayload,
     Preferences,
     ReadingLevel,
     ScreeningResult,
     Shift,
+    TierChange,
+    TierChangeKind,
     TodayResult,
     UserProfile,
     UserState,
 )
 from rebound_engine.plan import build_plan
-from rebound_engine.policy import effective_flags
+from rebound_engine.policy import effective_flags, tier_cap
 from rebound_engine.recipes import NOTE as RECIPE_NOTE
 from rebound_engine.recipes import Recipe, load_recipes, suggest_recipe
-from rebound_engine.safety import detect_red_flags
+from rebound_engine.safety import detect_red_flags, screening_flags
+from rebound_engine.state import movement_start
 
-from .auth import DUMMY_HASH, FailedLogins, LoginIn, TokenOut, hash_password, verify_password
+from .auth import (
+    DUMMY_HASH,
+    LOGIN_MAX_FAILURES,
+    LOGIN_WINDOW,
+    SUGGEST_MAX_CALLS,
+    SUGGEST_WINDOW,
+    LoginIn,
+    RecentTries,
+    TokenOut,
+    hash_password,
+    verify_password,
+)
 from .community import CommunityEvent, Household, filter_events
 from .demo import (
     DEMO_PERSONAS,
@@ -74,7 +91,9 @@ from .demo import (
 )
 from .llm_client import BarrierClassifier, RedFlagCheck, default_classifier, default_red_flag_check
 from .messages import (
+    ANCHOR_PHRASES,
     HOW_TO_TURN_OFF,
+    PLAN_TEXT,
     onboarding_text,
     pick,
     render,
@@ -82,6 +101,7 @@ from .messages import (
     render_reason,
     render_rotation_note,
 )
+from .personal import Chat, recap_facts, recap_summary, suggest
 from .store import UserMeta, open_store
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
@@ -147,6 +167,25 @@ class TodayOut(TodayResult):
     encouragement: EncouragementOut | None = None  # today's moment, if one happened
 
 
+class LevelChangeOut(BaseModel):
+    day: int
+    kind: TierChangeKind  # stepped_up | eased | shrunk_after_slip
+    reason: str  # in the user's language and reading level
+    barrier: Barrier | None = None  # the check-in barrier behind an "eased", if there was one
+
+
+class GoalOut(BaseModel):
+    """One active behaviour on the plan screen: where it is, why, and how far to the next level."""
+
+    behaviour: Behaviour
+    tier: int
+    max_tier: int  # the safety cap for this person
+    start_reason: str  # why it started at its first level
+    good_days_to_next: int | None  # full completions still needed to step up; None at the top level
+    last_change: LevelChangeOut | None = None
+    today_note: str | None = None  # why today's step looks different (illness, Ramadan, heat, a check-in)
+
+
 class PlanOut(BaseModel):
     """What the user sees of their plan. Queued behaviours are internal and never included."""
 
@@ -154,6 +193,7 @@ class PlanOut(BaseModel):
     reasons: list[str]  # at most PLAN_REASONS_SHOWN, most important first
     all_reasons: list[str]  # the full list, for "See why"
     rotation_note: str | None = None  # only with more goals than daily actions: the third step changes each day
+    goals: list[GoalOut] = Field(default_factory=list)  # one per active behaviour, in plan order
 
 
 class OnboardOut(BaseModel):
@@ -192,6 +232,41 @@ class OnboardingTextOut(BaseModel):
     why_we_ask: dict[str, str]  # field group -> the "why we ask" line
     reading_level_examples: dict[str, str]  # "standard" / "simple" -> the same step at each level
     translation_note: str | None  # Arabic only: "draft translation, pending native review"
+    follow_ups: list[dict[str, Any]]  # {id, fills, show_if: [{field, op, value}], text}; show only if all rules match
+
+
+class SuggestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=1000)  # never stored or logged
+    lang: Language = Language.en
+
+
+class SuggestedAnswers(BaseModel):
+    """Suggestions to pre-fill sign-up; the user confirms each. Never the health check."""
+
+    goals: list[Behaviour]
+    schedule_type: Literal["shift"] | None
+    fasting_ramadan: bool | None
+    household: Household | None
+    caregiver: bool | None
+    smoking_status: Literal["current"] | None
+    managing: list[Condition]  # suggestions only: shown as pre-selected chips the user can untick
+    anchor: str | None
+
+
+class SuggestOut(BaseModel):
+    red_flag: bool
+    message: str | None  # the care message when red_flag is true
+    suggestions: SuggestedAnswers | None
+    follow_ups: list[str]  # follow-up question ids these answers unlock
+    source: Literal["llm", "keywords"] | None
+
+
+class RecapOut(BaseModel):
+    days: int
+    facts: dict[str, Any]  # computed by rules from the user's own events
+    summary: str  # 2-3 sentences in the user's language and reading level
+    written_by: Literal["llm", "template"]
 
 
 class ExplainOut(BaseModel):
@@ -272,18 +347,73 @@ def _encouragement_out(e: Encouragement | None, profile: UserProfile) -> Encoura
                             behaviour=e.behaviour)
 
 
-def _plan_out(profile: UserProfile) -> PlanOut:
+def _today_note(b: Behaviour, state: UserState) -> str | None:
+    """Why today's step for `b` looks different, most important first."""
+    flags = effective_flags(state)
+    if ContextFlag.illness in flags:
+        return "today.illness" if b == Behaviour.movement else "today.illness_gentle"
+    if ContextFlag.ramadan in flags:
+        return "today.ramadan"
+    if ContextFlag.heat in flags and b == Behaviour.movement:
+        return "today.heat"
+    return "today.checkin" if state.last_barrier is not None else None
+
+
+def _change_key(c: TierChange) -> str:
+    if c.kind == "eased":
+        return "change.eased_checkin" if c.barrier else "change.eased_missed"
+    return f"change.{c.kind}"
+
+
+def _goal_out(b: Behaviour, profile: UserProfile, state: UserState) -> GoalOut:
+    def text(key: str) -> str:
+        return pick(PLAN_TEXT[key], profile.basics.language, profile.preferences.reading_level)
+
+    tier, top = state.current_tier[b], tier_cap(profile, b)
+    start = movement_start(profile, screening_flags(profile))[1] if b == Behaviour.movement else "smallest_step"
+    last = next((c for c in reversed(state.tier_changes) if c.behaviour == b), None)
+    note = _today_note(b, state)
+    return GoalOut(
+        behaviour=b, tier=tier, max_tier=top, start_reason=text(f"start.{start}"),
+        good_days_to_next=None if tier >= top else engine_config.STEP_UP_SUCCESSES - state.successes_at_tier[b],
+        last_change=last and LevelChangeOut(day=last.day, kind=last.kind, reason=text(_change_key(last)),
+                                            barrier=last.barrier),
+        today_note=note and text(note),
+    )
+
+
+def _plan_out(profile: UserProfile, state: UserState) -> PlanOut:
     plan = build_plan(profile)
     rotating = len(profile.basics.goals) > engine_config.MAX_ACTIVE_BEHAVIOURS
     note = render_rotation_note(profile) if rotating else None
     # The rotation note says it already; don't repeat it as a reason.
     reasons = [render_reason(k, profile) for k in plan.reasons if not (note and k == "rotating")]
     return PlanOut(behaviours=plan.active, reasons=reasons[:PLAN_REASONS_SHOWN], all_reasons=reasons,
-                   rotation_note=note)
+                   rotation_note=note,
+                   goals=[_goal_out(b, profile, state) for b in plan.active if b in state.current_tier])
+
+
+def with_anchor(action: Action, anchor: str | None) -> Action:
+    """The user's own daily anchor in place of the generic phrase, in the title and its simple version. Wording
+    only: the action, its safety flags, rationale and limits are unchanged."""
+    if not anchor:
+        return action
+    thing = re.sub(r"^(after|بعد)\s+", "", anchor.strip(), flags=re.IGNORECASE)  # the title already says "after"
+
+    def swap(text: LocalizedText, standard: bool) -> LocalizedText:
+        en, ar = ("en", "ar") if standard else ("simple_en", "simple_ar")
+        return text.model_copy(update={"en": text.en.replace(ANCHOR_PHRASES[en], thing),
+                                       "ar": text.ar.replace(ANCHOR_PHRASES[ar], thing)})
+
+    title, simple = swap(action.title, True), action.simple and swap(action.simple, False)
+    if title == action.title and simple == action.simple:
+        return action
+    return action.model_copy(update={"title": title, "simple": simple})
 
 
 def _leveled(action: Action, profile: UserProfile) -> Action:
-    """At reading_level "simple", the title the frontend shows is the plain-language one (Task 05 Part D)."""
+    """The user's anchor, then at reading_level "simple" the plain-language title (Task 05 Part D)."""
+    action = with_anchor(action, profile.preferences.anchor)
     if profile.preferences.reading_level == ReadingLevel.simple and action.simple:
         return action.model_copy(update={"title": action.simple})
     return action
@@ -315,6 +445,16 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _env_chats() -> tuple[Chat | None, Chat | None]:
+    """(JSON-mode chat for sign-up suggestions, plain chat for the recap) from .env, or (None, None)."""
+    try:
+        from llm import chat_from_env
+        from llm.personal import TIMEOUT_S
+    except ImportError:
+        return None, None
+    return chat_from_env(timeout=TIMEOUT_S, json_mode=True), chat_from_env(timeout=TIMEOUT_S)
+
+
 # ---------- app ----------
 
 
@@ -329,9 +469,16 @@ def create_app(
     demo_key: str | None = None,
     org_key: str | None = None,
     dashboard_path: Path | None = None,
+    llm_chat: Chat | None = None,
 ) -> FastAPI:
     store = open_store(database_url)
-    failed_logins = FailedLogins(lambda: app.state.clock())
+    # Optional LLM for sign-up suggestions and the recap (tests pass a fake). Without one: keywords and templates.
+    suggest_chat, recap_chat = (llm_chat, llm_chat) if llm_chat else _env_chats()
+    failed_logins = RecentTries(lambda: app.state.clock(), LOGIN_MAX_FAILURES, LOGIN_WINDOW)
+    suggest_calls = RecentTries(lambda: app.state.clock(), SUGGEST_MAX_CALLS, SUGGEST_WINDOW)
+    # user id -> (engine day, {(days, lang, level): RecapOut}, LLM already called that day)
+    # shortcut: in memory, per process; lost on restart (then one more LLM call that day at most per process).
+    recap_cache: dict[str, tuple[int | None, dict[tuple, RecapOut], bool]] = {}
 
     class UserCalendar:
         """Engine day -> the user's local date (onboarding day = day 1), then the offline calendar rules."""
@@ -464,12 +611,13 @@ def create_app(
         return OnboardOut(
             user_id=result.user_id, token=token, screening=result.screening, red_flag=result.red_flag,
             state=_state_out(engine.get_state(result.user_id)), today=today,
-            plan_summary=_plan_out(store.get_profile(result.user_id)),
+            plan_summary=_plan_out(store.get_profile(result.user_id), engine.get_state(result.user_id)),
         )
 
     @app.get("/users/{user_id}/plan", response_model=PlanOut)
     def plan(meta: Authed) -> PlanOut:
-        return _plan_out(store.get_profile(meta.user_id))
+        open_day(meta)  # today's notes and counts are about today
+        return _plan_out(store.get_profile(meta.user_id), engine.get_state(meta.user_id))
 
     @app.get("/users/{user_id}/today", response_model=TodayOut)
     def today(meta: Authed) -> TodayOut:
@@ -568,7 +716,8 @@ def create_app(
         if ramadan_fix is not None or "iftar_time" in (body.preferences or {}):
             engine.refresh_context(uid)  # applies today: today's open steps become fasting-safe at the right hour
         return SettingsOut(preferences=profile.preferences, consents=profile.consents,
-                           state=_state_out(engine.get_state(uid)), plan_summary=_plan_out(profile))
+                           state=_state_out(engine.get_state(uid)),
+                           plan_summary=_plan_out(profile, engine.get_state(uid)))
 
     @app.get("/users/{user_id}/export", response_model=ExportOut)
     def export(meta: Authed) -> ExportOut:
@@ -582,6 +731,7 @@ def create_app(
     @app.delete("/users/{user_id}", status_code=204)
     def delete_user(meta: Authed) -> Response:
         engine.delete_user(meta.user_id)  # SQLiteStore also removes user_meta
+        recap_cache.pop(meta.user_id, None)
         return Response(status_code=204)
 
     @app.get("/users/{user_id}/community/events", response_model=list[CommunityEvent])
@@ -619,8 +769,44 @@ def create_app(
     @app.get("/content/onboarding", response_model=OnboardingTextOut)
     def onboarding_content(lang: Language = Language.en,
                            reading_level: ReadingLevel = ReadingLevel.standard) -> OnboardingTextOut:
-        """Health-check questions, "why we ask" lines and a reading-level example, before the user exists."""
+        """Health-check questions, "why we ask" lines, a reading-level example and the follow-up question bank,
+        before the user exists."""
         return OnboardingTextOut(**onboarding_text(lang, reading_level))
+
+    @app.post("/content/onboarding/suggest", response_model=SuggestOut)
+    def onboarding_suggest(body: SuggestIn, request: Request) -> SuggestOut:
+        """Optional: suggested sign-up answers from a few sentences, for the user to confirm. Red-flag text gets the
+        care message and never reaches the LLM. The text is not stored or logged; the health check is never
+        suggested. Open route, so at most SUGGEST_MAX_CALLS per IP per SUGGEST_WINDOW (429 after that)."""
+        # shortcut: X-Forwarded-For can be spoofed, and the limit is per process; fine for the pilot, not abuse-proof.
+        forwarded = request.headers.get("x-forwarded-for", "")
+        ip = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+        if suggest_calls.blocked(ip):
+            raise HTTPException(429, "too many requests; try again in an hour, or fill in the questions yourself")
+        suggest_calls.add(ip)
+        return SuggestOut(**suggest(body.text, body.lang, suggest_chat))
+
+    @app.get("/users/{user_id}/recap", response_model=RecapOut)
+    def recap(meta: Authed, days: int = Query(default=7, ge=1, le=engine_config.HISTORY_KEEP_DAYS)) -> RecapOut:
+        """Facts from the user's own events (rules), plus 2-3 friendly sentences. Not shown after a safety concern."""
+        open_day(meta)
+        state = engine.get_state(meta.user_id)
+        if state.red_flag:
+            raise HTTPException(409, "no recap while coaching is paused after a safety concern")
+        profile = store.get_profile(meta.user_id)
+        lang, level = profile.basics.language, profile.preferences.reading_level
+        # One result per user per engine day (and per days/language/level), and at most one LLM call a day.
+        cached_day, results, llm_tried = recap_cache.get(meta.user_id, (None, {}, False))
+        if cached_day != state.day:
+            results, llm_tried = {}, False
+        key = (days, lang, level)
+        if key not in results:
+            facts = recap_facts(state, engine.events(meta.user_id), days)
+            summary, written_by = recap_summary(facts, lang, level, None if llm_tried else recap_chat)
+            llm_tried = llm_tried or recap_chat is not None
+            results[key] = RecapOut(days=days, facts=facts, summary=summary, written_by=written_by)
+        recap_cache[meta.user_id] = (state.day, results, llm_tried)
+        return results[key]
 
     # ---------- dashboards: aggregates only, never individual data ----------
 

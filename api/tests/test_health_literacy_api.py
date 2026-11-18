@@ -1,11 +1,11 @@
 """Task 05 Part D: simple variants, readability, safety wording, reading_level over HTTP, the Arabic review sheet."""
 
 import csv
-import re
 
 import pytest
 from api.app import create_app
 from api.messages import MESSAGES, catalogue
+from api.readability import fk_grade, syllables
 from api.review_arabic import write_sheet
 from fastapi.testclient import TestClient
 from rebound_engine.actions import load_actions
@@ -22,22 +22,7 @@ DOCTOR_KEYS = ("message.seek_care", "message.see_doctor", "message.check_with_do
 VARIANTS = ("en", "ar", "simple_en", "simple_ar")
 
 
-# ---------- readability (Flesch-Kincaid grade, heuristic syllables) ----------
-
-
-def syllables(word: str) -> int:
-    w = word.lower()
-    count = len(re.findall(r"[aeiouy]+", w))
-    if w.endswith("e") and not w.endswith(("le", "ee")) and count > 1:
-        count -= 1  # silent final e: "make", "home"
-    return max(1, count)  # numbers and vowel-less tokens count as one
-
-
-def fk_grade(text: str) -> float:
-    words = re.findall(r"[A-Za-z0-9']+", text)
-    sentences = [s for s in re.split(r"[.!?]+", text) if re.search(r"[A-Za-z0-9]", s)]
-    syl = sum(syllables(w) for w in words)
-    return 0.39 * len(words) / max(1, len(sentences)) + 11.8 * syl / len(words) - 15.59
+# ---------- readability (Flesch-Kincaid grade, heuristic syllables: api/readability.py) ----------
 
 
 def test_fk_grade_on_known_sentences():

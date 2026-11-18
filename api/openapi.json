@@ -722,7 +722,7 @@
   "/content/onboarding": {
    "get": {
     "summary": "Onboarding Content",
-    "description": "Health-check questions, \"why we ask\" lines and a reading-level example, before the user exists.",
+    "description": "Health-check questions, \"why we ask\" lines, a reading-level example and the follow-up question bank,\nbefore the user exists.",
     "operationId": "onboarding_content_content_onboarding_get",
     "parameters": [
      {
@@ -751,6 +751,102 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/OnboardingTextOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/content/onboarding/suggest": {
+   "post": {
+    "summary": "Onboarding Suggest",
+    "description": "Optional: suggested sign-up answers from a few sentences, for the user to confirm. Red-flag text gets the\ncare message and never reaches the LLM. The text is not stored or logged; the health check is never\nsuggested. Open route, so at most SUGGEST_MAX_CALLS per IP per SUGGEST_WINDOW (429 after that).",
+    "operationId": "onboarding_suggest_content_onboarding_suggest_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SuggestIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SuggestOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{user_id}/recap": {
+   "get": {
+    "summary": "Recap",
+    "description": "Facts from the user's own events (rules), plus 2-3 friendly sentences. Not shown after a safety concern.",
+    "operationId": "recap_users__user_id__recap_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     },
+     {
+      "name": "days",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 21,
+       "minimum": 1,
+       "default": 7,
+       "title": "Days"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecapOut"
         }
        }
       }
@@ -2021,6 +2117,67 @@
     "title": "ExportOut",
     "description": "Everything stored about the user (AGENTS.md \u00a74.7), except the token hash."
    },
+   "GoalOut": {
+    "properties": {
+     "behaviour": {
+      "$ref": "#/components/schemas/Behaviour"
+     },
+     "tier": {
+      "type": "integer",
+      "title": "Tier"
+     },
+     "max_tier": {
+      "type": "integer",
+      "title": "Max Tier"
+     },
+     "start_reason": {
+      "type": "string",
+      "title": "Start Reason"
+     },
+     "good_days_to_next": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Good Days To Next"
+     },
+     "last_change": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LevelChangeOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "today_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Today Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "behaviour",
+     "tier",
+     "max_tier",
+     "start_reason",
+     "good_days_to_next"
+    ],
+    "title": "GoalOut",
+    "description": "One active behaviour on the plan screen: where it is, why, and how far to the next level."
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -2106,6 +2263,44 @@
      "ar"
     ],
     "title": "Language"
+   },
+   "LevelChangeOut": {
+    "properties": {
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "stepped_up",
+       "eased",
+       "shrunk_after_slip"
+      ],
+      "title": "Kind"
+     },
+     "reason": {
+      "type": "string",
+      "title": "Reason"
+     },
+     "barrier": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Barrier"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "kind",
+     "reason"
+    ],
+    "title": "LevelChangeOut"
    },
    "LocalizedText": {
     "properties": {
@@ -2316,6 +2511,14 @@
        }
       ],
       "title": "Translation Note"
+     },
+     "follow_ups": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Follow Ups"
      }
     },
     "type": "object",
@@ -2323,7 +2526,8 @@
      "questions",
      "why_we_ask",
      "reading_level_examples",
-     "translation_note"
+     "translation_note",
+     "follow_ups"
     ],
     "title": "OnboardingTextOut"
    },
@@ -2382,6 +2586,13 @@
        }
       ],
       "title": "Rotation Note"
+     },
+     "goals": {
+      "items": {
+       "$ref": "#/components/schemas/GoalOut"
+      },
+      "type": "array",
+      "title": "Goals"
      }
     },
     "type": "object",
@@ -2469,6 +2680,32 @@
       "title": "Read Aloud",
       "default": false
      },
+     "display_name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 40,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Display Name"
+     },
+     "anchor": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 40,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Anchor"
+     },
      "household": {
       "anyOf": [
        {
@@ -2510,6 +2747,39 @@
      "simple"
     ],
     "title": "ReadingLevel"
+   },
+   "RecapOut": {
+    "properties": {
+     "days": {
+      "type": "integer",
+      "title": "Days"
+     },
+     "facts": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Facts"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary"
+     },
+     "written_by": {
+      "type": "string",
+      "enum": [
+       "llm",
+       "template"
+      ],
+      "title": "Written By"
+     }
+    },
+    "type": "object",
+    "required": [
+     "days",
+     "facts",
+     "summary",
+     "written_by"
+    ],
+    "title": "RecapOut"
    },
    "RecipeOut": {
     "properties": {
@@ -3099,6 +3369,232 @@
     ],
     "title": "StateSummary"
    },
+   "SuggestIn": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Text"
+     },
+     "lang": {
+      "$ref": "#/components/schemas/Language",
+      "default": "en"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "SuggestIn"
+   },
+   "SuggestOut": {
+    "properties": {
+     "red_flag": {
+      "type": "boolean",
+      "title": "Red Flag"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     },
+     "suggestions": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SuggestedAnswers"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "follow_ups": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Follow Ups"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "llm",
+         "keywords"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source"
+     }
+    },
+    "type": "object",
+    "required": [
+     "red_flag",
+     "message",
+     "suggestions",
+     "follow_ups",
+     "source"
+    ],
+    "title": "SuggestOut"
+   },
+   "SuggestedAnswers": {
+    "properties": {
+     "goals": {
+      "items": {
+       "$ref": "#/components/schemas/Behaviour"
+      },
+      "type": "array",
+      "title": "Goals"
+     },
+     "schedule_type": {
+      "anyOf": [
+       {
+        "type": "string",
+        "const": "shift"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Schedule Type"
+     },
+     "fasting_ramadan": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fasting Ramadan"
+     },
+     "household": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Household"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "caregiver": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Caregiver"
+     },
+     "smoking_status": {
+      "anyOf": [
+       {
+        "type": "string",
+        "const": "current"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Smoking Status"
+     },
+     "managing": {
+      "items": {
+       "$ref": "#/components/schemas/Condition"
+      },
+      "type": "array",
+      "title": "Managing"
+     },
+     "anchor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Anchor"
+     }
+    },
+    "type": "object",
+    "required": [
+     "goals",
+     "schedule_type",
+     "fasting_ramadan",
+     "household",
+     "caregiver",
+     "smoking_status",
+     "managing",
+     "anchor"
+    ],
+    "title": "SuggestedAnswers",
+    "description": "Suggestions to pre-fill sign-up; the user confirms each. Never the health check."
+   },
+   "TierChange": {
+    "properties": {
+     "day": {
+      "type": "integer",
+      "title": "Day"
+     },
+     "behaviour": {
+      "$ref": "#/components/schemas/Behaviour"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "stepped_up",
+       "eased",
+       "shrunk_after_slip"
+      ],
+      "title": "Kind"
+     },
+     "from_tier": {
+      "type": "integer",
+      "title": "From Tier"
+     },
+     "to_tier": {
+      "type": "integer",
+      "title": "To Tier"
+     },
+     "barrier": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Barrier"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "behaviour",
+     "kind",
+     "from_tier",
+     "to_tier"
+    ],
+    "title": "TierChange",
+    "description": "One level change and why (observation only: the plan screen and recap explain it; it changes nothing)."
+   },
    "TimeRange": {
     "properties": {
      "start": {
@@ -3551,6 +4047,13 @@
       "type": "integer",
       "title": "Slip Day",
       "default": -1
+     },
+     "tier_changes": {
+      "items": {
+       "$ref": "#/components/schemas/TierChange"
+      },
+      "type": "array",
+      "title": "Tier Changes"
      }
     },
     "type": "object",

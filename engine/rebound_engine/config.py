@@ -66,6 +66,7 @@ EVENING_OFFSET_H = -3  # before usual sleep time
 # --- History kept in UserState (engagement needs <= 7 counted days; the event log keeps everything) ---
 HISTORY_KEEP_DAYS = 21
 H_DAILY_KEEP = 15  # daily H values kept for the lapse-risk 7-day slope (Task 02b)
+TIER_CHANGES_KEEP = 30  # level changes kept for the plan screen and the recap (observation only)
 
 # --- Lapse-risk model (Task 02b) ---
 RISK_ALERT_RATE = 0.15  # the alert threshold flags this share of validation days (frozen into the model file)

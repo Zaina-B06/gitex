@@ -127,6 +127,26 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   - **Settings:** users without sign-in details can add them once: `PATCH /settings {"login": {...}}` (409 if they
     already have them or the username is taken). `GET /export` shows `account.username`.
   - Demo personas have no login; keep opening them from the demo screen.
+- **Personalisation (18 Nov):**
+  - **Greeting:** optional `preferences.display_name` (1–40 characters, trimmed), at sign-up and in Settings. Use it
+    only for "Hi, Zaina". It is never sent to the LLM.
+  - **Plan screen:** `plan_summary.goals` / `GET /plan` → `goals[]`, one per active goal: `tier`, `max_tier`,
+    `start_reason`, `good_days_to_next` (null at the top level), `last_change {day, kind, reason, barrier}` and
+    `today_note`. The texts are already in the user's language and reading level. Show "N more good days to the next
+    level" from `good_days_to_next`; it counts forward, never a streak.
+  - **Daily anchor:** optional `preferences.anchor` (≤ 40 characters, e.g. "after maghrib"). Step titles that say
+    "after something you do daily" then say the user's anchor instead. Nothing to do on your side.
+  - **Follow-up questions:** `GET /content/onboarding` → `follow_ups[]`: `{id, fills, show_if, text}`. Show a
+    question only when every `show_if` rule matches the answers so far. The rules are `{field, op, value}` with
+    `op` = `contains` | `equals` | `not_in`, on profile paths like `basics.goals`. `fills` says which field the
+    answer goes to. The health check is always asked in full.
+  - **"Tell us about yourself" (optional):** `POST /content/onboarding/suggest {text, lang}` → `{red_flag, message,
+    suggestions, follow_ups, source}`. Pre-fill the answers and let the user confirm or change each one, and show
+    `managing` as pre-selected chips they can untick. On `red_flag: true`, show `message` (the care text) and pre-fill
+    nothing. Never pre-answer the health check.
+  - **Weekly recap:** `GET /users/{id}/recap?days=7` → `{facts, summary, written_by}`. Show `summary`. If you want
+    to be open about it, add "Written with AI" when `written_by` is `llm`. A 409 means coaching is paused after a
+    safety concern: don't show a recap then, and never show it on the care screen.
 - Re-generate types from `api/openapi.json`.
 
 ## For the pitch: how Parts A–E answer the brief
@@ -222,9 +242,9 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 **Check it works** (from the repo root)
 ```bash
 ruff check engine sim api
-pytest engine/tests          # 282 tests
+pytest engine/tests          # 300 tests
 pytest sim/tests             # 50 tests
-pytest api/tests             # 132 passed, 18 skipped (Postgres store tests need TEST_DATABASE_URL)
+pytest api/tests             # 174 passed, 18 skipped (Postgres store tests need TEST_DATABASE_URL)
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

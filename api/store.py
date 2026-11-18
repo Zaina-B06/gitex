@@ -190,8 +190,10 @@ class PostgresStore(SQLiteStore):
         from psycopg_pool import ConnectionPool
 
         # A small pool that checks connections before use, so a dropped connection (DB restart) is replaced.
+        # prepare_threshold=None: no server-side prepared statements, which transaction-mode poolers (Supabase
+        # port 6543, PgBouncer) can't keep between transactions.
         self._pool = ConnectionPool(database_url, min_size=1, max_size=5, open=True,
-                                    check=ConnectionPool.check_connection)
+                                    check=ConnectionPool.check_connection, kwargs={"prepare_threshold": None})
         self._unique_violation = psycopg.errors.UniqueViolation
         with self._tx() as c:
             for statement in filter(str.strip, _SCHEMA.format(id_column="BIGSERIAL PRIMARY KEY").split(";")):

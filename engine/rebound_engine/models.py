@@ -2,9 +2,9 @@
 
 from datetime import date, datetime, time
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 # ---------- Enums ----------
 
@@ -305,6 +305,10 @@ class Preferences(_Input):
     encouragement: bool = True  # Task 05 Part C: small "well done" moments; users can turn them off
     reading_level: ReadingLevel = ReadingLevel.standard  # Task 05 Part D: "simple" shows the plain-language texts
     read_aloud: bool = False  # the frontend reads texts aloud with the browser's speech; the API only stores it
+    # Only used for the greeting; never sent to the LLM.
+    display_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] | None = None
+    # The user's own daily anchor ("after maghrib"): replaces the generic phrase in step titles. Wording only.
+    anchor: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] | None = None
     # Task 05 Part E, all optional. Unset = no family steps, exactly as before (every simulator persona).
     household: Household | None = None
     caregiver: bool = False  # cares for someone at home -> short caregiver pause first, one plan reason
@@ -406,6 +410,20 @@ Moment = Literal[
 ]
 
 
+TierChangeKind = Literal["stepped_up", "eased", "shrunk_after_slip"]
+
+
+class TierChange(BaseModel):
+    """One level change and why (observation only: the plan screen and recap explain it; it changes nothing)."""
+
+    day: int
+    behaviour: Behaviour
+    kind: TierChangeKind  # eased = a check-in barrier (barrier set) or missed days (barrier None)
+    from_tier: int
+    to_tier: int
+    barrier: Barrier | None = None
+
+
 class Encouragement(BaseModel):
     """Task 05 Part C: a real moment worth a small "well done". Never a count, never a streak."""
 
@@ -473,6 +491,7 @@ class UserState(BaseModel):
     moments: dict[str, int] = Field(default_factory=dict)  # moment key -> day it last fired
     done_actions: set[str] = Field(default_factory=set)  # action ids completed at least once
     slip_day: int = -1  # last day the state entered drifting or lapsed
+    tier_changes: list[TierChange] = Field(default_factory=list)  # newest last, at most config.TIER_CHANGES_KEEP
 
 
 class Context(BaseModel):

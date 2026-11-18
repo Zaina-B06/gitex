@@ -71,20 +71,34 @@ def compute_engagement_state(history: list[DayLog], previous: EngagementState) -
 
 
 def starting_movement_tier(profile: UserProfile, screening: ScreeningResult) -> int:
+    return movement_start(profile, screening)[0]
+
+
+def movement_start(profile: UserProfile, screening: ScreeningResult) -> tuple[int, str]:
+    """(starting movement tier, why): "active_days", or the last limit that lowered it: "senior", "recovering",
+    "safe_start" (body measurements; never named to the user) or "health_check"."""
     days = profile.baseline.active_days_per_week
     tier = next(t for max_days, t in config.START_TIER_BY_ACTIVE_DAYS if days <= max_days)
+    reason = "active_days"
+
+    def limit(cap: int, why: str) -> None:
+        nonlocal tier, reason
+        if cap < tier:
+            tier, reason = cap, why
+
     if profile.basics.age_years >= config.SENIOR_AGE:
-        tier = min(tier, config.SENIOR_START_TIER)
+        limit(config.SENIOR_START_TIER, "senior")
     if Condition.recovering_from_illness_or_injury in profile.conditions.managing:
-        tier = config.MIN_TIER  # starting level only; steps up as usual from there
+        limit(config.MIN_TIER, "recovering")  # starting level only; steps up as usual from there
     body = profile.body
     if body and body.height_cm and body.weight_kg:
         bmi = body.weight_kg / (body.height_cm / 100) ** 2  # internal only, never shown
         for threshold, cap in config.BMI_START_CAPS:
             if bmi >= threshold:
-                tier = min(tier, cap)
+                limit(cap, "safe_start")
                 break
-    return min(tier, screening.movement_tier_cap)
+    limit(screening.movement_tier_cap, "health_check")
+    return tier, reason
 
 
 def initial_habit_strength(profile: UserProfile, behaviour: Behaviour) -> float:

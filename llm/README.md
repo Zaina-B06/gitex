@@ -2,8 +2,17 @@
 
 ## What it does
 When someone types a check-in in their own words and presses no button, the LLM picks **one barrier** from our
-fixed list (`time`, `energy_fatigue`, `schedule_change`, …). That's all. It **never writes text users read**: every
-message stays a fixed EN/AR template in `api/messages.py`.
+fixed list (`time`, `energy_fatigue`, `schedule_change`, …). Check-in replies stay fixed EN/AR templates in
+`api/messages.py`.
+
+Two more optional helpers (`personal.py`, 18 Nov):
+- **Sign-up suggestions:** from a few sentences the person types, the LLM suggests answers (goals, shift work,
+  fasting, household, caregiver, smoking, things they mention managing, a daily anchor). The API keeps only values
+  from our enums, and the person confirms each one. Red-flag text never reaches the LLM, and the health check is
+  never suggested.
+- **Weekly recap:** the only place the LLM writes text users read. It sees only rule-computed facts (no name, no
+  user id). Its text must pass strict checks (no numbers except levels, no health or medical words, no streaks,
+  2–3 sentences, the right language). If it fails any of them, the user gets a fixed template instead.
 
 The app works fully without it. With no key, a timeout (3 s), an error or odd output, the API uses the keyword
 classifier in `api/llm_client.py`. A check-in never fails or slows down because of the LLM.
@@ -35,6 +44,8 @@ The log line `check-in barrier classified by llm|keywords` says which one answer
 ## Files
 - `providers.py`: provider setup from `.env` (also used by `python -m api.review_arabic`). Stdlib only.
 - `classifier.py`: `classify_barrier(text, lang) -> {barrier, confidence}` and `check_red_flag(text, lang)`.
+- `personal.py`: `suggest_answers(text, lang, chat)` and `write_recap(facts, lang, simple, chat)`; the checks and
+  fallbacks are in `api/personal.py`.
 - `eval/checkins.jsonl`: 61 made-up check-ins (EN, AR, Arabizi, mixed, typos, no-barrier, red flags).
 - `eval/__main__.py`: `python -m llm.eval` compares keywords and the LLM. Without a key it runs keywords only.
 

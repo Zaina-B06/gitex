@@ -16,6 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 SCRYPT_N, SCRYPT_R, SCRYPT_P, SALT_BYTES, KEY_BYTES = 2**14, 8, 1, 16, 32
 LOGIN_MAX_FAILURES = 5
 LOGIN_WINDOW = timedelta(minutes=15)
+SUGGEST_MAX_CALLS = 10  # POST /content/onboarding/suggest, per IP (it's open and each call can cost an LLM call)
+SUGGEST_WINDOW = timedelta(hours=1)
 
 
 class LoginIn(BaseModel):
@@ -46,30 +48,33 @@ def verify_password(password: str, stored: str) -> bool:
 DUMMY_HASH = hash_password(secrets.token_hex(16))
 
 
-class FailedLogins:
-    """Failed tries per username in the last LOGIN_WINDOW.
+class RecentTries:
+    """At most `limit` tries per key (a username, an IP) in the last `window`: failed logins, suggest calls.
     shortcut: in memory and per process, so it resets on restart and isn't shared between workers; move it to the
     database (or Redis) before running more than one API process."""
 
-    def __init__(self, clock: Callable[[], datetime]) -> None:
-        self._clock = clock
+    def __init__(self, clock: Callable[[], datetime], limit: int, window: timedelta) -> None:
+        self._clock, self._limit, self._window = clock, limit, window
         self._tries: dict[str, list[datetime]] = {}
         self._lock = threading.Lock()
 
-    def _recent(self, username: str) -> list[datetime]:
-        cutoff = self._clock() - LOGIN_WINDOW
-        recent = [t for t in self._tries.get(username, []) if t > cutoff]
-        self._tries[username] = recent
+    def _recent(self, key: str) -> list[datetime]:
+        cutoff = self._clock() - self._window
+        recent = [t for t in self._tries.get(key, []) if t > cutoff]
+        if recent:
+            self._tries[key] = recent
+        else:
+            self._tries.pop(key, None)  # keys with nothing recent don't pile up
         return recent
 
-    def blocked(self, username: str) -> bool:
+    def blocked(self, key: str) -> bool:
         with self._lock:
-            return len(self._recent(username)) >= LOGIN_MAX_FAILURES
+            return len(self._recent(key)) >= self._limit
 
-    def add(self, username: str) -> None:
+    def add(self, key: str) -> None:
         with self._lock:
-            self._recent(username).append(self._clock())
+            self._tries[key] = [*self._recent(key), self._clock()]
 
-    def clear(self, username: str) -> None:
+    def clear(self, key: str) -> None:
         with self._lock:
-            self._tries.pop(username, None)
+            self._tries.pop(key, None)

@@ -19,6 +19,8 @@ from .models import (
     EngagementState,
     PlaceSetting,
     ScheduledAction,
+    TierChange,
+    TierChangeKind,
     TimeRange,
     TimeWindow,
     UserProfile,
@@ -241,24 +243,32 @@ def _next_window(w: TimeWindow) -> TimeWindow:
 # ---------- tier changes ----------
 
 
-def _set_tier(state: UserState, b: Behaviour, tier: int) -> None:
+def _set_tier(
+    state: UserState, b: Behaviour, tier: int, kind: TierChangeKind = "eased", barrier: Barrier | None = None
+) -> None:
+    old = state.current_tier[b]
     state.current_tier[b] = tier
     state.successes_at_tier[b] = 0
     state.fails_at_tier[b] = 0
+    if tier != old:  # observation only: explains the change on the plan screen and in the recap
+        change = TierChange(day=state.day, behaviour=b, kind=kind, from_tier=old, to_tier=tier, barrier=barrier)
+        state.tier_changes = [*state.tier_changes, change][-config.TIER_CHANGES_KEEP:]
 
 
-def _tier_down(state: UserState, b: Behaviour, by: int = 1) -> None:
+def _tier_down(
+    state: UserState, b: Behaviour, by: int = 1, kind: TierChangeKind = "eased", barrier: Barrier | None = None
+) -> None:
     if b in state.current_tier:
-        _set_tier(state, b, max(config.MIN_TIER, state.current_tier[b] - by))
+        _set_tier(state, b, max(config.MIN_TIER, state.current_tier[b] - by), kind, barrier)
 
 
 def shrink_on_slip(state: UserState, new_state: EngagementState) -> None:
     """Entering drifting -> every tier -1; entering lapsed -> every tier back to 1."""
     for b in list(state.current_tier):
         if new_state == EngagementState.drifting:
-            _tier_down(state, b, config.DRIFT_TIER_DROP)
+            _tier_down(state, b, config.DRIFT_TIER_DROP, kind="shrunk_after_slip")
         elif new_state == EngagementState.lapsed:
-            _set_tier(state, b, config.MIN_TIER)
+            _set_tier(state, b, config.MIN_TIER, kind="shrunk_after_slip")
 
 
 def update_tier_counters(
@@ -279,7 +289,7 @@ def update_tier_counters(
             and state.engagement_state in (EngagementState.active, EngagementState.recovering)
             and state.current_tier[b] < cap
         ):
-            _set_tier(state, b, state.current_tier[b] + 1)
+            _set_tier(state, b, state.current_tier[b] + 1, kind="stepped_up")
     elif outcome == DayOutcome.partial:
         state.fails_at_tier[b] = 0  # a response breaks the run of misses; doesn't count toward step-up
     else:
@@ -300,11 +310,11 @@ def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> s
     state.last_barrier = barrier
     if barrier == Barrier.time:
         for b in list(state.current_tier):
-            _tier_down(state, b)
+            _tier_down(state, b, barrier=barrier)
     elif barrier == Barrier.energy_fatigue:
         # Movement gets smaller; sleep actions stay as they are (and only low-energy actions show).
         target = Behaviour.movement if Behaviour.movement in state.current_tier else Behaviour.sleep
-        _tier_down(state, target)
+        _tier_down(state, target, barrier=barrier)
     elif barrier in (Barrier.schedule_change, Barrier.forgot):
         state.time_window = _next_window(state.time_window)  # rules mode; bandit mode: see Engine.checkin
         if barrier == Barrier.forgot:
@@ -315,10 +325,10 @@ def apply_barrier(profile: UserProfile, state: UserState, barrier: Barrier) -> s
     elif barrier == Barrier.environment:
         state.prefer_indoor = True
     elif barrier == Barrier.craving:
-        _tier_down(state, Behaviour.smoking)  # and a substitution step (BARRIER_TAG)
+        _tier_down(state, Behaviour.smoking, barrier=barrier)  # and a substitution step (BARRIER_TAG)
     elif barrier == Barrier.stress:
         for b in (Behaviour.movement, Behaviour.nutrition, Behaviour.smoking):
-            _tier_down(state, b)  # recovery comes first today (todays_behaviours)
+            _tier_down(state, b, barrier=barrier)  # recovery comes first today (todays_behaviours)
     return barrier_message(profile, barrier)
 
 

@@ -875,6 +875,48 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 
 ## API (Task 03)
 
+**Personalisation and what the AI does (added 18 Nov).**
+- **The engine still picks every step the same way.** The engine change is observation only: each level change is
+  recorded with its reason (`UserState.tier_changes`, the newest 30). The plan screen and the recap explain those
+  changes; they never cause them. Same-seed check against run_011 required.
+- **Plan screen per goal:** level, safety cap, why it started there, good days still needed to step up (the
+  step-up rule, 4), the last change and why, and why today looks different. Today's reason is the first that
+  applies: illness, then Ramadan, then heat (movement only), then a check-in. Texts describe plan choices, never
+  health outcomes, and never say how many days were missed. The start reason for a body-measurement cap says only "a
+  level that is safe for you".
+- **Anchor and display name** are the user's own words, at most 40 characters. The anchor only replaces the
+  generic "after something you do daily" phrase in step titles. It never appears in rationale, limits, care or
+  safety text. The display name is only for the greeting.
+- **Follow-up questions** are a fixed bank: anchor, shifts, iftar time, family fasting, caregiver, quiet hours and
+  a smoking goal. Each has a show-if rule. The health check is always asked in full and is never a follow-up.
+- **AI-assisted sign-up (optional).** The LLM only *suggests* answers from what the person typed, and they confirm
+  each one.
+  - Red-flag keywords run first: red-flag text gets the care message and never reaches the LLM.
+  - Only the text and its language are sent. The text is not stored or logged.
+  - Every value must be exactly one of our enums, or it's dropped. An anchor must be the person's own words. A
+    smoking goal needs "current smoker".
+  - Health conditions are suggestions only, and the health check is never suggested or pre-answered.
+  - Without a key, or if the reply isn't a JSON object, keywords are used instead.
+- **Weekly recap.** The facts are computed by rules from the user's own history: "mostly done" means done on at
+  least 2 of every 3 counted days, "mostly missed" on at most 1 in 3, and anything between is "mixed". Paused and
+  illness days aren't counted. The facts also give level changes, the most common check-in barrier and whether
+  there was a comeback.
+  - With an LLM, it sees only those facts (no name, no user id, no day numbers; temperature 0).
+  - Its text must pass every check, or the fixed template is used: 2–3 sentences, at most 400 characters, no
+    numbers except levels, no medical, diet or health words, no streak language, no red-flag words, the right
+    language, and grade 6 or lower at the simple level (English).
+  - There is no recap while coaching is paused after a safety concern.
+- **Cost limits (shortcuts):**
+  - The open suggest route takes at most 1000 characters and **10 calls per IP per hour** (then 429). The IP is the
+    first `X-Forwarded-For` entry, which a client can fake, and the count lives in memory per process.
+  - Recaps are **cached per user per day**, with at most one LLM call a day per user. A second `days` value, or a
+    language change that day, gets the template. A step done after viewing the recap shows up the next day.
+  - Both reset on restart. Move them to the database (or Redis) before running more than one API process.
+- **Limits:** the keyword fallback is rough, and the Arabic patterns are unreviewed. The LLM's suggestions and
+  recaps haven't been evaluated on real text (there's no eval set for them yet, unlike the check-in classifier).
+- **Old saved states** (before 18 Nov) have no `tier_changes`. They load with an empty list (tested), so their plan
+  screen shows no last change until the next one happens.
+
 **Sign-in and database (added 18 Nov).**
 - **Optional username + password**, at sign-up or later in settings (once). Usernames are 3–30 letters, digits,
   `.`, `_` or `-`, unique and not case-sensitive. Passwords are at least 8 characters (at most 128).

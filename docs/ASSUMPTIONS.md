@@ -875,6 +875,20 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 
 ## API (Task 03)
 
+**Sign-in and database (added 18 Nov).**
+- **Optional username + password**, at sign-up or later in settings (once). Usernames are 3–30 letters, digits,
+  `.`, `_` or `-`, unique and not case-sensitive. Passwords are at least 8 characters (at most 128).
+- **No email or phone is collected.** That means no password reset: a forgotten password means a new account.
+- **Passwords are never stored, logged or returned.** Only a salted scrypt hash is kept (stdlib `hashlib.scrypt`,
+  N = 2^14, r = 8, p = 1, 16-byte salt). That is the minimum OWASP lists for scrypt; it costs about 50 ms and 16 MB
+  per check. Validation errors never echo what was typed, and the password field is a `SecretStr`.
+- **Same answer for a wrong username or a wrong password** (401). An unknown username still runs one scrypt check,
+  so the response time gives nothing away. **5 failed tries per username per 15 minutes → 429**, even with the
+  right password.
+- **Postgres or SQLite from `DATABASE_URL`**, the same tables in both: sensitive profile groups in their own table,
+  plus `tokens` and `logins`. `CREATE TABLE IF NOT EXISTS` on startup, no migrations framework. Tokens issued
+  before this change (stored with the old `user_meta`) no longer work, which only affects old local databases.
+
 | Choice | Value | Why |
 |---|---|---|
 | Engine day | calendar days in the user's time zone; the onboarding day is day 1 (+ `day_offset`, demo only) | Engine day 0 is the onboarding state with nothing shown yet. Time zone defaults to `Asia/Dubai`. |
@@ -940,8 +954,11 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 - `SQLiteStore` serialises single reads and writes, but an engine call (load state → change → save) is not one
   transaction: two requests for the same user at the same moment can overwrite each other's state. Fine for a
   one-person demo; production needs a per-user lock or optimistic versioning, and a server database.
-- **Prototype auth, not production auth.** One random bearer token per user, returned once at onboarding and stored
-  as a sha256 hash; no expiry, rotation, recovery or rate limiting, and a lost token means a lost account. Demo
+- **Prototype auth, not production auth.** Bearer tokens are random and stored as sha256 hashes; a user can have
+  several (one per device), and logout revokes one. Tokens don't expire. Sign-in is optional (username +
+  password); without it a lost token means a lost account, and there's no password reset (we collect no email or
+  phone to send one to). The failed-login limit lives in memory, so it resets on restart and covers one API
+  process only. Demo
   routes exist only with `DEMO_MODE=true`; `/demo/seed` needs the shared `DEMO_KEY` (`X-Demo-Key` header) and is
   refused when none is set. The employer view uses one shared org key from `.env`.
 - Nutrition, smoking and recovery are engine-tested but not yet simulation-evaluated. Their ladders, variants and

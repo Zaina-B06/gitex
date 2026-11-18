@@ -31,7 +31,7 @@ python -m venv .venv
 # macOS/Linux:           source .venv/bin/activate
 pip install -e "engine[dev,risk]"
 pip install -e "sim[dev]"                     # simulator: numpy, pandas, pyarrow, matplotlib, scikit-learn
-pip install -e "api[dev]"                     # API: fastapi, uvicorn, python-dotenv, tzdata
+pip install -e "api[dev]"                     # API: fastapi, uvicorn, python-dotenv, tzdata, psycopg
 ```
 
 ## Run the API
@@ -43,6 +43,18 @@ pytest api/tests                             # API + store tests
 ```
 
 `POST /users` returns a `token` once; send it as `Authorization: Bearer <token>` on every `/users/{id}/*` call.
+With a username and password (optional at sign-up or later in settings), `POST /auth/login` gives a new token on
+another device.
+
+**Database.** `DATABASE_URL` picks the store:
+- empty or `sqlite:///rebound.db`: a local SQLite file (the default; all tests use SQLite in memory).
+- `postgresql://user:password@host:5432/db` (or `postgres://…`, as Render gives it): Postgres, so data survives
+  restarts. Tables are created on startup if they're missing. There's no migrations framework: a column change
+  means a manual `ALTER TABLE`, or a fresh database.
+
+To run the store tests against Postgres too, point `TEST_DATABASE_URL` at a throwaway database (its tables are
+emptied), e.g. in PowerShell: `$env:TEST_DATABASE_URL="postgresql://..."; pytest api/tests/test_store.py`.
+Without it, those tests are skipped.
 
 ## Run
 

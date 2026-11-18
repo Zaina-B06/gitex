@@ -5,6 +5,62 @@
   "version": "0.1.0"
  },
  "paths": {
+  "/auth/login": {
+   "post": {
+    "summary": "Login",
+    "description": "A new token for this device; earlier tokens keep working. Same 401 for a wrong username or password.",
+    "operationId": "login_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TokenOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/logout": {
+   "post": {
+    "summary": "Logout",
+    "description": "Revokes the token this request was sent with (other devices stay signed in).",
+    "operationId": "logout_auth_logout_post",
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
   "/users": {
    "post": {
     "summary": "Onboard",
@@ -2076,6 +2132,30 @@
     ],
     "title": "LocalizedText"
    },
+   "LoginIn": {
+    "properties": {
+     "username": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{3,30}$",
+      "title": "Username"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 8,
+      "format": "password",
+      "title": "Password",
+      "writeOnly": true
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "username",
+     "password"
+    ],
+    "title": "LoginIn"
+   },
    "MobilityLimitation": {
     "type": "string",
     "enum": [
@@ -2142,6 +2222,16 @@
        }
       ],
       "title": "Org Id"
+     },
+     "login": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LoginIn"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "additionalProperties": false,
@@ -2777,6 +2867,16 @@
        }
       ],
       "title": "Ramadan"
+     },
+     "login": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LoginIn"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "additionalProperties": false,
@@ -3113,6 +3213,24 @@
      "messages"
     ],
     "title": "TodayOut"
+   },
+   "TokenOut": {
+    "properties": {
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "token": {
+      "type": "string",
+      "title": "Token"
+     }
+    },
+    "type": "object",
+    "required": [
+     "user_id",
+     "token"
+    ],
+    "title": "TokenOut"
    },
    "UserProfile": {
     "properties": {

@@ -16,8 +16,10 @@ from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from rebound_engine import config as engine_config
@@ -54,6 +56,7 @@ from rebound_engine.recipes import NOTE as RECIPE_NOTE
 from rebound_engine.recipes import Recipe, load_recipes, suggest_recipe
 from rebound_engine.safety import detect_red_flags
 
+from .auth import DUMMY_HASH, FailedLogins, LoginIn, TokenOut, hash_password, verify_password
 from .community import CommunityEvent, Household, filter_events
 from .demo import (
     DEMO_PERSONAS,
@@ -79,7 +82,7 @@ from .messages import (
     render_reason,
     render_rotation_note,
 )
-from .store import SQLiteStore, UserMeta, sqlite_path
+from .store import UserMeta, open_store
 
 DEFAULT_TIMEZONE = "Asia/Dubai"
 LOCAL_FRONTEND = "http://localhost:5173"  # allowed only with DEMO_MODE or DEV_MODE
@@ -97,6 +100,7 @@ class OnboardIn(OnboardingPayload):
 
     timezone: str = DEFAULT_TIMEZONE
     org_id: str | None = Field(default=None, min_length=1, max_length=64)
+    login: LoginIn | None = None  # optional username + password, so the account can be opened on another device
 
     @field_validator("timezone")
     @classmethod
@@ -206,6 +210,7 @@ class SettingsIn(BaseModel):
     conditions: Conditions | None = None  # replaces the "Anything you're managing?" answers
     shifts: list[Shift] | None = None  # replaces the weekly shift pattern; [] clears it. Takes effect the next day
     ramadan: Literal["started_today", "ended_today"] | None = None  # moon-sighting correction, applies today
+    login: LoginIn | None = None  # add sign-in details to an account created without them (once)
 
 
 class SettingsOut(BaseModel):
@@ -325,7 +330,8 @@ def create_app(
     org_key: str | None = None,
     dashboard_path: Path | None = None,
 ) -> FastAPI:
-    store = SQLiteStore(sqlite_path(database_url))
+    store = open_store(database_url)
+    failed_logins = FailedLogins(lambda: app.state.clock())
 
     class UserCalendar:
         """Engine day -> the user's local date (onboarding day = day 1), then the offline calendar rules."""
@@ -354,15 +360,54 @@ def create_app(
     def authed(
         user_id: str, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
     ) -> UserMeta:
-        try:
-            meta = store.get_meta(user_id)
-        except KeyError:
-            meta = None  # same answer as a wrong token, so user ids can't be probed
-        if meta is None or creds is None or not hmac.compare_digest(meta.token_hash, _hash(creds.credentials)):
+        # Unknown user and wrong token get the same answer, so user ids can't be probed.
+        if creds is None or store.token_user(_hash(creds.credentials)) != user_id:
             raise HTTPException(401, "invalid or missing token", headers={"WWW-Authenticate": "Bearer"})
-        return meta
+        try:
+            return store.get_meta(user_id)
+        except KeyError:
+            raise HTTPException(401, "invalid or missing token", headers={"WWW-Authenticate": "Bearer"}) from None
 
     Authed = Annotated[UserMeta, Depends(authed)]
+
+    def new_token(user_id: str) -> str:
+        token = secrets.token_urlsafe(32)
+        store.add_token(user_id, _hash(token))  # only the sha256 is stored
+        return token
+
+    def save_login(user_id: str, login: LoginIn) -> None:
+        try:
+            store.save_login(user_id, login.username.lower(), hash_password(login.password.get_secret_value()))
+        except ValueError:
+            raise HTTPException(409, "that username is taken") from None
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_request: Any, exc: RequestValidationError) -> JSONResponse:
+        # FastAPI echoes each bad value back as "input"; drop it so a rejected password is never returned.
+        errors = [{k: v for k, v in e.items() if k != "input"} for e in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
+
+    @app.post("/auth/login", response_model=TokenOut)
+    def login(body: LoginIn) -> TokenOut:
+        """A new token for this device; earlier tokens keep working. Same 401 for a wrong username or password."""
+        username = body.username.lower()
+        if failed_logins.blocked(username):
+            raise HTTPException(429, "too many failed sign-ins; try again in 15 minutes")
+        found = store.login(username)
+        ok = verify_password(body.password.get_secret_value(), found[1] if found else DUMMY_HASH)
+        if not (found and ok):
+            failed_logins.add(username)
+            raise HTTPException(401, "wrong username or password")
+        failed_logins.clear(username)
+        return TokenOut(user_id=found[0], token=new_token(found[0]))
+
+    @app.post("/auth/logout", status_code=204)
+    def logout(creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> Response:
+        """Revokes the token this request was sent with (other devices stay signed in)."""
+        if creds is None or store.token_user(_hash(creds.credentials)) is None:
+            raise HTTPException(401, "invalid or missing token", headers={"WWW-Authenticate": "Bearer"})
+        store.delete_token(_hash(creds.credentials))
+        return Response(status_code=204)
 
     def current_day(meta: UserMeta) -> int:
         """Calendar days in the user's time zone; the onboarding day is engine day 1."""
@@ -398,12 +443,20 @@ def create_app(
     def onboard(body: OnboardIn) -> OnboardOut:
         # Answers for a group given without consent are dropped before the engine sees them.
         payload = OnboardingPayload.model_validate(
-            {**body.model_dump(exclude={"timezone", "org_id"}), **_withdrawn(body.consents)}
+            {**body.model_dump(exclude={"timezone", "org_id", "login"}), **_withdrawn(body.consents)}
         )
+        if body.login and store.login(body.login.username.lower()):
+            raise HTTPException(409, "that username is taken")  # checked before anything is stored
         result = engine.onboard(payload)
-        token = secrets.token_urlsafe(32)
+        if body.login:
+            try:
+                save_login(result.user_id, body.login)
+            except HTTPException:
+                engine.delete_user(result.user_id)  # taken in the meantime: leave nothing behind
+                raise
+        token = new_token(result.user_id)
         meta = UserMeta(
-            user_id=result.user_id, timezone=body.timezone, org_id=body.org_id, token_hash=_hash(token),
+            user_id=result.user_id, timezone=body.timezone, org_id=body.org_id,
             onboard_date=app.state.clock().astimezone(ZoneInfo(body.timezone)).date(),
         )
         store.save_meta(meta)
@@ -495,6 +548,10 @@ def create_app(
             prefs = Preferences.model_validate({**profile.preferences.model_dump(), **(body.preferences or {})})
         except ValidationError as e:
             raise RequestValidationError(e.errors(include_url=False)) from None
+        if body.login is not None:  # last check before anything changes
+            if store.username(uid) is not None:
+                raise HTTPException(409, "this account already has sign-in details")
+            save_login(uid, body.login)
         consents = {**profile.consents, **(body.consents or {})}
         update: dict[str, Any] = {"preferences": prefs, "consents": consents}
         if body.conditions is not None:
@@ -518,7 +575,7 @@ def create_app(
         open_day(meta)
         uid = meta.user_id
         return ExportOut(
-            account=meta.model_dump(exclude={"token_hash"}), profile=store.get_profile(uid),
+            account={**meta.model_dump(), "username": store.username(uid)}, profile=store.get_profile(uid),
             state=engine.get_state(uid), events=engine.events(uid),
         )
 

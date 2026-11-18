@@ -9,7 +9,9 @@ description = "FastAPI wrapper around the Rebound engine, with a SQLite store"
 requires-python = ">=3.11"
 # rebound_engine is installed separately from ../engine (pip install -e "engine[dev]").
 # tzdata: Windows has no system time-zone database for zoneinfo.
-dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "python-dotenv>=1.0", "tzdata>=2024.1"]
+# psycopg (v3, binary wheels + its connection pool): only used when DATABASE_URL is Postgres.
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "python-dotenv>=1.0", "tzdata>=2024.1",
+                "psycopg[binary,pool]>=3.2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.4"]

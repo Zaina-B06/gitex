@@ -1,11 +1,13 @@
 """HTTP tests for the §7 endpoints (demo and dashboard routes are tested in their own files)."""
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from api.app import CATCH_UP_MAX_DAYS, create_app
 from api.llm_client import KeywordClassifier
 from api.messages import MESSAGES
+from api.store import USER_TABLES
 from fastapi.testclient import TestClient
 from rebound_engine.demo import demo_payload
 from rebound_engine.policy import BARRIER_MESSAGE
@@ -110,8 +112,11 @@ def test_user_routes_need_that_users_token(client):
 def test_token_is_stored_hashed(client):
     uid, headers, _ = onboard(client)
     token = headers["Authorization"].split()[1]
-    meta = client.app.state.store.get_meta(uid)
-    assert token not in meta.model_dump_json()
+    store = client.app.state.store
+    assert token not in store.get_meta(uid).model_dump_json()
+    with store._tx() as c:
+        stored = [h for (h,) in c.execute("SELECT token_hash FROM tokens WHERE user_id = ?", (uid,)).fetchall()]
+    assert stored == [hashlib.sha256(token.encode()).hexdigest()]
 
 
 # ---------- daily loop ----------
@@ -351,9 +356,9 @@ def test_delete_removes_every_row(client):
     store = client.app.state.store
     assert client.delete(f"/users/{uid}", headers=headers).status_code == 204
     assert client.get(f"/users/{uid}/state", headers=headers).status_code == 401
-    for table in ("user_meta", "profiles", "profiles_sensitive", "states", "events"):
-        n = store._conn.execute(f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", (uid,)).fetchone()[0]
-        assert n == 0, table
+    for table in USER_TABLES:
+        with store._tx() as c:
+            assert c.execute(f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", (uid,)).fetchone()[0] == 0, table
 
 
 # ---------- messages ----------

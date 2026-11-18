@@ -116,6 +116,17 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   - **Check-in:** add a "Family things" button that sends `social_family`. With a family at home the reply is the
     family one, and today's step may become a family step.
   - **Icons:** family steps use the `family`, `water`, `fruit`, `plate`, `no_smoking` and `rest` icons.
+- **Sign-in (optional):**
+  - **Sign-up:** add an optional "Sign in on other devices" step: `login: {username, password}` in `POST /users`.
+    Usernames are 3–30 letters, digits, `.`, `_` or `-` (not case-sensitive); passwords are at least 8 characters.
+    A 409 means the username is taken. Say plainly that there's no password reset (we don't ask for an email).
+  - **Sign-in screen:** `POST /auth/login {username, password}` → `{user_id, token}`. It gives a new token for this
+    device, and other devices stay signed in. A 401 is "wrong username or password" (the same for both). A 429 is
+    "too many tries, wait 15 minutes".
+  - **Sign out:** `POST /auth/logout` with the Bearer token (204), then forget the token locally.
+  - **Settings:** users without sign-in details can add them once: `PATCH /settings {"login": {...}}` (409 if they
+    already have them or the username is taken). `GET /export` shows `account.username`.
+  - Demo personas have no login; keep opening them from the demo screen.
 - Re-generate types from `api/openapi.json`.
 
 ## For the pitch: how Parts A–E answer the brief
@@ -213,7 +224,7 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 ruff check engine sim api
 pytest engine/tests          # 282 tests
 pytest sim/tests             # 50 tests
-pytest api/tests             # 120 tests
+pytest api/tests             # 132 passed, 18 skipped (Postgres store tests need TEST_DATABASE_URL)
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

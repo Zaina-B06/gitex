@@ -17,10 +17,40 @@ export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
   const tags = useMemo(() => [...new Set((list.data ?? []).flatMap((r) => r.tags))].sort(), [list.data])
   const shown = (list.data ?? []).filter((r) => !tag || r.tags.includes(tag))
 
+  // Title and filter chips stay pinned (chips scroll sideways); the list is the only vertical scroll.
+  const top = open ? null : (
+    <>
+      <header className="p-6 pb-0 flex flex-col gap-1">
+        <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">Meals</h1>
+        <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">
+          Simple home cooking from the region. General guidance, not medical advice.
+        </p>
+      </header>
+      {tags.length > 0 && (
+        <div className="px-6 py-3 flex gap-2 overflow-x-auto overflow-y-hidden" role="group" aria-label="Filter meals">
+          {[null, ...tags].map((t) => (
+            <button
+              key={t ?? 'all'}
+              type="button"
+              aria-pressed={tag === t}
+              onClick={() => setTag(t)}
+              className={`flex-none min-h-[36px] px-3 rounded-full text-[13px] capitalize cursor-pointer whitespace-nowrap ${
+                tag === t ? 'bg-[#8A4B0F] text-white font-semibold border-0' : 'bg-white border border-[#C5D0C7]'
+              }`}
+            >
+              {t ? tagLabel(t) : 'All'}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+
   return (
     <ScreenFrame
       tab="meals"
       onNavigate={onNavigate}
+      top={top}
       background={
         <>
           <TatreezPattern width={210} height={210} style={{ right: -110, bottom: 90, opacity: 0.07 }} />
@@ -44,32 +74,7 @@ export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
         </div>
       ) : (
         <>
-          <header className="p-6 pb-0 flex flex-col gap-1">
-            <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">Meals</h1>
-            <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">
-              Simple home cooking from the region. General guidance, not medical advice.
-            </p>
-          </header>
-
-          {tags.length > 0 && (
-            <div className="sticky top-0 z-10 bg-[#EEF1EA]/95 backdrop-blur px-6 py-3 flex gap-2 overflow-x-auto" role="group" aria-label="Filter meals">
-              {[null, ...tags].map((t) => (
-                <button
-                  key={t ?? 'all'}
-                  type="button"
-                  aria-pressed={tag === t}
-                  onClick={() => setTag(t)}
-                  className={`flex-none min-h-[36px] px-3 rounded-full text-[13px] capitalize cursor-pointer ${
-                    tag === t ? 'bg-[#8A4B0F] text-white font-semibold border-0' : 'bg-white border border-[#C5D0C7]'
-                  }`}
-                >
-                  {t ? tagLabel(t) : 'All'}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="px-6 pb-6 flex flex-col gap-2.5">
+          <div className="px-6 pt-1 pb-6 flex flex-col gap-2.5">
             {list.loading && <LoadingView label="Loading meals…" />}
             {list.error && <ErrorView message={list.error} onRetry={list.reload} />}
             {shown.map((r) => (

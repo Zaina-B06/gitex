@@ -1,12 +1,27 @@
 import React, { useState } from 'react'
 import { ScreenId } from '../types'
+import type { AdvanceIn, SeedPersona } from '../api/client'
+import { firstName, loadPersonas } from '../lib/demo'
 
 interface ScreenSwitcherProps {
   currentScreen: ScreenId | null
   onSelectScreen: (screen: ScreenId) => void
   signedIn: boolean
   onStartOver: () => void
+  /** Signed in: the current user's id, to mark who is selected. */
+  userId: string | null
+  onSwitchPerson: (p: SeedPersona) => void
+  /** POST /demo/users/{id}/advance, then the screens re-fetch. */
+  onAdvance: (body: AdvanceIn, label: string) => Promise<void>
 }
+
+const TIME_TRAVEL: { label: string; body: AdvanceIn }[] = [
+  { label: 'Good day', body: { days: 1, pattern: 'good' } },
+  { label: 'Mixed day', body: { days: 1, pattern: 'mixed' } },
+  { label: 'Skip 4 days (lapse)', body: { days: 4, pattern: 'lapse' } },
+  { label: 'Ramadan', body: { days: 1, pattern: 'good', scenario: 'ramadan' } },
+  { label: 'Heat', body: { days: 1, pattern: 'good', scenario: 'heat' } },
+]
 
 // Grouped in the order a real user meets them.
 const GROUPS: { title: string; screens: { id: ScreenId; label: string }[] }[] = [
@@ -14,11 +29,11 @@ const GROUPS: { title: string; screens: { id: ScreenId; label: string }[] }[] = 
     title: '1 · Sign-up (first open)',
     screens: [
       { id: 'welcome', label: 'Welcome & language' },
-      { id: 'onboarding-basics', label: 'About you (1/5)' },
-      { id: 'onboarding-goals', label: 'Goals (2/5)' },
-      { id: 'onboarding-health', label: 'Health check (3/5)' },
-      { id: 'onboarding-baseline', label: 'Your days (4/5)' },
-      { id: 'onboarding-preferences', label: 'What helps (5/5)' },
+      { id: 'onboarding-basics', label: 'About you' },
+      { id: 'onboarding-goals', label: 'Goals' },
+      { id: 'onboarding-health', label: 'Health check' },
+      { id: 'onboarding-baseline', label: 'Your days (movement or sleep only)' },
+      { id: 'onboarding-preferences', label: 'What helps' },
     ],
   },
   {
@@ -45,14 +60,27 @@ const GROUPS: { title: string; screens: { id: ScreenId; label: string }[] }[] = 
 
 const APP_GROUP: ScreenId[] = GROUPS[1].screens.map((s) => s.id).filter((id) => id !== 'care')
 
-/** Demo-only bar (VITE_DEMO_MODE=true): jump between screens, start over. */
+/** Demo-only bar (VITE_DEMO_MODE=true): switch person, time travel, jump between screens, start over. */
 export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
   currentScreen,
   onSelectScreen,
   signedIn,
   onStartOver,
+  userId,
+  onSwitchPerson,
+  onAdvance,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const personas = loadPersonas()
+  const advance = async (body: AdvanceIn, label: string) => {
+    setBusy(true)
+    try {
+      await onAdvance(body, label)
+    } finally {
+      setBusy(false)
+    }
+  }
   const active = GROUPS.flatMap((g) => g.screens).find((s) => s.id === currentScreen)
 
   const pick = (id: ScreenId) => {
@@ -62,8 +90,32 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
     onSelectScreen(id)
   }
 
+  const chip =
+    'flex-none min-h-[28px] px-2.5 rounded-full text-[11px] font-medium border border-[#3E6B53] cursor-pointer disabled:opacity-50'
+
   return (
-    <div className="w-full bg-[#263A30] text-white px-4 py-2 flex items-center justify-between text-xs border-b border-[#3E6B53]">
+    <div className="w-full bg-[#263A30] text-white text-xs border-b border-[#3E6B53]">
+    {signedIn && (
+      <div className="px-4 pt-2 flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }} aria-label="Demo controls">
+        {personas.map((p) => (
+          <button
+            key={p.user_id}
+            type="button"
+            onClick={() => onSwitchPerson(p)}
+            aria-pressed={p.user_id === userId}
+            className={`${chip} ${p.user_id === userId ? 'bg-[#A2C7B0] text-[#1B2A22] font-semibold' : 'bg-transparent text-white'}`}
+          >
+            {firstName(p)}
+          </button>
+        ))}
+        {TIME_TRAVEL.map((t) => (
+          <button key={t.label} type="button" disabled={busy} onClick={() => advance(t.body, t.label)} className={`${chip} bg-[#3E6B53] text-white`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    )}
+    <div className="px-4 py-2 flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
         <span className="font-semibold tracking-wider text-[#A2C7B0] uppercase text-[10px]">Demo</span>
         <span className="font-medium text-white truncate max-w-[170px] sm:max-w-xs">{active?.label ?? '—'}</span>
@@ -122,6 +174,7 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
           </>
         )}
       </div>
+    </div>
     </div>
   )
 }

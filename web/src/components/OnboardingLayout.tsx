@@ -1,10 +1,9 @@
 import React from 'react'
 import { ArabicCalligraphyRing } from './BackgroundMotifs'
 
-const TOTAL_STEPS = 5
-
 interface OnboardingLayoutProps {
-  step: number // 1–5
+  step: number // 1-based
+  total: number // screens this person sees (4 or 5)
   title: string
   subtitle?: string
   onBack: () => void
@@ -16,9 +15,10 @@ interface OnboardingLayoutProps {
   children: React.ReactNode
 }
 
-/** Shared frame for onboarding steps: back arrow, 5-dot stepper, title, scrolling body, footer CTA. */
+/** Shared frame for onboarding steps: back arrow, stepper, title, scrolling body, footer CTA. */
 export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
   step,
+  total,
   title,
   subtitle,
   onBack,
@@ -44,13 +44,13 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
-      <div role="img" aria-label={`Step ${step} of ${TOTAL_STEPS}`} className="flex gap-1.5">
-        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+      <div role="img" aria-label={`Step ${step} of ${total}`} className="flex gap-1.5">
+        {Array.from({ length: total }, (_, i) => (
           <span key={i} className={`w-6 h-1.5 rounded-sm ${i < step ? 'bg-[#3E6B53]' : 'bg-[#C5D0C7]'}`} />
         ))}
       </div>
       <span className="w-11 text-[12px] text-[#5A6A60] text-right">
-        {step} / {TOTAL_STEPS}
+        {step} / {total}
       </span>
     </div>
 

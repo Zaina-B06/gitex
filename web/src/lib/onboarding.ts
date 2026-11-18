@@ -1,4 +1,4 @@
-import type { Condition, OnboardIn } from '../api/client'
+import type { FollowUp, OnboardIn, SuggestedAnswers } from '../api/client'
 import { AppState, OnboardingDraft, SCREENING_KEYS, ScreeningKey } from '../types'
 
 export const emptyDraft = (): OnboardingDraft => ({
@@ -30,14 +30,61 @@ export const emptyDraft = (): OnboardingDraft => ({
   womenOnlySpaces: false,
   household: null,
   readingLevel: 'standard',
+  caregiver: false,
+  anchor: '',
+  iftarTime: '',
+  quietStart: '',
+  quietEnd: '',
 })
 
-/** Health-check answers suggested by the conditions picked in step 2 (the user can change them). */
-export const CONDITION_HINTS: Partial<Record<Condition, ScreeningKey>> = {
-  high_blood_pressure: 'heart_condition_or_high_bp',
-  diabetes: 'other_long_term_condition',
-  back_or_joint_pain: 'bone_joint_muscle_problem',
+/** The draft in the profile's shape, for the follow-up questions' show_if rules. */
+const answersOf = (p: OnboardingDraft): Record<string, Record<string, unknown>> => ({
+  basics: { goals: p.goals, schedule_type: p.scheduleType },
+  preferences: { fasting_ramadan: p.fastingRamadan, household: p.household, caregiver: p.caregiver },
+  history: { smoking_status: p.smokes ? 'current' : null },
+})
+
+/** True when every show_if rule of the question matches the answers so far (same rules as the server). */
+export function showFollowUp(q: FollowUp, p: OnboardingDraft): boolean {
+  const answers = answersOf(p)
+  const value = (path: string) => {
+    const [group, field] = path.split('.')
+    return answers[group]?.[field] ?? null
+  }
+  return q.show_if.every((r) => {
+    const v = value(r.field)
+    if (r.op === 'contains') return Array.isArray(v) && v.includes(r.value)
+    if (r.op === 'equals') return v === r.value
+    return !(r.value as unknown[]).includes(v) // not_in
+  })
 }
+
+/** Pre-fills the draft from POST /content/onboarding/suggest. Only fills what the person mentioned; the health
+ *  check is never touched. The user sees every answer and can change it. */
+export function applySuggestions(p: OnboardingDraft, s: SuggestedAnswers): OnboardingDraft {
+  const smokes = p.smokes || s.smoking_status === 'current'
+  return {
+    ...p,
+    goals: s.goals.length ? [...new Set([...p.goals, ...s.goals])].filter((g) => g !== 'smoking' || smokes) : p.goals,
+    scheduleType: s.schedule_type ?? p.scheduleType,
+    fastingRamadan: s.fasting_ramadan ?? p.fastingRamadan,
+    household: s.household ?? p.household,
+    caregiver: s.caregiver ?? p.caregiver,
+    smokes,
+    conditions: [...new Set([...p.conditions, ...s.managing])],
+    anchor: s.anchor ?? p.anchor,
+  }
+}
+
+/** The sign-up screens this person sees, in order (no empty screens: "Your days" only for movement or sleep). */
+export const onboardingSteps = (p: OnboardingDraft): string[] =>
+  ['onboarding-basics', 'onboarding-goals', 'onboarding-health', ...(asksBaseline(p) ? ['onboarding-baseline'] : []),
+   'onboarding-preferences']
+
+export const stepOf = (p: OnboardingDraft, screen: string) => ({
+  step: onboardingSteps(p).indexOf(screen) + 1,
+  total: onboardingSteps(p).length,
+})
 
 // Which baseline questions matter depends on the goals (the engine reads them only for these behaviours).
 export const asksActivity = (p: OnboardingDraft) => p.goals.includes('movement')
@@ -125,7 +172,11 @@ export function buildOnboardPayload(state: AppState): OnboardIn {
       reading_level: p.readingLevel,
       read_aloud: false,
       household: p.household,
-      caregiver: p.scheduleType === 'home_caregiver',
+      caregiver: p.caregiver,
+      display_name: state.displayName.trim() || null,
+      anchor: p.anchor.trim() || null,
+      iftar_time: p.fastingRamadan && p.iftarTime ? p.iftarTime : null,
+      quiet_hours: p.quietStart && p.quietEnd ? { start: p.quietStart, end: p.quietEnd } : null,
     },
     consents: {
       screening: true,

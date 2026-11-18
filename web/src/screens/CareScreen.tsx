@@ -21,19 +21,24 @@ const HELP_MESSAGE =
 export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
   const fromHelp = state.careReason === 'help'
   const fromScreening = state.careReason === 'onboarding_screening' && !state.session
+  // Red-flag words in the optional "own words" box at sign-up: the server's care text; nothing was saved.
+  const fromSignupText = state.careReason === 'onboarding_text' && !state.session
   const fromSignup = state.justSignedUp
   const message = fromHelp
     ? HELP_MESSAGE
-    : fromScreening
+    : fromSignupText
+      ? (state.careMessage ?? DEFAULT_MESSAGE)
+      : fromScreening
       ? SCREENING_MESSAGE
       : state.lastCheckin?.red_flag
         ? state.lastCheckin.message
         : DEFAULT_MESSAGE
-  const doneLabel = fromHelp ? 'Back' : fromScreening || fromSignup ? 'Continue setting up' : "I've been seen, I'm OK now"
+  const doneLabel = fromHelp ? 'Back' : fromSignupText ? 'Back to sign-up' : fromScreening || fromSignup ? 'Continue setting up' : "I've been seen, I'm OK now"
 
   const handleBeenSeen = async () => {
-    setState((prev) => ({ ...prev, careReason: null }))
+    setState((prev) => ({ ...prev, careReason: null, careMessage: null }))
     if (fromHelp) return onNavigate('today')
+    if (fromSignupText) return onNavigate('onboarding-basics')
     if (fromScreening) return onNavigate(asksBaseline(state.profile) ? 'onboarding-baseline' : 'onboarding-preferences')
     if (fromSignup) return onNavigate('plan-ready')
     try {

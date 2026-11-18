@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 import type { PlanOut } from '../api/client'
 import { BEHAVIOUR_STYLE } from '../lib/behaviour'
 
-/** The plan's behaviours in order, plus "why it looks like this" (reasons → all_reasons). */
-export const PlanSummary: React.FC<{ plan: PlanOut }> = ({ plan }) => {
+/** The plan's behaviours in order (optional; My plan shows goal cards instead), plus "why it looks like this". */
+export const PlanSummary: React.FC<{ plan: PlanOut; showList?: boolean }> = ({ plan, showList = true }) => {
   const [showAll, setShowAll] = useState(false)
   return (
     <div className="flex flex-col gap-3 text-[#1B2A22]">
-      <ol aria-label="Your goals in order" className="m-0 p-0 list-none bg-white/95 rounded-[20px] shadow-card flex flex-col">
+      {showList && <ol aria-label="Your goals in order" className="m-0 p-0 list-none bg-white/95 rounded-[20px] shadow-card flex flex-col">
         {plan.behaviours.map((b, i) => {
           const st = BEHAVIOUR_STYLE[b]
           return (
@@ -22,7 +22,7 @@ export const PlanSummary: React.FC<{ plan: PlanOut }> = ({ plan }) => {
             </li>
           )
         })}
-      </ol>
+      </ol>}
 
       <section aria-label="Why your plan looks like this" className="bg-white/95 rounded-[20px] shadow-card p-3.5 px-4 flex flex-col gap-2">
         <h2 className="m-0 font-display tracking-tight text-[16px] font-semibold">Why it looks like this</h2>

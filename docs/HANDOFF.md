@@ -244,7 +244,7 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 ruff check engine sim api
 pytest engine/tests          # 300 tests
 pytest sim/tests             # 50 tests
-pytest api/tests             # 174 passed, 18 skipped (Postgres store tests need TEST_DATABASE_URL)
+pytest api/tests             # 191 passed, 18 skipped (Postgres store tests need TEST_DATABASE_URL)
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

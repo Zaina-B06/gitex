@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description A new token for this device; earlier tokens keep working. Same 401 for a wrong username or password.
+         */
+        post: operations["login_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Revokes the token this request was sent with (other devices stay signed in).
+         */
+        post: operations["logout_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -241,9 +281,52 @@ export interface paths {
         };
         /**
          * Onboarding Content
-         * @description Health-check questions, "why we ask" lines and a reading-level example, before the user exists.
+         * @description Health-check questions, "why we ask" lines, a reading-level example and the follow-up question bank,
+         *     before the user exists.
          */
         get: operations["onboarding_content_content_onboarding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content/onboarding/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Onboarding Suggest
+         * @description Optional: suggested sign-up answers from a few sentences, for the user to confirm. Red-flag text gets the
+         *     care message and never reaches the LLM. The text is not stored or logged; the health check is never
+         *     suggested. Open route, so at most SUGGEST_MAX_CALLS per IP per SUGGEST_WINDOW (429 after that).
+         */
+        post: operations["onboarding_suggest_content_onboarding_suggest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/recap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recap
+         * @description Facts from the user's own events (rules), plus 2-3 friendly sentences. Not shown after a safety concern.
+         */
+        get: operations["recap_users__user_id__recap_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -697,6 +780,24 @@ export interface components {
             /** Events */
             events: components["schemas"]["Event"][];
         };
+        /**
+         * GoalOut
+         * @description One active behaviour on the plan screen: where it is, why, and how far to the next level.
+         */
+        GoalOut: {
+            behaviour: components["schemas"]["Behaviour"];
+            /** Tier */
+            tier: number;
+            /** Max Tier */
+            max_tier: number;
+            /** Start Reason */
+            start_reason: string;
+            /** Good Days To Next */
+            good_days_to_next: number | null;
+            last_change?: components["schemas"]["LevelChangeOut"] | null;
+            /** Today Note */
+            today_note?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -725,6 +826,19 @@ export interface components {
          * @enum {string}
          */
         Language: "en" | "ar";
+        /** LevelChangeOut */
+        LevelChangeOut: {
+            /** Day */
+            day: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stepped_up" | "eased" | "shrunk_after_slip";
+            /** Reason */
+            reason: string;
+            barrier?: components["schemas"]["Barrier"] | null;
+        };
         /** LocalizedText */
         LocalizedText: {
             /** En */
@@ -736,6 +850,16 @@ export interface components {
              * @default false
              */
             ar_reviewed: boolean;
+        };
+        /** LoginIn */
+        LoginIn: {
+            /** Username */
+            username: string;
+            /**
+             * Password
+             * Format: password
+             */
+            password: string;
         };
         /**
          * MobilityLimitation
@@ -765,6 +889,7 @@ export interface components {
             timezone: string;
             /** Org Id */
             org_id?: string | null;
+            login?: components["schemas"]["LoginIn"] | null;
         };
         /** OnboardOut */
         OnboardOut: {
@@ -795,6 +920,10 @@ export interface components {
             };
             /** Translation Note */
             translation_note: string | null;
+            /** Follow Ups */
+            follow_ups: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * PastHelper
@@ -819,6 +948,8 @@ export interface components {
             all_reasons: string[];
             /** Rotation Note */
             rotation_note?: string | null;
+            /** Goals */
+            goals?: components["schemas"]["GoalOut"][];
         };
         /** Preferences */
         Preferences: {
@@ -853,6 +984,10 @@ export interface components {
              * @default false
              */
             read_aloud: boolean;
+            /** Display Name */
+            display_name?: string | null;
+            /** Anchor */
+            anchor?: string | null;
             household?: components["schemas"]["Household"] | null;
             /**
              * Caregiver
@@ -875,6 +1010,22 @@ export interface components {
          * @enum {string}
          */
         ReadingLevel: "standard" | "simple";
+        /** RecapOut */
+        RecapOut: {
+            /** Days */
+            days: number;
+            /** Facts */
+            facts: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: string;
+            /**
+             * Written By
+             * @enum {string}
+             */
+            written_by: "llm" | "template";
+        };
         /** RecipeOut */
         RecipeOut: {
             /** Id */
@@ -989,6 +1140,7 @@ export interface components {
             shifts?: components["schemas"]["Shift"][] | null;
             /** Ramadan */
             ramadan?: ("started_today" | "ended_today") | null;
+            login?: components["schemas"]["LoginIn"] | null;
         };
         /** SettingsOut */
         SettingsOut: {
@@ -1075,6 +1227,65 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** SuggestIn */
+        SuggestIn: {
+            /** Text */
+            text: string;
+            /** @default en */
+            lang: components["schemas"]["Language"];
+        };
+        /** SuggestOut */
+        SuggestOut: {
+            /** Red Flag */
+            red_flag: boolean;
+            /** Message */
+            message: string | null;
+            suggestions: components["schemas"]["SuggestedAnswers"] | null;
+            /** Follow Ups */
+            follow_ups: string[];
+            /** Source */
+            source: ("llm" | "keywords") | null;
+        };
+        /**
+         * SuggestedAnswers
+         * @description Suggestions to pre-fill sign-up; the user confirms each. Never the health check.
+         */
+        SuggestedAnswers: {
+            /** Goals */
+            goals: components["schemas"]["Behaviour"][];
+            /** Schedule Type */
+            schedule_type: "shift" | null;
+            /** Fasting Ramadan */
+            fasting_ramadan: boolean | null;
+            household: components["schemas"]["Household"] | null;
+            /** Caregiver */
+            caregiver: boolean | null;
+            /** Smoking Status */
+            smoking_status: "current" | null;
+            /** Managing */
+            managing: components["schemas"]["Condition"][];
+            /** Anchor */
+            anchor: string | null;
+        };
+        /**
+         * TierChange
+         * @description One level change and why (observation only: the plan screen and recap explain it; it changes nothing).
+         */
+        TierChange: {
+            /** Day */
+            day: number;
+            behaviour: components["schemas"]["Behaviour"];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stepped_up" | "eased" | "shrunk_after_slip";
+            /** From Tier */
+            from_tier: number;
+            /** To Tier */
+            to_tier: number;
+            barrier?: components["schemas"]["Barrier"] | null;
+        };
         /** TimeRange */
         TimeRange: {
             /**
@@ -1116,6 +1327,13 @@ export interface components {
             recipes?: {
                 [key: string]: components["schemas"]["RecipeOut"];
             };
+        };
+        /** TokenOut */
+        TokenOut: {
+            /** User Id */
+            user_id: string;
+            /** Token */
+            token: string;
         };
         /** UserProfile */
         UserProfile: {
@@ -1247,6 +1465,8 @@ export interface components {
              * @default -1
              */
             slip_day: number;
+            /** Tier Changes */
+            tier_changes?: components["schemas"]["TierChange"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -1275,6 +1495,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    login_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     onboard_users_post: {
         parameters: {
             query?: never;
@@ -1716,6 +1987,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OnboardingTextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    onboarding_suggest_content_onboarding_suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recap_users__user_id__recap_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecapOut"];
                 };
             };
             /** @description Validation Error */

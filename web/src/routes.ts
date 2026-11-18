@@ -9,6 +9,7 @@ export const SCREEN_PATHS: Record<ScreenId, string> = {
   'onboarding-baseline': '/onboarding/your-days',
   'onboarding-preferences': '/onboarding/what-helps',
   'plan-ready': '/onboarding/your-plan',
+  'save-progress': '/onboarding/save-progress',
   today: '/today',
   plan: '/plan',
   meals: '/meals',
@@ -26,6 +27,7 @@ export const SCREEN_PATHS: Record<ScreenId, string> = {
 /** Screens that need a signed-in user; others are always reachable. */
 export const APP_SCREENS: ScreenId[] = [
   'plan-ready',
+  'save-progress',
   'today',
   'plan',
   'meals',

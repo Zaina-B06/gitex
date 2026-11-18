@@ -30,14 +30,10 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
 )
 
 /**
- * "My profile" in Settings: what sign-up recorded (from GET /export), read-only except the name.
+ * "What you told us" in Settings: what sign-up recorded (from GET /export), read-only.
  * Height and weight are never displayed (CLAUDE.md §4.2): we only say whether they were given.
  */
-export const ProfileSection: React.FC<{
-  exp: ExportOut
-  name: string
-  onNameChange: (name: string) => void
-}> = ({ exp, name, onNameChange }) => {
+export const ProfileSection: React.FC<{ exp: ExportOut }> = ({ exp }) => {
   const p = exp.profile
   const b = p.basics
   const s = p.screening
@@ -54,21 +50,7 @@ export const ProfileSection: React.FC<{
   const body = p.body && (p.body.height_cm || p.body.weight_kg)
 
   return (
-    <section aria-labelledby="s-profile" className="bg-white/90 rounded-[20px] flex flex-col shadow-card overflow-hidden">
-      <h2 id="s-profile" className="m-0 p-3 px-4 pb-1 text-[12px] font-semibold text-[#5A6A60]">
-        My profile
-      </h2>
-      <label className="px-4 py-2 flex items-center justify-between gap-3 border-b border-[#E6EBE4]">
-        <span className="text-[14px] text-[#5A6A60] flex-none">Name</span>
-        <input
-          type="text"
-          maxLength={30}
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Add a name (optional)"
-          className="min-h-[36px] w-40 rounded-lg border border-[#C5D0C7] px-2 text-[14px] text-end bg-white"
-        />
-      </label>
+    <div className="flex flex-col">
       <Row label="Age">{b.age_years}</Row>
       <Row label="Sex">{SEX[b.sex] ?? b.sex}</Row>
       <Row label="Your days">{SCHEDULE[b.schedule_type] ?? b.schedule_type}</Row>
@@ -102,9 +84,9 @@ export const ProfileSection: React.FC<{
         </p>
       )}
       <p className="m-0 px-4 py-2.5 text-[12px] leading-snug text-[#5A6A60]">
-        These answers set your safe starting plan. Your name stays on this phone. To change other answers, delete your
-        account below and sign up again.
+        These answers set your safe starting plan. Age, sex and the health check can't be changed here: to change
+        them, delete your account and sign up again.
       </p>
-    </section>
+    </div>
   )
 }

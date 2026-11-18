@@ -9,7 +9,7 @@ interface PlanCardScreenProps extends ScreenProps {
 }
 
 /** Last sign-up screen: "Your plan, built for you", from the plan_summary returned by POST /users. */
-export const PlanCardScreen: React.FC<PlanCardScreenProps> = ({ state, showToast, onStart }) => (
+export const PlanCardScreen: React.FC<PlanCardScreenProps> = ({ state, onStart }) => (
   <ScreenFrame
     className="bg-[#54705C] text-white"
     background={
@@ -22,13 +22,10 @@ export const PlanCardScreen: React.FC<PlanCardScreenProps> = ({ state, showToast
     footer={
       <button
         type="button"
-        onClick={() => {
-          showToast('Your plan is ready. Here is your first step.')
-          onStart()
-        }}
+        onClick={onStart}
         className="w-full min-h-[52px] rounded-2xl bg-white hover:bg-[#F3F7F4] text-[#2C5140] text-[16px] font-bold shadow-[0_10px_22px_-10px_rgba(20,40,28,0.6)] border-0 cursor-pointer"
       >
-        Start today
+        Continue
       </button>
     }
   >

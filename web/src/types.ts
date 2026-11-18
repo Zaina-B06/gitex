@@ -10,7 +10,8 @@ export type ScreenId =
   | 'onboarding-health'
   | 'onboarding-baseline'
   | 'onboarding-preferences'
-  | 'plan-ready' // "Your plan, built for you": last sign-up screen
+  | 'plan-ready' // "Your plan, built for you"
+  | 'save-progress' // optional username + password, last sign-up screen
   // the app (needs a signed-in user); the first five are the bottom tabs
   | 'today'
   | 'plan' // "My plan" tab: calendar, daily thought, plan reasons
@@ -84,15 +85,23 @@ export interface OnboardingDraft {
   womenOnlySpaces: boolean
   household: Household | null
   readingLevel: ReadingLevel
+  // follow-up questions (shown only when their show_if rules match)
+  caregiver: boolean
+  anchor: string // "after maghrib": replaces "something you do daily" in step titles
+  iftarTime: string // HH:MM, empty = local sunset
+  quietStart: string // HH:MM, empty = no quiet hours
+  quietEnd: string
 }
 
 /** Why the Care screen is showing. */
-export type CareReason = 'onboarding_screening' | 'red_flag' | 'help'
+export type CareReason = 'onboarding_screening' | 'onboarding_text' | 'red_flag' | 'help'
 
 export interface AppState {
   session: Session | null
-  /** First name for the greeting. Kept on this device only, never sent to the server. */
+  /** First name for the greeting: preferences.display_name on the server (not stored in the browser). */
   displayName: string
+  /** The care text returned by the server for a red flag before sign-up (POST /content/onboarding/suggest). */
+  careMessage: string | null
   language: 'en' | 'ar'
   profile: OnboardingDraft
   /** Plan summary from POST /users, shown on the plan-ready screen right after sign-up. */

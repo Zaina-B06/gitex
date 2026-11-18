@@ -1,7 +1,7 @@
 import React from 'react'
 import { ScreenProps, OnboardingDraft } from '../types'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
-import { asksActivity, asksSleep } from '../lib/onboarding'
+import { asksActivity, asksSleep, stepOf } from '../lib/onboarding'
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: d, label: String(d) }))
 const SLEEP_HOURS = [4, 5, 6, 7, 8, 9].map((h) => ({ value: h, label: h === 4 ? '≤4' : h === 9 ? '9+' : String(h) }))
@@ -13,7 +13,7 @@ const QUALITY = [
   { value: 5, label: 'Very good' },
 ]
 
-/** Step 4 of 5: activity and/or sleep baseline (CLAUDE.md §4.4), only for the goals picked. */
+/** Step 4 (only with a movement or sleep goal): activity and/or sleep baseline (CLAUDE.md §4.4), only for the goals picked. */
 export const BaselineScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
   const p = state.profile
   const update = (patch: Partial<OnboardingDraft>) =>
@@ -29,7 +29,7 @@ export const BaselineScreen: React.FC<ScreenProps> = ({ state, setState, onNavig
 
   return (
     <OnboardingLayout
-      step={4}
+      {...stepOf(p, 'onboarding-baseline')}
       title="Your days right now"
       subtitle="A rough guess is fine. This is where we start, not a target."
       onBack={() => onNavigate('onboarding-health')}

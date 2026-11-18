@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { ScreenProps, SCREENING_KEYS, ScreeningKey, MobilityLimitation, PregnancyAnswer } from '../types'
 import { api } from '../api/client'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { useAsync } from '../lib/useAsync'
-import { CONDITION_HINTS, asksBaseline } from '../lib/onboarding'
+import { asksBaseline, stepOf } from '../lib/onboarding'
 
 const MOBILITY: { value: MobilityLimitation; label: string }[] = [
   { value: 'none', label: 'No' },
@@ -18,24 +18,10 @@ const PREGNANCY: { value: PregnancyAnswer; label: string }[] = [
   { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ]
 
-/** Step 3 of 5: health check. Wording from GET /content/onboarding; answers pre-filled from step 2 conditions. */
+/** Step 3: health check, always asked in full and never pre-filled. Wording from GET /content/onboarding. */
 export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
   const p = state.profile
   const content = useAsync(() => api.onboardingContent(state.language, p.readingLevel), [state.language, p.readingLevel])
-
-  // Pre-fill "yes" where a condition from step 2 clearly answers the question (only if still unanswered).
-  const hinted = new Set(p.conditions.map((c) => CONDITION_HINTS[c]).filter(Boolean) as ScreeningKey[])
-  useEffect(() => {
-    if (![...hinted].some((k) => p.screening[k] === null)) return
-    setState((prev) => {
-      const screening = { ...prev.profile.screening }
-      hinted.forEach((k) => {
-        if (screening[k] === null) screening[k] = true
-      })
-      return { ...prev, profile: { ...prev.profile, screening } }
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const answer = (key: ScreeningKey, value: boolean) =>
     setState((prev) => ({
@@ -59,7 +45,7 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
 
   return (
     <OnboardingLayout
-      step={3}
+      {...stepOf(p, 'onboarding-health')}
       title="A quick health check"
       subtitle={why ?? 'So every step we suggest is safe for you.'}
       onBack={() => onNavigate('onboarding-goals')}
@@ -77,9 +63,6 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
                   <span className="text-[#5A6A60] me-1">{i + 1}.</span>
                   {questions[key] ?? key}
                 </span>
-                {hinted.has(key) && (
-                  <span className="text-[12px] text-[#3E6B53]">Filled in from what you told us. Change it if it's wrong.</span>
-                )}
                 <div className="flex gap-2" role="group" aria-label={`Question ${i + 1}`}>
                   {([true, false] as const).map((v) => {
                     const on = p.screening[key] === v

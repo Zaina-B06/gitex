@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { ScreenProps, OnboardingDraft, SettingPref, PastHelper, Household, ReadingLevel } from '../types'
-import { api, errorText } from '../api/client'
+import { api, errorText, FollowUp } from '../api/client'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
-import { asksBaseline, buildOnboardPayload, missingStep } from '../lib/onboarding'
+import { asksBaseline, buildOnboardPayload, missingStep, showFollowUp, stepOf } from '../lib/onboarding'
 import { useAsync } from '../lib/useAsync'
 
 const HELPERS: { value: PastHelper; label: string }[] = [
@@ -35,11 +35,11 @@ const YES_NO = [
 
 const MAX_REASON = 200
 
-/** Step 5 of 5 (all optional). "Build my plan" sends everything to POST /users. */
+/** Last step (all optional), with the follow-up questions that apply. "Build my plan" sends everything to POST /users. */
 export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
   const p = state.profile
   const [submitting, setSubmitting] = useState(false)
-  const content = useAsync(() => api.onboardingContent(state.language), [state.language])
+  const content = useAsync(() => api.onboardingContent(state.language, p.readingLevel), [state.language, p.readingLevel])
   const update = (patch: Partial<OnboardingDraft>) =>
     setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }))
 
@@ -68,6 +68,10 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
     }
   }
 
+  // Follow-ups answered on this screen (shifts and the smoking goal are asked on steps 1 and 2 by the same rules).
+  const followUps = ((content.data?.follow_ups ?? []) as unknown as FollowUp[]).filter(
+    (q) => ['anchor', 'iftar_time', 'family_fasting', 'caregiver', 'quiet_hours'].includes(q.id) && showFollowUp(q, p),
+  )
   const examples = content.data?.reading_level_examples ?? {}
   const levels: { value: ReadingLevel; label: string }[] = [
     { value: 'standard', label: 'Standard' },
@@ -76,7 +80,7 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
 
   return (
     <OnboardingLayout
-      step={5}
+      {...stepOf(p, 'onboarding-preferences')}
       title="What helps you"
       subtitle="All optional. It helps us pick the kind of step that suits you."
       onBack={() => onNavigate(asksBaseline(p) ? 'onboarding-baseline' : 'onboarding-health')}
@@ -173,17 +177,70 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
         columns={2}
       />
 
-      {p.fastingRamadan && p.household && p.household !== 'alone' && (
-        <label className="flex gap-2.5 items-start text-[14px] leading-snug cursor-pointer">
-          <input
-            type="checkbox"
-            checked={p.familyFasting}
-            onChange={(e) => update({ familyFasting: e.target.checked })}
-            className="mt-0.5 w-5 h-5 flex-none accent-[#3E6B53] cursor-pointer"
-          />
-          My family fasts too (we'll suggest steps around family iftar)
-        </label>
-      )}
+      {followUps.map((q) => (
+        <FollowUpField key={q.id} q={q} p={p} update={update} />
+      ))}
     </OnboardingLayout>
+  )
+}
+
+const fieldClass =
+  'mt-2 w-full min-h-[48px] box-border rounded-xl border border-[#C5D0C7] bg-white px-3 text-[15px] font-normal text-[#1B2A22]'
+
+/** One follow-up question; its wording comes from the server (EN/AR, standard or simple). */
+const FollowUpField: React.FC<{
+  q: FollowUp
+  p: OnboardingDraft
+  update: (patch: Partial<OnboardingDraft>) => void
+}> = ({ q, p, update }) => {
+  const check = (checked: boolean, onChange: (v: boolean) => void) => (
+    <label className="flex gap-2.5 items-start text-[14px] leading-snug cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 w-5 h-5 flex-none accent-[#3E6B53] cursor-pointer"
+      />
+      {q.text}
+    </label>
+  )
+  if (q.id === 'family_fasting') return check(p.familyFasting, (v) => update({ familyFasting: v }))
+  if (q.id === 'caregiver') return check(p.caregiver, (v) => update({ caregiver: v }))
+  if (q.id === 'anchor')
+    return (
+      <label className="block text-[15px] font-semibold">
+        {q.text}
+        <input
+          type="text"
+          maxLength={40}
+          value={p.anchor}
+          onChange={(e) => update({ anchor: e.target.value })}
+          placeholder="e.g. after maghrib"
+          className={fieldClass}
+        />
+      </label>
+    )
+  if (q.id === 'iftar_time')
+    return (
+      <label className="block text-[15px] font-semibold">
+        {q.text}
+        <input type="time" value={p.iftarTime} onChange={(e) => update({ iftarTime: e.target.value })} className={fieldClass} />
+      </label>
+    )
+  // quiet_hours
+  return (
+    <fieldset className="m-0 p-0 border-0">
+      <legend className="p-0 text-[15px] font-semibold">{q.text}</legend>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-[14px] font-semibold">
+          From
+          <input type="time" value={p.quietStart} onChange={(e) => update({ quietStart: e.target.value })} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-semibold">
+          Until
+          <input type="time" value={p.quietEnd} onChange={(e) => update({ quietEnd: e.target.value })} className={fieldClass} />
+        </label>
+      </div>
+    </fieldset>
   )
 }

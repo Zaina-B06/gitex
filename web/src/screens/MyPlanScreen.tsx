@@ -4,6 +4,7 @@ import { api, Behaviour, ExportOut, PlanOut, TodayOut } from '../api/client'
 import { TatreezPattern, ArabicCalligraphyRing } from '../components/BackgroundMotifs'
 import { ScreenFrame } from '../components/ScreenFrame'
 import { PlanSummary } from '../components/PlanSummary'
+import { GoalCards, RecapCard } from '../components/PlanGoals'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { BEHAVIOUR_STYLE } from '../lib/behaviour'
 import { BARRIER_LABEL, OUTCOME_LABEL, DayRecord, addDays, buildDays, dateKey, onboardDate } from '../lib/history'
@@ -87,7 +88,7 @@ export const MyPlanScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
         </>
       }
     >
-      <header className="p-6 pt-10 pb-2">
+      <header className="p-6 pt-1 pb-2">
         <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">My plan</h1>
         <p className="m-0 text-[14px] text-[#3F4F45]">Your days so far, and what's next.</p>
       </header>
@@ -97,6 +98,12 @@ export const MyPlanScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
 
       {exp && plan && (
         <div className="px-6 pb-6 flex flex-col gap-3">
+          {/* Your goals: level, good days to the next level, what changed and why */}
+          {plan.goals && plan.goals.length > 0 && <GoalCards goals={plan.goals} />}
+
+          {/* Weekly recap (hidden while coaching is paused) */}
+          <RecapCard session={session} version={state.dataVersion} />
+
           {/* Thought for today */}
           <section className="rounded-[20px] p-4 bg-[#263A30] text-white flex flex-col gap-2">
             <span className="text-[12px] font-semibold text-[#A2C7B0]">Thought for today</span>
@@ -246,8 +253,7 @@ export const MyPlanScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
           </section>
 
           {/* The plan itself */}
-          <h2 className="m-0 mt-1 text-[15px] font-semibold">Your plan</h2>
-          <PlanSummary plan={plan} />
+          <PlanSummary plan={plan} showList={false} />
         </div>
       )}
     </ScreenFrame>

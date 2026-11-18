@@ -3,6 +3,7 @@ import { ScreenProps, OnboardingDraft } from '../types'
 import type { Behaviour, Condition } from '../api/client'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
 import { GOAL_OPTIONS } from '../lib/behaviour'
+import { stepOf } from '../lib/onboarding'
 
 const CONDITION_OPTIONS: { value: Condition; label: string }[] = [
   { value: 'diabetes', label: 'Diabetes' },
@@ -14,7 +15,7 @@ const CONDITION_OPTIONS: { value: Condition; label: string }[] = [
 
 const SMOKES = 'smokes' as const
 
-/** Step 2 of 5: goals (at least one) and anything the user is managing (optional, with consent). */
+/** Step 2: goals (at least one) and anything the user is managing (optional, with consent). */
 export const GoalsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
   const p = state.profile
   const update = (patch: Partial<OnboardingDraft>) =>
@@ -35,7 +36,7 @@ export const GoalsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
 
   return (
     <OnboardingLayout
-      step={2}
+      {...stepOf(p, 'onboarding-goals')}
       title="What do you want to work on?"
       subtitle="Pick any. We'll start with one or two."
       onBack={() => onNavigate('onboarding-basics')}

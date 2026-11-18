@@ -28,6 +28,36 @@ export type Screening = S['Screening']
 export type ContextFlag = S['ContextFlag']
 export type Language = S['Language']
 export type EncouragementOut = S['EncouragementOut']
+export type Preferences = S['Preferences']
+export type GoalOut = S['GoalOut']
+export type SuggestOut = S['SuggestOut']
+export type SuggestedAnswers = S['SuggestedAnswers']
+export type RecapOut = S['RecapOut']
+export type TokenOut = S['TokenOut']
+export type SeedOut = S['SeedOut']
+export type SeedPersona = S['SeedPersona']
+export type AdvanceIn = S['AdvanceIn']
+export type AdvanceOut = S['AdvanceOut']
+
+/** One follow-up sign-up question (GET /content/onboarding follow_ups). Shown only when every rule matches. */
+export interface FollowUpRule {
+  field: string // a profile path, e.g. "basics.goals"
+  op: 'contains' | 'equals' | 'not_in'
+  value: unknown
+}
+export interface FollowUp {
+  id: string
+  fills: string
+  show_if: FollowUpRule[]
+  text: string
+}
+
+/** GET /recap facts (computed by rules on the server). */
+export interface RecapFacts {
+  goals: { behaviour: Behaviour; how: 'mostly_done' | 'mixed' | 'mostly_missed' | 'no_steps'; level: number }[]
+  top_barrier: string | null
+  comeback: boolean
+}
 
 // Dev: blank → Vite proxies /api to http://127.0.0.1:8000. Production: the deployed backend URL.
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '/api'
@@ -156,6 +186,22 @@ export const api = {
 
   communityEvents: (s: Session, city?: string) =>
     request<CommunityEvent[]>('GET', `${u(s)}/community/events${q({ city })}`, { session: s }),
+
+  // Sign-in (optional): a new token per device; logout revokes only this one.
+  login: (username: string, password: string) =>
+    request<TokenOut>('POST', '/auth/login', { body: { username, password } }),
+  logout: (s: Session) => request<void>('POST', '/auth/logout', { session: s }),
+
+  // Optional "tell us in your own words" at sign-up: suggestions only, never the health check.
+  suggest: (text: string, lang: Language) =>
+    request<SuggestOut>('POST', '/content/onboarding/suggest', { body: { text, lang } }),
+
+  recap: (s: Session, days = 7) => request<RecapOut>('GET', `${u(s)}/recap${q({ days: String(days) })}`, { session: s }),
+
+  // Demo only (backend DEMO_MODE=true): seeded personas and time travel.
+  demoSeed: (demoKey: string) => request<SeedOut>('POST', '/demo/seed', { headers: { 'X-Demo-Key': demoKey } }),
+  demoAdvance: (s: Session, body: AdvanceIn) =>
+    request<AdvanceOut>('POST', `/demo${u(s)}/advance`, { session: s, body }),
 }
 
 /** Friendly text for an error shown in a toast or inline. */

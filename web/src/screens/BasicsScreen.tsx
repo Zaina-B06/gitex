@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ScreenProps, OnboardingDraft, ScheduleType, Sex, Weekday } from '../types'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
-import { bodyValid } from '../lib/onboarding'
+import { api } from '../api/client'
+import { applySuggestions, bodyValid, stepOf } from '../lib/onboarding'
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'female', label: 'Female' },
@@ -33,12 +34,41 @@ const inputClass =
 const why = 'block mt-0.5 text-[12px] font-normal text-[#5A6A60]'
 
 const numOrNull = (v: string) => (v === '' ? null : Number(v))
+const MAX_OWN_WORDS = 1000
 
-/** Step 1 of 5: name (device only), the required basics (CLAUDE.md §4.1), shifts, optional body (§4.2). */
+/** Step 1: optional own-words box (suggests answers), name, the required basics (CLAUDE.md §4.1), shifts, optional body (§4.2). */
 export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
   const p = state.profile
   const update = (patch: Partial<OnboardingDraft>) =>
     setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }))
+
+  const [ownWords, setOwnWords] = useState('')
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestNote, setSuggestNote] = useState<string | null>(null)
+
+  // Optional: suggested answers from a few sentences. They only pre-fill; the person checks every screen, and the
+  // health check is never pre-filled. On 429 or any error we just carry on with the normal questions.
+  const suggest = async () => {
+    if (!ownWords.trim()) return
+    setSuggesting(true)
+    setSuggestNote(null)
+    try {
+      const out = await api.suggest(ownWords.trim(), state.language)
+      if (out.red_flag) {
+        setState((prev) => ({ ...prev, careReason: 'onboarding_text', careMessage: out.message ?? null }))
+        return onNavigate('care')
+      }
+      if (out.suggestions) {
+        const s = out.suggestions
+        setState((prev) => ({ ...prev, profile: applySuggestions(prev.profile, s) }))
+        setSuggestNote('We filled in what you mentioned. Please check each answer as you go.')
+      }
+    } catch {
+      setSuggestNote("We couldn't fill this in right now. Just answer the questions below.")
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   const ageValid = p.ageYears !== null && p.ageYears >= 18 && p.ageYears <= 100
   const shiftsOk = p.scheduleType !== 'shift' || p.shiftDays.length > 0
@@ -55,18 +85,49 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
 
   return (
     <OnboardingLayout
-      step={1}
+      {...stepOf(p, 'onboarding-basics')}
       title="A bit about you"
       subtitle="We use this to set a safe start and pick good times for your steps."
       onBack={() => onNavigate('welcome')}
       onContinue={handleContinue}
     >
+      <div className="p-3 rounded-[16px] bg-white/70 border border-[#DCE3DA] flex flex-col gap-2">
+        <label className="block text-[15px] font-semibold">
+          Tell us about your week in your own words <span className="font-normal text-[#5A6A60]">(optional)</span>
+          <span className={why}>
+            We'll suggest answers for the next questions. You check each one. Your words aren't saved.
+          </span>
+          <textarea
+            rows={3}
+            maxLength={MAX_OWN_WORDS}
+            value={ownWords}
+            onChange={(e) => setOwnWords(e.target.value)}
+            placeholder="e.g. I work night shifts, have two kids and want to sleep better."
+            className="mt-2 w-full box-border rounded-xl border border-[#C5D0C7] bg-white p-3 text-[15px] font-normal text-[#1B2A22] resize-none font-sans"
+          />
+        </label>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-[#5A6A60]">
+            {ownWords.length} / {MAX_OWN_WORDS}
+          </span>
+          <button
+            type="button"
+            onClick={suggest}
+            disabled={suggesting || !ownWords.trim()}
+            className="min-h-[40px] px-4 rounded-[12px] bg-[#3E6B53] text-white text-[14px] font-semibold border-0 cursor-pointer disabled:opacity-50"
+          >
+            {suggesting ? 'Reading…' : 'Fill in for me'}
+          </button>
+        </div>
+        {suggestNote && <p className="m-0 text-[12px] text-[#3E6B53]">{suggestNote}</p>}
+      </div>
+
       <label className="block text-[15px] font-semibold">
         What should we call you? <span className="font-normal text-[#5A6A60]">(optional)</span>
-        <span className={why}>Only for greeting you. It stays on this phone and is never sent to our server.</span>
+        <span className={why}>Only for greeting you. Saved with your account; never sent to the AI.</span>
         <input
           type="text"
-          maxLength={30}
+          maxLength={40}
           autoComplete="given-name"
           value={state.displayName}
           onChange={(e) => setState((prev) => ({ ...prev, displayName: e.target.value }))}
@@ -104,7 +165,7 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
         label="What do your days look like?"
         options={SCHEDULE_OPTIONS}
         isSelected={(v) => p.scheduleType === v}
-        onToggle={(v) => update({ scheduleType: v })}
+        onToggle={(v) => update({ scheduleType: v, caregiver: v === 'home_caregiver' || p.caregiver })}
         columns={2}
       />
 

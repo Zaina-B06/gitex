@@ -41,8 +41,6 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
   const [busy, setBusy] = useState<string | null>(null)
   const [whyId, setWhyId] = useState<string | null>(null)
 
-  const toggleLanguage = () => setState((prev) => ({ ...prev, language: prev.language === 'en' ? 'ar' : 'en' }))
-
   const answer = async (actionId: string, type: Outcome) => {
     if (!data.data) return
     setBusy(actionId)
@@ -96,24 +94,15 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
         </>
       }
     >
-      <header className="p-6 pt-10 pb-1.5 flex justify-between items-start">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[13px] text-[#5A6A60]">
-            {new Date().toLocaleDateString(lang === 'ar' ? 'ar-AE' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </span>
-          <h1 className="m-0 font-display tracking-tight text-[27px] font-semibold">
-            {greeting(lang)}
-            {state.displayName ? `, ${state.displayName}` : ''}
-          </h1>
-        </div>
-        <button
-          type="button"
-          onClick={toggleLanguage}
-          aria-label={lang === 'ar' ? 'Switch to English' : 'Switch to Arabic'}
-          className="min-w-[44px] min-h-[44px] rounded-full border border-[#C5D0C7] bg-white font-arabic text-[19px] font-bold text-[#2C5140] hover:bg-[#DDE9E0]/40 transition-colors flex items-center justify-center shadow-sm cursor-pointer"
-        >
-          {lang === 'ar' ? 'EN' : 'عربي'}
-        </button>
+      {/* The language is chosen on Welcome and changed in Settings → Profile. */}
+      <header className="p-6 pt-1 pb-1.5 flex flex-col gap-0.5">
+        <span className="text-[13px] text-[#5A6A60]">
+          {new Date().toLocaleDateString(lang === 'ar' ? 'ar-AE' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </span>
+        <h1 className="m-0 font-display tracking-tight text-[27px] font-semibold">
+          {greeting(lang)}
+          {state.displayName ? `, ${state.displayName}` : ''}
+        </h1>
       </header>
 
       {data.loading && !data.data && <LoadingView label="Loading today's steps…" />}

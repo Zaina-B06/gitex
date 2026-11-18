@@ -3,31 +3,13 @@ import { ScreenProps, OnboardingDraft, ScheduleType, Sex, Weekday } from '../typ
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
 import { api } from '../api/client'
 import { applySuggestions, bodyValid, stepOf } from '../lib/onboarding'
+import { options, tr } from '../i18n'
 
-const SEX_OPTIONS: { value: Sex; label: string }[] = [
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-]
-
-const SCHEDULE_OPTIONS: { value: ScheduleType; label: string }[] = [
-  { value: 'office', label: 'Office hours' },
-  { value: 'shift', label: 'Shifts' },
-  { value: 'outdoor_manual', label: 'Outdoor / manual work' },
-  { value: 'home_caregiver', label: 'At home / caring for family' },
-  { value: 'student', label: 'Student' },
-  { value: 'other', label: 'Something else' },
-]
-
-const WEEKDAYS: { value: Weekday; label: string }[] = [
-  { value: 'sun', label: 'Sun' },
-  { value: 'mon', label: 'Mon' },
-  { value: 'tue', label: 'Tue' },
-  { value: 'wed', label: 'Wed' },
-  { value: 'thu', label: 'Thu' },
-  { value: 'fri', label: 'Fri' },
-  { value: 'sat', label: 'Sat' },
-]
+const SEX_OPTIONS = options<Sex>('onboarding.sex', ['female', 'male', 'prefer_not_to_say'])
+const SCHEDULE_OPTIONS = options<ScheduleType>('onboarding.schedule', [
+  'office', 'shift', 'outdoor_manual', 'home_caregiver', 'student', 'other',
+])
+export const WEEKDAYS = options<Weekday>('onboarding.day', ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'])
 
 const inputClass =
   'mt-2 w-full min-h-[48px] box-border rounded-xl border border-[#C5D0C7] bg-white px-3 text-[15px] font-normal text-[#1B2A22]'
@@ -61,10 +43,10 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
       if (out.suggestions) {
         const s = out.suggestions
         setState((prev) => ({ ...prev, profile: applySuggestions(prev.profile, s) }))
-        setSuggestNote('We filled in what you mentioned. Please check each answer as you go.')
+        setSuggestNote(tr('onboarding.basics.filled'))
       }
     } catch {
-      setSuggestNote("We couldn't fill this in right now. Just answer the questions below.")
+      setSuggestNote(tr('onboarding.basics.couldNotFill'))
     } finally {
       setSuggesting(false)
     }
@@ -74,10 +56,10 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
   const shiftsOk = p.scheduleType !== 'shift' || p.shiftDays.length > 0
 
   const handleContinue = () => {
-    if (!ageValid) return showToast('Rebound is for adults aged 18 to 100.')
-    if (!p.sex || !p.scheduleType) return showToast('Please answer each question to continue.')
-    if (!shiftsOk) return showToast('Pick the days your shifts start on.')
-    if (!bodyValid(p)) return showToast('Height should be 100–250 cm and weight 30–300 kg, or leave them empty.')
+    if (!ageValid) return showToast(tr('onboarding.basics.toastAge'))
+    if (!p.sex || !p.scheduleType) return showToast(tr('onboarding.basics.toastAnswer'))
+    if (!shiftsOk) return showToast(tr('onboarding.basics.toastShifts'))
+    if (!bodyValid(p)) return showToast(tr('onboarding.basics.toastBody'))
     // Pregnancy is only asked for women; drop an earlier answer if sex changed.
     if (p.sex !== 'female') update({ pregnant: null, womenOnlySpaces: false })
     onNavigate('onboarding-goals')
@@ -86,23 +68,21 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
   return (
     <OnboardingLayout
       {...stepOf(p, 'onboarding-basics')}
-      title="A bit about you"
-      subtitle="We use this to set a safe start and pick good times for your steps."
+      title={tr('onboarding.basics.title')}
+      subtitle={tr('onboarding.basics.subtitle')}
       onBack={() => onNavigate('welcome')}
       onContinue={handleContinue}
     >
       <div className="p-3 rounded-[16px] bg-white/70 border border-[#DCE3DA] flex flex-col gap-2">
         <label className="block text-[15px] font-semibold">
-          Tell us about your week in your own words <span className="font-normal text-[#5A6A60]">(optional)</span>
-          <span className={why}>
-            We'll suggest answers for the next questions. You check each one. Your words aren't saved.
-          </span>
+          {tr('onboarding.basics.ownWords')} <span className="font-normal text-[#5A6A60]">{tr('common.optional')}</span>
+          <span className={why}>{tr('onboarding.basics.ownWordsWhy')}</span>
           <textarea
             rows={3}
             maxLength={MAX_OWN_WORDS}
             value={ownWords}
             onChange={(e) => setOwnWords(e.target.value)}
-            placeholder="e.g. I work night shifts, have two kids and want to sleep better."
+            placeholder={tr('onboarding.basics.ownWordsPlaceholder')}
             className="mt-2 w-full box-border rounded-xl border border-[#C5D0C7] bg-white p-3 text-[15px] font-normal text-[#1B2A22] resize-none font-sans"
           />
         </label>
@@ -116,28 +96,28 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
             disabled={suggesting || !ownWords.trim()}
             className="min-h-[40px] px-4 rounded-[12px] bg-[#3E6B53] text-white text-[14px] font-semibold border-0 cursor-pointer disabled:opacity-50"
           >
-            {suggesting ? 'Reading…' : 'Fill in for me'}
+            {suggesting ? tr('onboarding.basics.reading') : tr('onboarding.basics.fillIn')}
           </button>
         </div>
         {suggestNote && <p className="m-0 text-[12px] text-[#3E6B53]">{suggestNote}</p>}
       </div>
 
       <label className="block text-[15px] font-semibold">
-        What should we call you? <span className="font-normal text-[#5A6A60]">(optional)</span>
-        <span className={why}>Only for greeting you. Saved with your account; never sent to the AI.</span>
+        {tr('onboarding.basics.name')} <span className="font-normal text-[#5A6A60]">{tr('common.optional')}</span>
+        <span className={why}>{tr('onboarding.basics.nameWhy')}</span>
         <input
           type="text"
           maxLength={40}
           autoComplete="given-name"
           value={state.displayName}
           onChange={(e) => setState((prev) => ({ ...prev, displayName: e.target.value }))}
-          placeholder="First name"
+          placeholder={tr('onboarding.basics.namePlaceholder')}
           className={inputClass}
         />
       </label>
 
       <label className="block text-[15px] font-semibold">
-        Your age
+        {tr('onboarding.basics.age')}
         <input
           type="number"
           inputMode="numeric"
@@ -145,24 +125,24 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
           max={100}
           value={p.ageYears ?? ''}
           onChange={(e) => update({ ageYears: numOrNull(e.target.value) })}
-          placeholder="e.g. 34"
+          placeholder={tr('onboarding.basics.agePlaceholder')}
           className={inputClass}
         />
       </label>
       {ageValid && p.ageYears! >= 65 && (
-        <p className="m-0 -mt-2 text-[12px] text-[#3E6B53]">We'll start with balance-friendly steps.</p>
+        <p className="m-0 -mt-2 text-[12px] text-[#3E6B53]">{tr('onboarding.basics.senior')}</p>
       )}
 
       <ChipGroup<Sex>
-        label="Sex"
-        hint="Decides which health questions we ask."
+        label={tr('onboarding.basics.sex')}
+        hint={tr('onboarding.basics.sexHint')}
         options={SEX_OPTIONS}
         isSelected={(v) => p.sex === v}
         onToggle={(v) => update({ sex: v })}
       />
 
       <ChipGroup<ScheduleType>
-        label="What do your days look like?"
+        label={tr('onboarding.basics.days')}
         options={SCHEDULE_OPTIONS}
         isSelected={(v) => p.scheduleType === v}
         onToggle={(v) => update({ scheduleType: v, caregiver: v === 'home_caregiver' || p.caregiver })}
@@ -172,8 +152,8 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
       {p.scheduleType === 'shift' && (
         <div className="p-3 rounded-[16px] bg-white/70 border border-[#DCE3DA] flex flex-col gap-3">
           <ChipGroup<Weekday>
-            label="Which days do your shifts start?"
-            hint="So we never nudge you at work. You can change this later."
+            label={tr('onboarding.basics.shiftDays')}
+            hint={tr('onboarding.basics.shiftDaysHint')}
             options={WEEKDAYS}
             isSelected={(v) => p.shiftDays.includes(v)}
             onToggle={(v) =>
@@ -183,11 +163,11 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
           />
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-[14px] font-semibold">
-              Shift starts
+              {tr('onboarding.basics.shiftStart')}
               <input type="time" value={p.shiftStart} onChange={(e) => update({ shiftStart: e.target.value })} className={inputClass} />
             </label>
             <label className="block text-[14px] font-semibold">
-              Shift ends
+              {tr('onboarding.basics.shiftEnd')}
               <input type="time" value={p.shiftEnd} onChange={(e) => update({ shiftEnd: e.target.value })} className={inputClass} />
             </label>
           </div>
@@ -196,25 +176,23 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
 
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-[15px] font-semibold">
-          Usually wake up
+          {tr('onboarding.basics.wake')}
           <input type="time" value={p.usualWakeTime} onChange={(e) => update({ usualWakeTime: e.target.value })} className={inputClass} />
         </label>
         <label className="block text-[15px] font-semibold">
-          Usually sleep
+          {tr('onboarding.basics.sleep')}
           <input type="time" value={p.usualSleepTime} onChange={(e) => update({ usualSleepTime: e.target.value })} className={inputClass} />
         </label>
       </div>
 
       <fieldset className="m-0 p-0 border-0">
         <legend className="p-0 text-[15px] font-semibold">
-          Height and weight <span className="font-normal text-[#5A6A60]">(optional)</span>
+          {tr('onboarding.basics.body')} <span className="font-normal text-[#5A6A60]">{tr('common.optional')}</span>
         </legend>
-        <span className={why}>
-          Used only to set a safe starting level. We never show them back to you as a number or a target.
-        </span>
+        <span className={why}>{tr('onboarding.basics.bodyWhy')}</span>
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-[14px] font-semibold">
-            Height (cm)
+            {tr('onboarding.basics.height')}
             <input
               type="number"
               inputMode="numeric"
@@ -226,7 +204,7 @@ export const BasicsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigat
             />
           </label>
           <label className="block text-[14px] font-semibold">
-            Weight (kg)
+            {tr('onboarding.basics.weight')}
             <input
               type="number"
               inputMode="decimal"

@@ -5,18 +5,10 @@ import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { useAsync } from '../lib/useAsync'
 import { asksBaseline, stepOf } from '../lib/onboarding'
+import { options, tr } from '../i18n'
 
-const MOBILITY: { value: MobilityLimitation; label: string }[] = [
-  { value: 'none', label: 'No' },
-  { value: 'some', label: 'Some' },
-  { value: 'mobility_aid', label: 'I use a mobility aid or wheelchair' },
-]
-
-const PREGNANCY: { value: PregnancyAnswer; label: string }[] = [
-  { value: 'yes', label: 'Yes' },
-  { value: 'no', label: 'No' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-]
+const MOBILITY = options<MobilityLimitation>('onboarding.mobility', ['none', 'some', 'mobility_aid'])
+const PREGNANCY = options<PregnancyAnswer>('onboarding.pregnancy', ['yes', 'no', 'prefer_not_to_say'])
 
 /** Step 3: health check, always asked in full and never pre-filled. Wording from GET /content/onboarding. */
 export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate, showToast }) => {
@@ -31,7 +23,7 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
 
   const handleContinue = () => {
     if (SCREENING_KEYS.some((k) => p.screening[k] === null))
-      return showToast('Please answer yes or no to each question. They keep your plan safe.')
+      return showToast(tr('onboarding.health.toastAnswer'))
     // Chest pain or dizziness/fainting: see a doctor first, then gentle steps only (CLAUDE.md §4.3).
     if (p.screening.chest_pain || p.screening.dizziness_or_fainting) {
       setState((prev) => ({ ...prev, careReason: 'onboarding_screening' }))
@@ -46,13 +38,13 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
   return (
     <OnboardingLayout
       {...stepOf(p, 'onboarding-health')}
-      title="A quick health check"
-      subtitle={why ?? 'So every step we suggest is safe for you.'}
+      title={tr('onboarding.health.title')}
+      subtitle={why ?? tr('onboarding.health.subtitle')}
       onBack={() => onNavigate('onboarding-goals')}
       onContinue={handleContinue}
       continueDisabled={!content.data}
     >
-      {content.loading && <LoadingView label="Loading questions…" />}
+      {content.loading && <LoadingView label={tr('onboarding.health.loading')} />}
       {content.error && <ErrorView message={content.error} onRetry={content.reload} />}
       {content.data && (
         <>
@@ -63,7 +55,7 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
                   <span className="text-[#5A6A60] me-1">{i + 1}.</span>
                   {questions[key] ?? key}
                 </span>
-                <div className="flex gap-2" role="group" aria-label={`Question ${i + 1}`}>
+                <div className="flex gap-2" role="group" aria-label={tr('onboarding.health.question', { n: i + 1 })}>
                   {([true, false] as const).map((v) => {
                     const on = p.screening[key] === v
                     return (
@@ -78,7 +70,7 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
                             : 'border border-[#C5D0C7] bg-white text-[#1B2A22]'
                         }`}
                       >
-                        {v ? 'Yes' : 'No'}
+                        {v ? tr('common.yes') : tr('common.no')}
                       </button>
                     )
                   })}
@@ -89,8 +81,8 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
 
           {p.sex === 'female' && (
             <ChipGroup<PregnancyAnswer>
-              label="Are you pregnant?"
-              hint="If yes, we only suggest pregnancy-safe steps."
+              label={tr('onboarding.health.pregnant')}
+              hint={tr('onboarding.health.pregnantHint')}
               options={PREGNANCY}
               isSelected={(v) => p.pregnant === v}
               onToggle={(v) => setState((prev) => ({ ...prev, profile: { ...prev.profile, pregnant: v } }))}
@@ -98,8 +90,8 @@ export const OnboardingHealthScreen: React.FC<ScreenProps> = ({ state, setState,
           )}
 
           <ChipGroup<MobilityLimitation>
-            label="Does anything limit how you move?"
-            hint="We'll suggest seated or adapted steps where needed."
+            label={tr('onboarding.health.mobility')}
+            hint={tr('onboarding.health.mobilityHint')}
             options={MOBILITY}
             isSelected={(v) => p.mobility === v}
             onToggle={(v) => setState((prev) => ({ ...prev, profile: { ...prev.profile, mobility: v } }))}

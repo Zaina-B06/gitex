@@ -3,13 +3,8 @@ import { ScreenProps } from '../types'
 import { api, ApiError, errorText } from '../api/client'
 import { ArabicCalligraphyRing } from '../components/BackgroundMotifs'
 import { asksBaseline } from '../lib/onboarding'
+import { tr } from '../i18n'
 
-const DEFAULT_MESSAGE = "What you wrote sounds serious. We've paused coaching. Please contact a doctor now."
-const SCREENING_MESSAGE =
-  "You told us about chest pain, dizziness or fainting. Please talk to a doctor before you become more active. We'll start you with sleep and gentle steps only."
-
-const HELP_MESSAGE =
-  "If you feel unwell, unsafe or overwhelmed, please reach out now. You don't need a reason. Your plan will be here when you're ready."
 
 /**
  * Care first. Four ways in:
@@ -25,15 +20,21 @@ export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate,
   const fromSignupText = state.careReason === 'onboarding_text' && !state.session
   const fromSignup = state.justSignedUp
   const message = fromHelp
-    ? HELP_MESSAGE
+    ? tr('onboarding.care.help')
     : fromSignupText
-      ? (state.careMessage ?? DEFAULT_MESSAGE)
+      ? (state.careMessage ?? tr('onboarding.care.default'))
       : fromScreening
-      ? SCREENING_MESSAGE
+      ? tr('onboarding.care.screening')
       : state.lastCheckin?.red_flag
         ? state.lastCheckin.message
-        : DEFAULT_MESSAGE
-  const doneLabel = fromHelp ? 'Back' : fromSignupText ? 'Back to sign-up' : fromScreening || fromSignup ? 'Continue setting up' : "I've been seen, I'm OK now"
+        : tr('onboarding.care.default')
+  const doneLabel = fromHelp
+    ? tr('common.back')
+    : fromSignupText
+      ? tr('onboarding.care.backToSignup')
+      : fromScreening || fromSignup
+        ? tr('onboarding.care.continueSetup')
+        : tr('onboarding.care.beenSeen')
 
   const handleBeenSeen = async () => {
     setState((prev) => ({ ...prev, careReason: null, careMessage: null }))
@@ -43,12 +44,12 @@ export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate,
     if (fromSignup) return onNavigate('plan-ready')
     try {
       await api.settings(state.session!, { context: { paused: false } })
-      showToast("Glad you're safe. Coaching has resumed.")
+      showToast(tr('onboarding.care.glad'))
     } catch (e) {
       // The backend keeps coaching paused after a safety concern until a person has checked in.
       showToast(
         e instanceof ApiError && e.status === 409
-          ? 'Coaching stays paused until someone from the care team has checked in with you.'
+          ? tr('onboarding.care.staysPaused')
           : errorText(e),
       )
     }
@@ -81,7 +82,7 @@ export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate,
 
       {/* Title */}
       <h1 className="mt-[18px] mb-2 font-display tracking-tight text-[28px] leading-tight font-semibold text-[#1B2A22]">
-        Let's put your health first
+        {tr('onboarding.care.title')}
       </h1>
 
       <p className="m-0 text-[15px] leading-relaxed text-[#3F4F45]">
@@ -92,12 +93,12 @@ export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate,
       <div className="mt-[22px] flex flex-col gap-2.5">
         <a
           href="tel:998"
-          onClick={() => showToast('Opening emergency dialer (998)...')}
+          onClick={() => showToast(tr('onboarding.care.opening998'))}
           className="min-h-[64px] px-4 rounded-[14px] bg-[#A02A1C] hover:bg-[#852317] text-white flex items-center justify-between no-underline shadow-[0_8px_18px_-10px_rgba(38,70,52,0.65)] transition-colors"
         >
           <span className="flex flex-col gap-0.5">
-            <span className="text-[16px] font-semibold">Call 998</span>
-            <span className="text-[13px] text-[#FBE3DF]">Ambulance, UAE emergency</span>
+            <span className="text-[16px] font-semibold">{tr('onboarding.care.call998')}</span>
+            <span className="text-[13px] text-[#FBE3DF]">{tr('onboarding.care.call998Sub')}</span>
           </span>
           <svg
             width="22"
@@ -114,12 +115,12 @@ export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate,
 
         <a
           href="tel:800725462"
-          onClick={() => showToast('Opening mental health line dialer (800 725462)...')}
+          onClick={() => showToast(tr('onboarding.care.openingSakina'))}
           className="min-h-[64px] px-4 rounded-[14px] border-2 border-[#1B2A22] bg-transparent hover:bg-black/5 text-[#1B2A22] flex items-center justify-between no-underline transition-colors"
         >
           <span className="flex flex-col gap-0.5">
-            <span className="text-[16px] font-semibold">Call 800 SAKINA (800 725462)</span>
-            <span className="text-[13px] text-[#3F4F45]">24/7 mental health support line</span>
+            <span className="text-[16px] font-semibold">{tr('onboarding.care.callSakina')}</span>
+            <span className="text-[13px] text-[#3F4F45]">{tr('onboarding.care.callSakinaSub')}</span>
           </span>
           <svg
             width="22"
@@ -136,7 +137,7 @@ export const CareScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate,
       </div>
 
       <p className="mt-[18px] mb-0 text-[14px] leading-relaxed text-[#3F4F45]">
-        If you're thinking of harming yourself, please talk to someone you trust or call 800 SAKINA.
+        {tr('onboarding.care.harm')}
       </p>
 
       {/* Footer */}

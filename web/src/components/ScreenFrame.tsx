@@ -1,6 +1,7 @@
 import React from 'react'
 import { ScreenId } from '../types'
 import { BottomNav } from './BottomNav'
+import { tr } from '../i18n'
 
 interface ScreenFrameProps {
   children: React.ReactNode
@@ -43,7 +44,7 @@ export const ScreenFrame: React.FC<ScreenFrameProps> = ({
           onClick={onHelp}
           className="min-h-[32px] px-2.5 rounded-full bg-white/85 border border-[#E8B4AC] text-[12px] font-semibold text-[#A02A1C] cursor-pointer"
         >
-          Need help?
+          {tr('common.needHelp')}
         </button>
       </div>
     )}

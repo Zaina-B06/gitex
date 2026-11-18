@@ -1,32 +1,17 @@
 import type { Barrier, ExportOut } from '../api/client'
 import type { components } from '../api/schema'
+import { labels } from '../i18n'
 
 type DayLog = components['schemas']['DayLog']
 
-export const BARRIER_LABEL: Record<Barrier, string> = {
-  time: 'No time',
-  energy_fatigue: 'Tired',
-  illness_pain: 'Sick or in pain',
-  stress: 'Stressed',
-  schedule_change: 'Schedule changed',
-  environment: 'Too hot / no space',
-  no_healthy_food_nearby: 'No healthy food nearby',
-  craving: 'Craving a cigarette',
-  others_smoking: 'People smoking around me',
-  social_family: 'Family things',
-  forgot: 'Forgot',
-  low_motivation: 'Not feeling it',
-  other: 'Something else',
-}
+export const BARRIER_LABEL: Record<Barrier, string> = labels('common.barrier', [
+  'time', 'energy_fatigue', 'illness_pain', 'stress', 'schedule_change', 'environment', 'no_healthy_food_nearby',
+  'craving', 'others_smoking', 'social_family', 'forgot', 'low_motivation', 'other',
+] as const)
 
-export const OUTCOME_LABEL: Record<string, string> = {
-  completed: 'Done',
-  partial: 'Did a smaller version',
-  skipped: 'Skipped',
-  no_response: 'No answer',
-  paused: 'Paused',
-  illness: 'Resting (unwell)',
-}
+export const OUTCOME_LABEL: Record<string, string> = labels('common.outcome', [
+  'completed', 'partial', 'skipped', 'no_response', 'paused', 'illness',
+])
 
 export interface DayRecord {
   day: number

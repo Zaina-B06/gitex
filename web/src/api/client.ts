@@ -3,6 +3,7 @@
  * Types come from its openapi.json: run `npm run types` after the backend changes.
  */
 import type { components } from './schema'
+import i18n, { tr } from '../i18n'
 
 type S = components['schemas']
 export type OnboardIn = S['OnboardIn']
@@ -61,6 +62,7 @@ export interface RecapFacts {
 
 // Dev: blank → Vite proxies /api to http://127.0.0.1:8000. Production: the deployed backend URL.
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '/api'
+export const REQUEST_TIMEOUT_MS = 60_000
 
 export class ApiError extends Error {
   constructor(
@@ -116,15 +118,21 @@ async function request<T>(
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
   if (opts.session) headers.Authorization = `Bearer ${opts.session.token}`
 
+  // Free hosting sleeps when idle: give up after REQUEST_TIMEOUT_MS so no button waits for ever.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   let res: Response
   try {
     res = await fetch(BASE + path, {
       method,
       headers,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      signal: controller.signal,
     })
   } catch {
-    throw new ApiError(0, 'Cannot reach the Rebound server. Is the backend running?')
+    throw new ApiError(0, tr(controller.signal.aborted ? 'common.timeout' : 'common.serverDown'))
+  } finally {
+    clearTimeout(timer)
   }
 
   if (res.status === 401 && opts.session) onUnauthorized()
@@ -137,7 +145,7 @@ async function request<T>(
     } catch {
       // non-JSON error body (e.g. proxy error page)
     }
-    if (res.status >= 500 && res.status !== 503) detail = 'Cannot reach the Rebound server. Is the backend running?'
+    if (res.status >= 500 && res.status !== 503) detail = tr('common.serverDown')
     throw new ApiError(res.status, detail)
   }
   if (res.status === 204) return undefined as T
@@ -156,6 +164,9 @@ const u = (s: Session) => `/users/${encodeURIComponent(s.userId)}`
 // ---------- endpoints ----------
 
 export const api = {
+  /** Wake-up check: no auth, no database work (free hosting sleeps when idle). */
+  health: () => request<{ ok: boolean }>('GET', '/health'),
+
   onboardingContent: (lang: Language, readingLevel = 'standard') =>
     request<OnboardingTextOut>('GET', `/content/onboarding${q({ lang, reading_level: readingLevel })}`),
 
@@ -204,7 +215,8 @@ export const api = {
     request<AdvanceOut>('POST', `/demo${u(s)}/advance`, { session: s, body }),
 }
 
-/** Friendly text for an error shown in a toast or inline. */
+/** Friendly text for an error shown in a toast or inline. Server details are English, so Arabic gets our own. */
 export function errorText(e: unknown): string {
-  return e instanceof ApiError ? e.detail : 'Something went wrong. Please try again.'
+  if (e instanceof ApiError && (e.status === 0 || i18n.language !== 'ar')) return e.detail
+  return tr('common.genericError')
 }

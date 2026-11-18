@@ -5,26 +5,32 @@ import { TatreezPattern, ArabicCalligraphyRing } from '../components/BackgroundM
 import { ScreenFrame } from '../components/ScreenFrame'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { useAsync } from '../lib/useAsync'
+import { tr } from '../i18n'
 
-const CITIES = ['Abu Dhabi', 'Al Ain', 'All cities'] as const
-type City = (typeof CITIES)[number]
+// The API filters by the English city name; the label is translated.
+const CITIES = [
+  { key: 'abu_dhabi', query: 'Abu Dhabi' },
+  { key: 'al_ain', query: 'Al Ain' },
+  { key: 'all', query: undefined },
+] as const
+type City = (typeof CITIES)[number]['key']
 
-const CATEGORY: Record<CommunityEvent['category'], { label: string; color: string }> = {
-  walking_group: { label: 'Walking group', color: '#3E6B53' },
-  park_run: { label: 'Park run', color: '#3E6B53' },
-  sports_night: { label: 'Sports night', color: '#3F4FA8' },
-  free_health_screening: { label: 'Free health check', color: '#A02A1C' },
-  family_activity: { label: 'Family activity', color: '#8A4B0F' },
-  women_only: { label: 'Women only', color: '#6E4A8E' },
-  wheelchair_accessible: { label: 'Wheelchair accessible', color: '#3F4FA8' },
+const CATEGORY_COLOR: Record<CommunityEvent['category'], string> = {
+  walking_group: '#3E6B53',
+  park_run: '#3E6B53',
+  sports_night: '#3F4FA8',
+  free_health_screening: '#A02A1C',
+  family_activity: '#8A4B0F',
+  women_only: '#6E4A8E',
+  wheelchair_accessible: '#3F4FA8',
 }
 
 /** "Near you": GET /users/{id}/community/events, filtered to the user's goals. City is a request filter only. */
 export const CommunityScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
   const lang = state.language
-  const [city, setCity] = useState<City>('Abu Dhabi')
+  const [city, setCity] = useState<City>('abu_dhabi')
   const events = useAsync(
-    () => api.communityEvents(state.session!, city === 'All cities' ? undefined : city),
+    () => api.communityEvents(state.session!, CITIES.find((c) => c.key === city)?.query),
     [state.session, city],
   )
 
@@ -40,14 +46,12 @@ export const CommunityScreen: React.FC<ScreenProps> = ({ state, onNavigate }) =>
       }
     >
       <header className="p-6 pb-0 flex flex-col gap-1">
-        <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">Near you</h1>
-        <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">
-          Free or low-cost things that match your goals. We never track where you are.
-        </p>
+        <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">{tr('app.community.title')}</h1>
+        <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">{tr('app.community.intro')}</p>
       </header>
 
-      <div className="sticky top-0 z-10 bg-[#EEF1EA]/95 backdrop-blur px-6 py-3 flex gap-2" role="group" aria-label="City">
-        {CITIES.map((c) => (
+      <div className="sticky top-0 z-10 bg-[#EEF1EA]/95 backdrop-blur px-6 py-3 flex gap-2" role="group" aria-label={tr('app.community.city')}>
+        {CITIES.map(({ key: c }) => (
           <button
             key={c}
             type="button"
@@ -57,7 +61,7 @@ export const CommunityScreen: React.FC<ScreenProps> = ({ state, onNavigate }) =>
               city === c ? 'bg-[#3E6B53] text-white font-semibold border-0' : 'bg-white border border-[#C5D0C7]'
             }`}
           >
-            {c}
+            {tr(`app.community.city.${c}`)}
           </button>
         ))}
       </div>
@@ -67,23 +71,23 @@ export const CommunityScreen: React.FC<ScreenProps> = ({ state, onNavigate }) =>
         {events.error && <ErrorView message={events.error} onRetry={events.reload} />}
         {events.data?.length === 0 && (
           <p className="m-0 p-4 rounded-[20px] bg-white/90 text-[14px] text-[#3F4F45]">
-            Nothing that fits your plan here yet. Try another city.
+            {tr('app.community.nothing')}
           </p>
         )}
         {events.data?.map((ev) => {
-          const cat = CATEGORY[ev.category] ?? { label: ev.category, color: '#3E6B53' }
+          const cat = { label: tr(`app.community.cat.${ev.category}`), color: CATEGORY_COLOR[ev.category] ?? '#3E6B53' }
           return (
             <article key={ev.id} className="bg-white/90 rounded-[20px] p-3.5 shadow-card flex flex-col gap-1.5">
               {ev.example && (
                 <span className="self-start px-2 py-0.5 rounded-full bg-[#E6EBE4] text-[11px] font-semibold text-[#5A6A60]">
-                  Example, not a real event
+                  {tr('app.community.example')}
                 </span>
               )}
               <div className="flex justify-between items-center gap-2">
                 <span className="text-[12px] font-semibold" style={{ color: cat.color }}>
                   {cat.label}
                 </span>
-                {ev.last_checked && <span className="text-[12px] text-[#5A6A60]">Checked {ev.last_checked}</span>}
+                {ev.last_checked && <span className="text-[12px] text-[#5A6A60]">{tr('app.community.checked', { date: ev.last_checked })}</span>}
               </div>
               <h2 className="m-0 text-[16px] font-semibold leading-snug">{ev.title[lang]}</h2>
               <p className="m-0 text-[13px] leading-snug text-[#3F4F45]">
@@ -101,14 +105,14 @@ export const CommunityScreen: React.FC<ScreenProps> = ({ state, onNavigate }) =>
                     rel="noopener noreferrer"
                     className="text-[13px] font-semibold text-[#3E6B53]"
                   >
-                    Source
+                    {tr('app.community.source')}
                   </a>
                 )}
               </div>
             </article>
           )
         })}
-        <p className="m-0 text-[12px] text-[#5A6A60]">Times change. Please confirm with the organiser before you go.</p>
+        <p className="m-0 text-[12px] text-[#5A6A60]">{tr('app.community.confirm')}</p>
       </div>
 
     </ScreenFrame>

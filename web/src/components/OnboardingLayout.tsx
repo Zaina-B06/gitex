@@ -1,5 +1,6 @@
 import React from 'react'
 import { ArabicCalligraphyRing } from './BackgroundMotifs'
+import { tr } from '../i18n'
 
 interface OnboardingLayoutProps {
   step: number // 1-based
@@ -23,10 +24,10 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
   subtitle,
   onBack,
   onContinue,
-  continueLabel = 'Continue',
+  continueLabel = tr('common.continue'),
   continueDisabled = false,
   onSkip,
-  skipLabel = 'Skip this',
+  skipLabel = tr('common.skip'),
   children,
 }) => (
   <div className="relative overflow-hidden isolate w-full h-full box-border bg-[#EEF1EA] font-sans text-[#1B2A22] flex flex-col p-6">
@@ -37,24 +38,24 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
       <button
         type="button"
         onClick={onBack}
-        aria-label="Back"
+        aria-label={tr('common.back')}
         className="min-w-[44px] min-h-[44px] flex items-center bg-transparent border-0 p-0 text-[#1B2A22] cursor-pointer"
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <svg className="rtl-flip" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
-      <div role="img" aria-label={`Step ${step} of ${total}`} className="flex gap-1.5">
+      <div role="img" aria-label={tr('common.stepOf', { step, total })} className="flex gap-1.5">
         {Array.from({ length: total }, (_, i) => (
           <span key={i} className={`w-6 h-1.5 rounded-sm ${i < step ? 'bg-[#3E6B53]' : 'bg-[#C5D0C7]'}`} />
         ))}
       </div>
-      <span className="w-11 text-[12px] text-[#5A6A60] text-right">
+      <span className="w-11 text-[12px] text-[#5A6A60] text-end">
         {step} / {total}
       </span>
     </div>
 
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-0.5">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pe-0.5">
       <h1 className="mt-4 mb-1 font-display tracking-tight text-[25px] leading-tight font-semibold">{title}</h1>
       {subtitle && <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">{subtitle}</p>}
       <div className="mt-3 flex flex-col gap-4">{children}</div>

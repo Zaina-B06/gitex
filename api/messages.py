@@ -593,6 +593,12 @@ FOLLOW_UPS: list[dict[str, Any]] = [
      "ar": "هل هناك شيء تفعله كل يوم يمكن أن تأتي الخطوة بعده؟ مثلاً: بعد المغرب، أو بعد قهوة الصباح.",
      "simple_en": "What do you do every day? Your step can come after it. For example: after maghrib.",
      "simple_ar": "ماذا تفعل كل يوم؟ تأتي خطوتك بعده. مثلاً: بعد المغرب."},
+    {"id": "setting", "fills": "preferences.setting",  # the engine ranks and filters steps by it
+     "show_if": [{"field": "basics.goals", "op": "contains", "value": "movement"}],
+     "en": "Do you prefer to be active indoors or outdoors?",
+     "ar": "هل تفضّل أن تتحرك داخل المكان أم في الخارج؟",
+     "simple_en": "Do you like to move inside or outside?",
+     "simple_ar": "تحب الحركة في الداخل أم في الخارج؟"},
     {"id": "shifts", "fills": "basics.shifts",
      "show_if": [{"field": "basics.schedule_type", "op": "equals", "value": "shift"}],
      "en": "What are your usual shift days and times?",

@@ -7,11 +7,8 @@ actions:
   - id: mv_t1_home_walk
     behaviour: movement
     tier: 1
-    title:
-      en: "Walk around your home for 5 minutes"
-      ar: "امشِ في منزلك لمدة 5 دقائق"
-      ar_reviewed: false
-    simple: {en: "Walk at home for 5 minutes.", ar: "امشِ في البيت 5 دقائق.", ar_reviewed: false}
+    title: {en: "Walk around your home for 5 minutes, right after something you already do daily", ar: "امشِ في منزلك لمدة 5 دقائق بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Walk at home for 5 minutes. Do it after something you do each day.", ar: "امشِ في البيت 5 دقائق بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: walk
     bct_code: "8.7"
     bct_name: "Graded tasks"
@@ -27,11 +24,8 @@ actions:
   - id: mv_t1_outdoor_walk
     behaviour: movement
     tier: 1
-    title:
-      en: "Take a 5-minute walk outside"
-      ar: "تمشَّ في الخارج لمدة 5 دقائق"
-      ar_reviewed: false
-    simple: {en: "Walk outside for 5 minutes.", ar: "امشِ خارج البيت 5 دقائق.", ar_reviewed: false}
+    title: {en: "Take a 5-minute walk outside, right after something you already do daily", ar: "تمشَّ في الخارج لمدة 5 دقائق بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Walk outside for 5 minutes. Do it after something you do each day.", ar: "امشِ خارج البيت 5 دقائق بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: walk
     bct_code: "8.7"
     bct_name: "Graded tasks"
@@ -47,11 +41,8 @@ actions:
   - id: mv_t1_balance
     behaviour: movement
     tier: 1
-    title:
-      en: "Balance practice: stand on one foot holding a chair, 3 times each side"
-      ar: "تمرين توازن: قف على قدم واحدة مع الإمساك بكرسي، 3 مرات لكل جهة"
-      ar_reviewed: false
-    simple: {en: "Hold a chair. Stand on one foot. Do it 3 times on each side.", ar: "أمسك كرسياً. قف على قدم واحدة. كرّرها 3 مرات لكل قدم.", ar_reviewed: false}
+    title: {en: "Right after something you already do daily, practise balance: stand on one foot holding a chair, 3 times each side", ar: "بعد شيء تفعله يوميًا، تمرّن على التوازن: قف على قدم واحدة مع الإمساك بكرسي، 3 مرات لكل جهة", ar_reviewed: false}
+    simple: {en: "Hold a chair and stand on one foot, 3 times on each side. Do it after something you do each day.", ar: "أمسك كرسياً وقف على قدم واحدة، 3 مرات لكل قدم. افعلها بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: balance
     bct_code: "8.1"
     bct_name: "Behavioral practice/rehearsal"
@@ -67,11 +58,8 @@ actions:
   - id: mv_t1_seated
     behaviour: movement
     tier: 1
-    title:
-      en: "Seated arm and leg raises for 5 minutes"
-      ar: "ارفع ذراعيك وساقيك وأنت جالس لمدة 5 دقائق"
-      ar_reviewed: false
-    simple: {en: "Sit and lift your arms and legs for 5 minutes.", ar: "اجلس وارفع ذراعيك وساقيك 5 دقائق.", ar_reviewed: false}
+    title: {en: "Seated arm and leg raises for 5 minutes, right after something you already do daily", ar: "ارفع ذراعيك وساقيك وأنت جالس لمدة 5 دقائق بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Sit and lift your arms and legs for 5 minutes. Do it after something you do each day.", ar: "اجلس وارفع ذراعيك وساقيك 5 دقائق بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: seat
     bct_code: "8.7"
     bct_name: "Graded tasks"
@@ -128,11 +116,8 @@ actions:
   - id: mv_t2_seated
     behaviour: movement
     tier: 2
-    title:
-      en: "10 minutes of seated cardio: arm punches and leg extensions"
-      ar: "10 دقائق من التمارين وأنت جالس: لكمات بالذراعين ومدّ الساقين"
-      ar_reviewed: false
-    simple: {en: "Sit and move for 10 minutes. Punch the air and stretch your legs.", ar: "اجلس وتحرّك 10 دقائق. حرّك ذراعيك ومدّ ساقيك.", ar_reviewed: false}
+    title: {en: "10 minutes of seated cardio (arm punches and leg extensions), right after something you already do daily", ar: "10 دقائق من التمارين وأنت جالس (لكمات بالذراعين ومدّ الساقين) بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Sit and move for 10 minutes. Punch the air and stretch your legs. Do it after something you do each day.", ar: "اجلس وتحرّك 10 دقائق: حرّك ذراعيك ومدّ ساقيك بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: seat
     bct_code: "8.7"
     bct_name: "Graded tasks"
@@ -267,11 +252,8 @@ actions:
   - id: sl_t2_wind_down
     behaviour: sleep
     tier: 2
-    title:
-      en: "Start a 15-minute wind-down routine before bed"
-      ar: "ابدأ روتينًا للاسترخاء لمدة 15 دقيقة قبل النوم"
-      ar_reviewed: false
-    simple: {en: "Calm down for 15 minutes before bed.", ar: "استرخِ 15 دقيقة قبل النوم.", ar_reviewed: false}
+    title: {en: "Start a 15-minute wind-down routine before bed, right after something you already do daily", ar: "ابدأ روتينًا للاسترخاء لمدة 15 دقيقة قبل النوم، بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Calm down for 15 minutes before bed. Start after something you do each day.", ar: "استرخِ 15 دقيقة قبل النوم. ابدأ بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: moon
     bct_code: "8.3"
     bct_name: "Habit formation"
@@ -533,8 +515,8 @@ actions:
   - id: sm_t1_delay_first
     behaviour: smoking
     tier: 1
-    title: {en: "Wait 15 minutes before your first cigarette of the day", ar: "انتظر 15 دقيقة قبل أول سيجارة في يومك", ar_reviewed: false}
-    simple: {en: "Wait a little before your first cigarette.", ar: "انتظر قليلاً قبل أول سيجارة.", ar_reviewed: false}
+    title: {en: "After something you already do daily, wait 15 minutes before your first cigarette", ar: "بعد شيء تفعله يوميًا، انتظر 15 دقيقة قبل أول سيجارة", ar_reviewed: false}
+    simple: {en: "Wait a little before your first smoke. Start the wait after something you do each day.", ar: "بعد عمل تقوم به كل يوم، انتظر قليلاً قبل أول سيجارة.", ar_reviewed: false}
     icon: clock
     bct_code: "8.7"
     bct_name: "Graded tasks"
@@ -666,8 +648,8 @@ actions:
   - id: rc_t1_breathing
     behaviour: recovery
     tier: 1
-    title: {en: "Take a 2-minute breathing break", ar: "خذ استراحة تنفس لمدة دقيقتين", ar_reviewed: false}
-    simple: {en: "Breathe slowly for 2 minutes.", ar: "تنفّس ببطء لمدة دقيقتين.", ar_reviewed: false}
+    title: {en: "Take a 2-minute breathing break, right after something you already do daily", ar: "خذ استراحة تنفس لمدة دقيقتين بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Breathe slowly for 2 minutes. Do it after something you do each day.", ar: "تنفّس ببطء لمدة دقيقتين بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: breath
     bct_code: "11.2"
     bct_name: "Reduce negative emotions"
@@ -699,8 +681,8 @@ actions:
   - id: rc_t2_screen_free
     behaviour: recovery
     tier: 2
-    title: {en: "Spend 15 minutes without screens", ar: "اقضِ 15 دقيقة بدون شاشات", ar_reviewed: false}
-    simple: {en: "Put your phone away for 15 minutes.", ar: "ضع هاتفك جانباً 15 دقيقة.", ar_reviewed: false}
+    title: {en: "Spend 15 minutes without screens, right after something you already do daily", ar: "اقضِ 15 دقيقة بدون شاشات بعد شيء تفعله يوميًا", ar_reviewed: false}
+    simple: {en: "Put your phone away for 15 minutes. Do it after something you do each day.", ar: "ضع هاتفك جانباً 15 دقيقة بعد عمل تقوم به كل يوم.", ar_reviewed: false}
     icon: phone_off
     bct_code: "12.1"
     bct_name: "Restructuring the physical environment"

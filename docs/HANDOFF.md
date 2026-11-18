@@ -147,6 +147,14 @@ check-ins answered only on days the app is open. run_007 is the earlier world (c
   - **Weekly recap:** `GET /users/{id}/recap?days=7` → `{facts, summary, written_by}`. Show `summary`. If you want
     to be open about it, add "Written with AI" when `written_by` is `llm`. A 409 means coaching is paused after a
     safety concern: don't show a recap then, and never show it on the care screen.
+- **Round 2 (19 Nov), done in `web/`:**
+  - **Language:** one switch (English / العربية) on Welcome and in Settings → Profile. For a signed-in user it also
+    calls `PATCH /settings {"language"}`, which switches every API text at once (the response includes `today`).
+    The app then re-fetches everything. Opening a person (sign-in or demo) adopts their saved language.
+  - **i18n:** every app label is in `web/src/i18n/` (EN and AR, draft Arabic), with right-to-left layout for Arabic.
+  - **Wake-up:** Welcome calls `GET /health` at once and shows "Waking up the server…" with a spinner. Requests
+    give up after 60 s, and then the screen offers "Try again".
+  - **Follow-ups:** new `setting` ("Indoors or outdoors?"), shown only with a movement goal.
 - Re-generate types from `api/openapi.json`.
 
 ## For the pitch: how Parts A–E answer the brief
@@ -244,7 +252,7 @@ cp .env.example .env        # only needed from Task 03 on; fill in locally, neve
 ruff check engine sim api
 pytest engine/tests          # 300 tests
 pytest sim/tests             # 50 tests
-pytest api/tests             # 191 passed, 18 skipped (Postgres store tests need TEST_DATABASE_URL)
+pytest api/tests             # 200 passed, 20 skipped (Postgres store tests need TEST_DATABASE_URL)
 python -m rebound_engine.demo --days 30 --seed 1
 ```
 

@@ -9,19 +9,19 @@ import { ExplainSheet } from '../components/ExplainSheet'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { WINDOW_LABEL, formatHour } from '../lib/behaviour'
 import { useAsync } from '../lib/useAsync'
+import { tr } from '../i18n'
 
-const greeting = (lang: 'en' | 'ar') => {
+const greeting = () => {
   const h = new Date().getHours()
-  if (lang === 'ar') return h < 12 ? 'صباح الخير' : 'مساء الخير'
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  return tr(h < 12 ? 'app.today.morning' : h < 18 ? 'app.today.afternoon' : 'app.today.evening')
 }
 
-const CONTEXT_BANNER: Partial<Record<string, { text: string; bg: string; fg: string }>> = {
-  ramadan: { text: 'Ramadan Kareem. Steps are fasting-friendly and fit around iftar.', bg: '#EAE6F7', fg: '#2E2563' },
-  eid: { text: 'Eid Mubarak. Your plan is lighter over the holiday.', bg: '#EAE6F7', fg: '#2E2563' },
-  heat: { text: 'Hot weather: outdoor steps move to cooler hours or indoors.', bg: '#F6E9DC', fg: '#8A4B0F' },
-  paused: { text: 'Coaching is paused. Your progress is safe.', bg: '#E6EBE4', fg: '#3F4F45' },
-  illness: { text: 'Rest first. Movement steps are paused until you feel better.', bg: '#E6EBE4', fg: '#3F4F45' },
+const CONTEXT_BANNER: Partial<Record<string, { bg: string; fg: string }>> = {
+  ramadan: { bg: '#EAE6F7', fg: '#2E2563' },
+  eid: { bg: '#EAE6F7', fg: '#2E2563' },
+  heat: { bg: '#F6E9DC', fg: '#8A4B0F' },
+  paused: { bg: '#E6EBE4', fg: '#3F4F45' },
+  illness: { bg: '#E6EBE4', fg: '#3F4F45' },
 }
 
 /** Today: GET /today (steps, messages) + GET /state (what was already answered). */
@@ -49,11 +49,7 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
       data.setData([data.data[0], res.state])
       showToast(
         res.encouragement?.message ??
-          (type === 'completed'
-            ? 'Done. Progress saved.'
-            : type === 'partial'
-              ? 'A smaller version counts.'
-              : 'Skipped for today. Your progress stays safe.'),
+          tr(type === 'completed' ? 'app.today.doneToast' : type === 'partial' ? 'app.today.partialToast' : 'app.today.skippedToast'),
       )
     } catch (e) {
       showToast(errorText(e))
@@ -66,7 +62,7 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
   const endRamadan = async () => {
     try {
       await api.settings(session, { ramadan: 'ended_today' })
-      showToast('Eid Mubarak! Your plan is updated.')
+      showToast(tr('app.today.eidToast'))
       data.reload()
     } catch (e) {
       showToast(errorText(e))
@@ -100,12 +96,11 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
           {new Date().toLocaleDateString(lang === 'ar' ? 'ar-AE' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </span>
         <h1 className="m-0 font-display tracking-tight text-[27px] font-semibold">
-          {greeting(lang)}
-          {state.displayName ? `, ${state.displayName}` : ''}
+          {state.displayName ? tr('app.today.greetName', { greeting: greeting(), name: state.displayName }) : greeting()}
         </h1>
       </header>
 
-      {data.loading && !data.data && <LoadingView label="Loading today's steps…" />}
+      {data.loading && !data.data && <LoadingView label={tr('app.today.loading')} />}
       {data.error && <ErrorView message={data.error} onRetry={data.reload} />}
 
       {today && st && (
@@ -120,7 +115,7 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
                 className="mx-6 mt-2 p-3 px-3.5 rounded-[14px] text-[14px] leading-snug flex flex-col gap-2"
                 style={{ background: b.bg, color: b.fg }}
               >
-                <span>{b.text}</span>
+                <span>{tr(`app.today.banner.${f}`)}</span>
                 {f === 'ramadan' && (
                   <button
                     type="button"
@@ -128,7 +123,7 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
                     className="self-start min-h-[36px] px-3 rounded-full bg-white/80 border-0 text-[13px] font-semibold cursor-pointer"
                     style={{ color: b.fg }}
                   >
-                    Moon sighted: Ramadan ended today
+                    {tr('app.today.moonEnded')}
                   </button>
                 )}
               </div>
@@ -136,12 +131,12 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
           })}
 
           {!state.bannerDismissed && today.messages.length > 0 && (
-            <div role="status" className="mx-6 mt-2 p-2.5 pl-3.5 pr-2 rounded-[14px] bg-[#263A30] text-white flex items-center gap-2.5 shadow-sm">
+            <div role="status" className="mx-6 mt-2 p-2.5 ps-3.5 pe-2 rounded-[14px] bg-[#263A30] text-white flex items-center gap-2.5 shadow-sm">
               <p className="m-0 flex-1 text-[14px] leading-snug">{today.messages.join(' ')}</p>
               <button
                 type="button"
                 onClick={() => setState((prev) => ({ ...prev, bannerDismissed: true }))}
-                aria-label="Dismiss"
+                aria-label={tr('common.dismiss')}
                 className="flex-none w-11 h-11 border-0 bg-transparent text-white flex items-center justify-center hover:opacity-75 cursor-pointer"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -157,10 +152,10 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
             <button
               type="button"
               onClick={() => onNavigate('checkin')}
-              className="mx-6 mt-2.5 p-3 px-3.5 rounded-[16px] bg-white border-2 border-[#3E6B53] text-left cursor-pointer flex flex-col gap-0.5"
+              className="mx-6 mt-2.5 p-3 px-3.5 rounded-[16px] bg-white border-2 border-[#3E6B53] text-start cursor-pointer flex flex-col gap-0.5"
             >
-              <span className="text-[15px] font-semibold text-[#2C5140]">Rough few days?</span>
-              <span className="text-[13px] text-[#3F4F45]">Tell us what got in the way and we'll make things easier.</span>
+              <span className="text-[15px] font-semibold text-[#2C5140]">{tr('app.today.rough')}</span>
+              <span className="text-[13px] text-[#3F4F45]">{tr('app.today.roughSub')}</span>
             </button>
           ) : (
             <div className="px-6 pt-2">
@@ -169,7 +164,7 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
                 onClick={() => onNavigate('checkin')}
                 className="text-xs bg-white/80 border border-[#C5D0C7] text-[#3F4F45] px-2.5 py-1 rounded-full font-medium hover:bg-white transition-colors cursor-pointer"
               >
-                Something getting in the way? Check in
+                {tr('app.today.inTheWay')}
               </button>
             </div>
           )}
@@ -182,20 +177,20 @@ export const TodayScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
               </svg>
-              Prefer chatting? Check in by chat
+              {tr('app.today.chat')}
             </button>
           </div>
 
           <div className="mx-6 mt-4 mb-2 flex justify-between items-baseline">
             <h2 className="m-0 text-[15px] font-semibold">
-              {today.actions.length === 1 ? "Today's small step" : `Today's ${today.actions.length} small steps`}
+              {tr(today.actions.length === 1 ? 'app.today.oneStep' : 'app.today.steps')}
             </h2>
           </div>
 
           <div className="flex flex-col gap-2.5 px-6 pb-4">
             {today.actions.length === 0 && (
               <p className="m-0 p-4 rounded-[20px] bg-white/90 text-[14px] text-[#3F4F45]">
-                No steps today. Rest is part of the plan.
+                {tr('app.today.noSteps')}
               </p>
             )}
             {today.actions.map((s) => {

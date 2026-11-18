@@ -4,22 +4,24 @@ import { api, ApiError, Barrier, errorText, PlanOut, StateOut } from '../api/cli
 import { ArabicCalligraphyRing } from '../components/BackgroundMotifs'
 import { HabitRings } from '../components/HabitRings'
 import { useAsync } from '../lib/useAsync'
+import { tr } from '../i18n'
+import { BARRIER_LABEL } from '../lib/history'
 
 // Labels for the backend's Barrier enum (CLAUDE.md §6.2 plus the smoking/food extensions).
-const BARRIERS: { value: Barrier; label: string; smokersOnly?: boolean }[] = [
-  { value: 'time', label: 'No time' },
-  { value: 'energy_fatigue', label: 'Tired' },
-  { value: 'illness_pain', label: 'Sick or in pain' },
-  { value: 'stress', label: 'Stressed' },
-  { value: 'schedule_change', label: 'Schedule changed' },
-  { value: 'environment', label: 'Too hot / no space' },
-  { value: 'no_healthy_food_nearby', label: 'No healthy food nearby' },
-  { value: 'craving', label: 'Craving a cigarette', smokersOnly: true },
-  { value: 'others_smoking', label: 'People smoking around me', smokersOnly: true },
-  { value: 'social_family', label: 'Family things' },
-  { value: 'forgot', label: 'Forgot' },
-  { value: 'low_motivation', label: 'Not feeling it' },
-  { value: 'other', label: 'Something else' },
+const BARRIERS: { value: Barrier; smokersOnly?: boolean }[] = [
+  { value: 'time' },
+  { value: 'energy_fatigue' },
+  { value: 'illness_pain' },
+  { value: 'stress' },
+  { value: 'schedule_change' },
+  { value: 'environment' },
+  { value: 'no_healthy_food_nearby' },
+  { value: 'craving', smokersOnly: true },
+  { value: 'others_smoking', smokersOnly: true },
+  { value: 'social_family' },
+  { value: 'forgot' },
+  { value: 'low_motivation' },
+  { value: 'other' },
 ]
 
 /** Blame-free check-in: POST /users/{id}/checkin. Red flag → Care; otherwise → Easier plan. */
@@ -40,7 +42,7 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
 
   const submit = async () => {
     if (selected.length === 0 && !note.trim()) {
-      showToast('Pick what got in the way, or write a few words.')
+      showToast(tr('app.checkin.toastPick'))
       return
     }
     setSending(true)
@@ -56,7 +58,7 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
     } catch (e) {
       showToast(
         e instanceof ApiError && e.status === 409
-          ? "You've already checked in today. We'll ask again tomorrow."
+          ? tr('app.checkin.already')
           : errorText(e),
       )
     } finally {
@@ -73,7 +75,7 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
         <button
           type="button"
           onClick={() => onNavigate('today')}
-          aria-label="Close"
+          aria-label={tr('common.close')}
           className="min-w-[44px] min-h-[44px] flex items-center justify-end bg-transparent border-0 p-0 cursor-pointer text-[#1B2A22]"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -83,12 +85,12 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
       </div>
 
       <h1 className="mt-1 mb-1.5 font-display tracking-tight text-[27px] leading-tight font-semibold">
-        Rough few days?
+        {tr('app.checkin.title1')}
         <br />
-        What got in the way?
+        {tr('app.checkin.title2')}
       </h1>
       <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">
-        Weeks like this happen to everyone. Tell us and we'll make things easier.
+        {tr('app.checkin.intro')}
       </p>
 
       {ctx.data && (
@@ -97,7 +99,7 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
         </div>
       )}
 
-      <div role="group" aria-label="What got in the way" className="mt-3 grid grid-cols-2 gap-2">
+      <div role="group" aria-label={tr('app.checkin.group')} className="mt-3 grid grid-cols-2 gap-2">
         {options.map((b) => {
           const on = selected.includes(b.value)
           return (
@@ -110,14 +112,14 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
                 on ? 'border-2 border-[#3E6B53] bg-[#DDE9E0] font-semibold text-[#2C5140]' : 'border border-[#C5D0C7] bg-white'
               }`}
             >
-              {b.label}
+              {BARRIER_LABEL[b.value]}
             </button>
           )
         })}
       </div>
 
       <label htmlFor="checkin-text" className="mt-3 text-[14px] font-medium">
-        Or tell us in your own words (optional)
+        {tr('app.checkin.ownWords')}
       </label>
       <textarea
         id="checkin-text"
@@ -125,7 +127,7 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
         maxLength={500}
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="e.g. night shifts this week"
+        placeholder={tr('app.checkin.placeholder')}
         className="mt-1.5 box-border rounded-xl border border-[#C5D0C7] p-3 text-[14px] resize-none bg-white font-sans"
       />
 
@@ -136,14 +138,14 @@ export const CheckinScreen: React.FC<ScreenProps> = ({ state, setState, onNaviga
           disabled={sending}
           className="min-h-[52px] rounded-[14px] bg-[#3E6B53] hover:bg-[#2C5140] disabled:opacity-60 text-white text-[16px] font-semibold border-0 cursor-pointer shadow-button"
         >
-          {sending ? 'Making it easier…' : 'Make it easier'}
+          {sending ? tr('app.checkin.submitting') : tr('app.checkin.submit')}
         </button>
         <button
           type="button"
           onClick={() => onNavigate('today')}
           className="min-h-[44px] bg-transparent border-0 text-[14px] font-medium text-[#3E6B53] cursor-pointer"
         >
-          Not now
+          {tr('app.checkin.notNow')}
         </button>
       </div>
     </div>

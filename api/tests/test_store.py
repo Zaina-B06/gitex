@@ -165,6 +165,31 @@ def test_data_survives_reopen(open_db):
     assert s2.token_user("hash-1") == "u1" and s2.login("zaina") == ("u1", "scrypt$x")
 
 
+def test_batch_writes_once_at_the_end_with_the_same_result(open_db):
+    """Demo seeding and time travel batch their writes (one transaction, bulk inserts) for speed on Postgres."""
+    s = open_db()
+    plain = InMemoryStore()
+    for store in (plain, s):
+        Engine(store=store).onboard(demo_payload(), user_id="u1")
+    with s.batch():
+        _journey(Engine(store=s), "u1", days=6)
+        assert _count(s, "events") == 0  # nothing written yet
+        assert s.events("u1")  # but reads inside the batch see the buffered writes
+    _journey(Engine(store=plain), "u1", days=6)
+    assert s.get_state("u1") == plain.get_state("u1")
+    assert s.events("u1") == plain.events("u1")
+
+
+def test_batch_discards_everything_on_error(open_db):
+    s = open_db()
+    Engine(store=s).onboard(demo_payload(), user_id="u1")
+    before, before_events = s.get_state("u1"), s.events("u1")
+    with pytest.raises(RuntimeError), s.batch():
+        _journey(Engine(store=s), "u1", days=3)
+        raise RuntimeError("boom")
+    assert s.get_state("u1") == before and s.events("u1") == before_events
+
+
 def test_tokens_several_per_user_and_revocable(open_db):
     s = open_db()
     s.add_token("u1", "phone")

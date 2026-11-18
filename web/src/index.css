@@ -116,6 +116,33 @@ button:active {
   display: none;
 }
 
+/* Right-to-left (Arabic): back/forward arrows point the other way. */
+[dir='rtl'] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Small spinner for anything that is waiting on the server. */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  flex: none;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
 /* Printing (progress report → "Save as PDF"): drop app chrome, let the scrolling frame print in full. */
 @media print {
   @page {

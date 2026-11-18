@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { ScreenProps } from '../types'
 import { api, ApiError, Barrier, errorText, ScheduledAction, StateOut, TodayOut } from '../api/client'
 import { BEHAVIOUR_STYLE, pct } from '../lib/behaviour'
+import { BARRIER_LABEL } from '../lib/history'
+import { tr } from '../i18n'
 
 type Reply = { label: string; run: () => void }
 interface Msg {
@@ -11,14 +13,8 @@ interface Msg {
   care?: boolean
 }
 
-const QUICK_BARRIERS: { value: Barrier; label: string }[] = [
-  { value: 'time', label: 'No time' },
-  { value: 'energy_fatigue', label: 'Tired' },
-  { value: 'illness_pain', label: 'Sick or in pain' },
-  { value: 'stress', label: 'Stressed' },
-  { value: 'schedule_change', label: 'Schedule changed' },
-  { value: 'forgot', label: 'Forgot' },
-  { value: 'low_motivation', label: 'Not feeling it' },
+const QUICK_BARRIERS: Barrier[] = [
+  'time', 'energy_fatigue', 'illness_pain', 'stress', 'schedule_change', 'forgot', 'low_motivation',
 ]
 
 let nextId = 1
@@ -67,7 +63,7 @@ export const ChatNudgeScreen: React.FC<ScreenProps> = ({ state, setState, onNavi
 
   const askStep = (s: ScheduledAction) => {
     const st = BEHAVIOUR_STYLE[s.action.behaviour]
-    say('bot', `${st.label}: ${s.action.title[lang]} (about ${s.action.duration_min} min). How did it go?`)
+    say('bot', tr('app.chat.ask', { label: st.label, title: s.action.title[lang], n: s.action.duration_min }))
     const answer = (type: 'completed' | 'partial' | 'skipped', label: string) => async () => {
       setReplies([])
       say('me', label)
@@ -77,37 +73,37 @@ export const ChatNudgeScreen: React.FC<ScreenProps> = ({ state, setState, onNavi
         say(
           'bot',
           res.encouragement?.message ??
-            (type === 'completed' ? 'Nice one. Saved.' : type === 'partial' ? 'A smaller version counts. Saved.' : 'No problem. Your progress is safe.'),
+            tr(type === 'completed' ? 'app.chat.nice' : type === 'partial' ? 'app.chat.smaller' : 'app.chat.noProblem'),
         )
       } catch (e) {
-        say('bot', e instanceof ApiError && e.status === 409 ? 'That one was already answered today.' : errorText(e))
+        say('bot', e instanceof ApiError && e.status === 409 ? tr('app.chat.alreadyAnswered') : errorText(e))
       } finally {
         setBusy(false)
       }
       nextStep()
     }
     setReplies([
-      { label: 'Done', run: answer('completed', 'Done') },
-      { label: 'Did less', run: answer('partial', 'Did a smaller version') },
-      { label: 'Skip', run: answer('skipped', 'Skip today') },
+      { label: tr('common.done'), run: answer('completed', tr('common.done')) },
+      { label: tr('common.didLess'), run: answer('partial', tr('app.chat.didSmaller')) },
+      { label: tr('common.skipStep'), run: answer('skipped', tr('app.chat.skipToday')) },
     ])
   }
 
   const endOptions = (st?: StateOut) => {
-    say('bot', st ? "That's everything for today." : 'Anything else?')
+    say('bot', tr(st ? 'app.chat.allDone' : 'app.chat.anythingElse'))
     setReplies([
-      { label: 'Something got in the way', run: startCheckin },
+      { label: tr('app.chat.inTheWay'), run: startCheckin },
       {
-        label: 'How am I doing?',
+        label: tr('app.chat.howDoing'),
         run: async () => {
           setReplies([])
-          say('me', 'How am I doing?')
+          say('me', tr('app.chat.howDoing'))
           try {
             const [, s] = await load()
             const parts = Object.entries(s.habit_strength)
               .filter(([b]) => b in BEHAVIOUR_STYLE)
               .map(([b, h]) => `${BEHAVIOUR_STYLE[b as keyof typeof BEHAVIOUR_STYLE].label} ${pct(h)}`)
-            say('bot', `Habit strength (0–100): ${parts.join(' · ')}. It fades slowly on missed days and never resets to zero.`)
+            say('bot', tr('app.chat.strength', { parts: parts.join(' · ') }))
           } catch (e) {
             say('bot', errorText(e))
           }
@@ -119,16 +115,16 @@ export const ChatNudgeScreen: React.FC<ScreenProps> = ({ state, setState, onNavi
 
   const startCheckin = () => {
     setReplies([])
-    say('me', 'Something got in the way')
-    say('bot', 'Thanks for telling me. What got in the way? Tap one, or type it in your own words.')
+    say('me', tr('app.chat.inTheWay'))
+    say('bot', tr('app.chat.thanksAsk'))
     setMode('checkin')
-    setReplies(QUICK_BARRIERS.map((b) => ({ label: b.label, run: () => sendCheckin([b.value], b.label) })))
+    setReplies(QUICK_BARRIERS.map((b) => ({ label: BARRIER_LABEL[b], run: () => sendCheckin([b], BARRIER_LABEL[b]) })))
   }
 
   const sendCheckin = async (barriers: Barrier[], shown: string, text?: string) => {
     setReplies([])
     say('me', shown)
-    if (text && mode !== 'checkin') say('bot', "Thanks for telling me. Let me adjust today's plan.")
+    if (text && mode !== 'checkin') say('bot', tr('app.chat.thanksAdjust'))
     setMode('steps')
     setBusy(true)
     let continueSteps = false
@@ -137,17 +133,17 @@ export const ChatNudgeScreen: React.FC<ScreenProps> = ({ state, setState, onNavi
       if (out.red_flag) {
         say('bot', out.message, true)
         setState((prev) => ({ ...prev, careReason: 'red_flag', lastCheckin: out }))
-        setReplies([{ label: 'Get help now', run: () => onNavigate('care') }])
+        setReplies([{ label: tr('app.chat.getHelp'), run: () => onNavigate('care') }])
       } else {
         say('bot', out.message)
         if (out.adjusted_actions.length)
-          say('bot', `Today's lighter steps: ${out.adjusted_actions.map((a) => a.title[lang]).join(' · ')}`)
+          say('bot', tr('app.chat.lighter', { list: out.adjusted_actions.map((a) => a.title[lang]).join(' · ') }))
         continueSteps = true
       }
     } catch (e) {
       say(
         'bot',
-        e instanceof ApiError && e.status === 409 ? "You've already checked in today. I'll ask again tomorrow." : errorText(e),
+        e instanceof ApiError && e.status === 409 ? tr('app.chat.alreadyChecked') : errorText(e),
       )
       endOptions()
     } finally {
@@ -167,28 +163,28 @@ export const ChatNudgeScreen: React.FC<ScreenProps> = ({ state, setState, onNavi
   useEffect(() => {
     if (started.current) return
     started.current = true
-    say('bot', `Hi${state.displayName ? ` ${state.displayName}` : ''}! Let's go through today's steps.`)
+    say('bot', state.displayName ? tr('app.chat.helloName', { name: state.displayName }) : tr('app.chat.hello'))
     nextStep()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-    <div className="h-full w-full flex flex-col bg-[#E8ECE2] font-sans text-[#1B2A22]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-full w-full flex flex-col bg-[#E8ECE2] font-sans text-[#1B2A22]">
       <header className="flex items-center gap-3 px-3 py-2.5 bg-[#263A30] text-white">
         <button
           type="button"
           onClick={() => onNavigate('today')}
-          aria-label="Back"
+          aria-label={tr('common.back')}
           className="w-10 h-10 flex items-center justify-center bg-transparent border-0 text-white cursor-pointer"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg className="rtl-flip" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
         <span className="w-9 h-9 rounded-full bg-[#3E6B53] flex items-center justify-center font-display font-semibold">R</span>
         <span className="flex flex-col">
-          <span className="text-[15px] font-semibold">Rebound</span>
-          <span className="text-[11px] text-[#A2C7B0]">{busy ? 'typing…' : 'check-in chat'}</span>
+          <span className="text-[15px] font-semibold">{tr('onboarding.welcome.brand')}</span>
+          <span className="text-[11px] text-[#A2C7B0]">{busy ? tr('app.chat.typing') : tr('app.chat.subtitle')}</span>
         </span>
       </header>
 
@@ -236,17 +232,17 @@ export const ChatNudgeScreen: React.FC<ScreenProps> = ({ state, setState, onNavi
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={500}
-          placeholder="Tell me what's going on…"
-          aria-label="Message"
+          placeholder={tr('app.chat.placeholder')}
+          aria-label={tr('app.chat.message')}
           className="flex-1 min-h-[44px] rounded-full border border-[#C5D0C7] px-4 text-[14px] bg-white"
         />
         <button
           type="submit"
           disabled={!input.trim() || busy}
-          aria-label="Send"
+          aria-label={tr('app.chat.send')}
           className="w-11 h-11 rounded-full bg-[#3E6B53] text-white flex items-center justify-center border-0 cursor-pointer disabled:opacity-50"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg className="rtl-flip" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" />
           </svg>
         </button>

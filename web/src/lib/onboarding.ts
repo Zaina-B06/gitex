@@ -1,5 +1,6 @@
 import type { FollowUp, OnboardIn, SuggestedAnswers } from '../api/client'
 import { AppState, OnboardingDraft, SCREENING_KEYS, ScreeningKey } from '../types'
+import { tr } from '../i18n'
 
 export const emptyDraft = (): OnboardingDraft => ({
   ageYears: null,
@@ -102,12 +103,13 @@ export const bodyValid = (p: OnboardingDraft) =>
 /** Which step is still missing a required answer, or null when the draft can be sent. */
 export function missingStep(p: OnboardingDraft): string | null {
   if (p.ageYears === null || p.ageYears < 18 || p.ageYears > 100 || !p.sex || !p.scheduleType || !bodyValid(p))
-    return 'About you'
-  if (p.scheduleType === 'shift' && p.shiftDays.length === 0) return 'About you'
-  if (p.goals.length === 0) return 'Goals'
-  if (SCREENING_KEYS.some((k) => p.screening[k] === null)) return 'Health check'
-  if (asksActivity(p) && p.activeDaysPerWeek === null) return 'Your days'
-  if (asksSleep(p) && (p.sleepHoursTypical === null || p.sleepQualitySelf === null)) return 'Your days'
+    return tr('onboarding.stepname.basics')
+  if (p.scheduleType === 'shift' && p.shiftDays.length === 0) return tr('onboarding.stepname.basics')
+  if (p.goals.length === 0) return tr('onboarding.stepname.goals')
+  if (SCREENING_KEYS.some((k) => p.screening[k] === null)) return tr('onboarding.stepname.health')
+  if (asksActivity(p) && p.activeDaysPerWeek === null) return tr('onboarding.stepname.baseline')
+  if (asksSleep(p) && (p.sleepHoursTypical === null || p.sleepQualitySelf === null))
+    return tr('onboarding.stepname.baseline')
   return null
 }
 

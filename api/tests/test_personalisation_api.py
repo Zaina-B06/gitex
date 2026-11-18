@@ -105,7 +105,7 @@ def test_anchor_used_in_simple_and_arabic_titles(client):
     for lang in ("en", "ar"):
         anchored = with_anchor(march, "after maghrib")
         assert "maghrib" in getattr(anchored.title, lang) and "maghrib" in getattr(anchored.simple, lang)
-    other = next(a for a in default_library() if a.id == "mv_t1_home_walk")
+    other = next(a for a in default_library() if a.id == "sl_t1_fixed_wake")  # no generic anchor phrase
     assert with_anchor(other, "after maghrib") == other
 
 

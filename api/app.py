@@ -286,6 +286,7 @@ class SettingsIn(BaseModel):
     shifts: list[Shift] | None = None  # replaces the weekly shift pattern; [] clears it. Takes effect the next day
     ramadan: Literal["started_today", "ended_today"] | None = None  # moon-sighting correction, applies today
     login: LoginIn | None = None  # add sign-in details to an account created without them (once)
+    language: Language | None = None  # switches every text the API sends (steps, reasons, messages, recap)
 
 
 class SettingsOut(BaseModel):
@@ -293,6 +294,7 @@ class SettingsOut(BaseModel):
     consents: dict[ConsentGroup, bool]
     state: StateOut
     plan_summary: PlanOut  # re-built from the updated answers
+    today: TodayOut  # today's steps and messages, in the (possibly new) language
 
 
 class AdvanceOut(BaseModel):
@@ -704,8 +706,13 @@ def create_app(
         update: dict[str, Any] = {"preferences": prefs, "consents": consents}
         if body.conditions is not None:
             update["conditions"] = body.conditions
+        basics: dict[str, Any] = {}
         if body.shifts is not None:  # takes effect when the next day opens
-            update["basics"] = profile.basics.model_copy(update={"shifts": body.shifts or None})
+            basics["shifts"] = body.shifts or None
+        if body.language is not None:  # applies at once: every text is rendered per request
+            basics["language"] = body.language
+        if basics:
+            update["basics"] = profile.basics.model_copy(update=basics)
         profile = profile.model_copy(update={**update, **_withdrawn(consents)})
         store.save_profile(profile)
         for flag, on in (body.context or {}).items():
@@ -717,7 +724,8 @@ def create_app(
             engine.refresh_context(uid)  # applies today: today's open steps become fasting-safe at the right hour
         return SettingsOut(preferences=profile.preferences, consents=profile.consents,
                            state=_state_out(engine.get_state(uid)),
-                           plan_summary=_plan_out(profile, engine.get_state(uid)))
+                           plan_summary=_plan_out(profile, engine.get_state(uid)),
+                           today=today_out(meta, open_day(meta)))
 
     @app.get("/users/{user_id}/export", response_model=ExportOut)
     def export(meta: Authed) -> ExportOut:
@@ -808,6 +816,11 @@ def create_app(
         recap_cache[meta.user_id] = (state.day, results, llm_tried)
         return results[key]
 
+    @app.get("/health")
+    def health() -> dict[str, bool]:
+        """Wake-up check for the frontend (free hosting sleeps when idle). No auth, no database work."""
+        return {"ok": True}
+
     # ---------- dashboards: aggregates only, never individual data ----------
 
     @app.get("/dashboard/outcomes")
@@ -867,10 +880,11 @@ def create_app(
 
     @app.post("/demo/users/{user_id}/advance", response_model=AdvanceOut)
     def advance(body: AdvanceIn, meta: Authed) -> AdvanceOut:
-        if body.scenario:
-            engine.set_context(meta.user_id, ContextFlag(body.scenario), True)
-        meta, log = advance_days(meta, body.days, body.pattern)
-        today = today_out(meta, open_day(meta))  # opens the new day, which closes the last one
+        with store.batch():  # every day's rows in one transaction
+            if body.scenario:
+                engine.set_context(meta.user_id, ContextFlag(body.scenario), True)
+            meta, log = advance_days(meta, body.days, body.pattern)
+            today = today_out(meta, open_day(meta))  # opens the new day, which closes the last one
         return AdvanceOut(state=_state_out(engine.get_state(meta.user_id)), today=today, log=log)
 
     @app.post("/demo/seed", response_model=SeedOut, status_code=201)
@@ -879,14 +893,17 @@ def create_app(
         if not demo_key or not x_demo_key or not hmac.compare_digest(x_demo_key, demo_key):
             raise HTTPException(401, "missing or wrong X-Demo-Key")
         personas = []
+        # One batch per person: their rows are written in one transaction with bulk inserts (fast on Postgres).
         for name, data in DEMO_PERSONAS:
-            out = onboard(OnboardIn.model_validate(data))
-            advance_days(store.get_meta(out.user_id), PERSONA_WARMUP_DAYS, "good")
+            with store.batch():
+                out = onboard(OnboardIn.model_validate(data))
+                advance_days(store.get_meta(out.user_id), PERSONA_WARMUP_DAYS, "good")
             personas.append(SeedPersona(name=name, user_id=out.user_id, token=out.token))
         org_id = f"demo-org-{secrets.token_hex(3)}"  # a fresh org per call, so repeated seeding never mixes orgs
         for i, data in enumerate(org_bodies(org_id)):
-            out = onboard(OnboardIn.model_validate(data))
-            advance_days(store.get_meta(out.user_id), ORG_DAYS, ORG_PATTERNS[i % len(ORG_PATTERNS)])
+            with store.batch():
+                out = onboard(OnboardIn.model_validate(data))
+                advance_days(store.get_meta(out.user_id), ORG_DAYS, ORG_PATTERNS[i % len(ORG_PATTERNS)])
         return SeedOut(personas=personas, org_id=org_id, org_size=ORG_SIZE)
 
     return app

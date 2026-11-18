@@ -7,21 +7,23 @@ import { LoadingView, ErrorView } from '../components/StatusViews'
 import { BEHAVIOUR_STYLE, pct } from '../lib/behaviour'
 import { BARRIER_LABEL, DayRecord, OUTCOME_LABEL, addDays, buildDays, dateKey, onboardDate } from '../lib/history'
 import { useAsync } from '../lib/useAsync'
+import i18n, { tr } from '../i18n'
 
 type Period = 7 | 30 | 'all'
 
-const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const locale = () => (i18n.language === 'ar' ? 'ar-AE' : 'en-GB')
+const fmt = (d: Date) => d.toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' })
 
 /** Plain words for how often a habit was done in a week (no counters, CLAUDE.md §2.1). */
 function howOften(logs: DayRecord['logs'][]): string {
   const total = logs.length
-  if (!total) return 'no steps yet'
+  if (!total) return tr('extra.r.often.none')
   const score = logs.reduce((s, ls) => s + (ls.some((l) => l.outcome === 'completed') ? 1 : ls.some((l) => l.outcome === 'partial') ? 0.5 : 0), 0)
   const share = score / total
-  if (share >= 0.7) return 'most days'
-  if (share >= 0.4) return 'about half the days'
-  if (share > 0) return 'some days'
-  return 'a quieter week'
+  if (share >= 0.7) return tr('extra.r.often.most')
+  if (share >= 0.4) return tr('extra.r.often.half')
+  if (share > 0) return tr('extra.r.often.some')
+  return tr('extra.r.often.quiet')
 }
 
 function csvCell(v: string | number): string {
@@ -53,7 +55,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
     const lastDate = addDays(onboardDate(exp), exp.state.day - 1)
     const trend = Array.from({ length: len }, (_, i) => {
       const row: Record<string, string | number> = {
-        date: addDays(lastDate, i - len + 1).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        date: addDays(lastDate, i - len + 1).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }),
       }
       for (const b of behaviours) {
         const v = h[b]
@@ -72,7 +74,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
       for (const l of d.logs)
         rows.push([dateKey(d.date), d.day, l.behaviour ? BEHAVIOUR_STYLE[l.behaviour].label : '', OUTCOME_LABEL[l.outcome] ?? l.outcome, ''])
       for (const b of d.checkins)
-        rows.push([dateKey(d.date), d.day, 'check-in', '', b.map((x) => BARRIER_LABEL[x] ?? x).join('; ')])
+        rows.push([dateKey(d.date), d.day, tr('extra.r.checkinRow'), '', b.map((x) => BARRIER_LABEL[x] ?? x).join('; ')])
     }
     const blob = new Blob([rows.map((r) => r.map(csvCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -83,13 +85,13 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-    showToast('Spreadsheet downloaded.')
+    showToast(tr('extra.r.csvDone'))
   }
 
   const periods: { value: Period; label: string }[] = [
-    { value: 7, label: 'Last 7 days' },
-    { value: 30, label: 'Last 30 days' },
-    { value: 'all', label: 'Everything' },
+    { value: 7, label: tr('extra.r.last7') },
+    { value: 30, label: tr('extra.r.last30') },
+    { value: 'all', label: tr('extra.r.all') },
   ]
 
   return (
@@ -101,11 +103,11 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
             onClick={() => onNavigate('settings')}
             className="min-h-[40px] flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer text-[14px] font-medium text-[#3E6B53]"
           >
-            ‹ Settings
+            <span className="rtl-flip inline-block">‹</span> {tr('extra.r.back')}
           </button>
-          <span className="text-[13px] font-semibold">Progress report</span>
+          <span className="text-[13px] font-semibold">{tr('extra.r.title')}</span>
         </div>
-        <div className="flex gap-1.5" role="group" aria-label="Period">
+        <div className="flex gap-1.5" role="group" aria-label={tr('extra.r.period')}>
           {periods.map((p) => (
             <button
               key={p.label}
@@ -127,7 +129,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
             onClick={() => window.print()}
             className="flex-1 min-h-[42px] rounded-[12px] bg-[#3E6B53] text-white text-[14px] font-semibold border-0 cursor-pointer disabled:opacity-60"
           >
-            Save as PDF
+            {tr('extra.r.pdf')}
           </button>
           <button
             type="button"
@@ -135,29 +137,29 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
             onClick={downloadCsv}
             className="flex-1 min-h-[42px] rounded-[12px] bg-white border border-[#C5D0C7] text-[14px] font-semibold cursor-pointer disabled:opacity-60"
           >
-            Spreadsheet (CSV)
+            {tr('extra.r.csv')}
           </button>
         </div>
-        <p className="m-0 text-[11px] text-[#5A6A60]">"Save as PDF": choose "Save as PDF" as the printer in the window that opens.</p>
+        <p className="m-0 text-[11px] text-[#5A6A60]">{tr('extra.r.pdfHint')}</p>
       </div>
 
-      {data.loading && !data.data && <LoadingView label="Building your report…" />}
+      {data.loading && !data.data && <LoadingView label={tr('extra.r.building')} />}
       {data.error && <ErrorView message={data.error} onRetry={data.reload} />}
 
       {exp && plan && report && (
         <article className="p-5 flex flex-col gap-5 text-[14px] leading-relaxed">
           <header className="border-b-2 border-[#3E6B53] pb-3">
-            <h1 className="m-0 font-display tracking-tight text-[24px] font-semibold text-[#2C5140]">Rebound progress report</h1>
+            <h1 className="m-0 font-display tracking-tight text-[24px] font-semibold text-[#2C5140]">{tr('extra.r.heading')}</h1>
             <p className="m-0 text-[13px] text-[#3F4F45]">
               {state.displayName ? `${state.displayName} · ` : ''}
               {report.days.length ? `${fmt(report.days[0].date)} – ${fmt(report.days[report.days.length - 1].date)}` : ''}
             </p>
-            <p className="m-0 text-[12px] text-[#5A6A60]">Made on {fmt(new Date())}</p>
+            <p className="m-0 text-[12px] text-[#5A6A60]">{tr('extra.r.madeOn', { date: fmt(new Date()) })}</p>
           </header>
 
           <section className="flex flex-col gap-2">
-            <h2 className="m-0 text-[16px] font-semibold">Habit strength now</h2>
-            <p className="m-0 text-[12px] text-[#5A6A60]">0–100. It grows with each step and fades slowly on missed days. It never resets to zero.</p>
+            <h2 className="m-0 text-[16px] font-semibold">{tr('extra.r.strength')}</h2>
+            <p className="m-0 text-[12px] text-[#5A6A60]">{tr('extra.r.strengthHint')}</p>
             <table className="w-full border-collapse text-[13px]">
               <tbody>
                 {report.behaviours.map((b) => {
@@ -172,7 +174,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
                       </td>
                       <td className="py-1.5 text-end">{nowH}</td>
                       <td className="py-1.5 text-end text-[#5A6A60]">
-                        {change === 0 ? 'steady' : change > 0 ? `up ${change} recently` : `down ${-change} recently`}
+                        {change === 0 ? tr('extra.r.steady') : change > 0 ? tr('extra.r.up', { n: change }) : tr('extra.r.down', { n: -change })}
                       </td>
                     </tr>
                   )
@@ -202,7 +204,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="m-0 text-[16px] font-semibold">Week by week</h2>
+            <h2 className="m-0 text-[16px] font-semibold">{tr('extra.r.weeks')}</h2>
             {report.weeks.map((w, i) => (
               <div key={i} className="break-inside-avoid">
                 <h3 className="m-0 text-[13px] font-semibold text-[#3F4F45]">
@@ -220,14 +222,14 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="m-0 text-[16px] font-semibold">Check-ins</h2>
+            <h2 className="m-0 text-[16px] font-semibold">{tr('extra.r.checkins')}</h2>
             {report.checkins.length === 0 ? (
-              <p className="m-0 text-[#3F4F45]">No check-ins in this period.</p>
+              <p className="m-0 text-[#3F4F45]">{tr('extra.r.noCheckins')}</p>
             ) : (
               <ul className="m-0 ps-5 list-disc">
                 {report.checkins.map((c, i) => (
                   <li key={i}>
-                    {fmt(c.date)}: {c.barriers.length ? c.barriers.map((b) => BARRIER_LABEL[b] ?? b).join(', ') : 'in your own words'}
+                    {fmt(c.date)}: {c.barriers.length ? c.barriers.map((b) => BARRIER_LABEL[b] ?? b).join(', ') : tr('extra.r.ownWords')}
                   </li>
                 ))}
               </ul>
@@ -235,13 +237,13 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
           </section>
 
           <section className="flex flex-col gap-2 break-inside-avoid">
-            <h2 className="m-0 text-[16px] font-semibold">Day by day</h2>
+            <h2 className="m-0 text-[16px] font-semibold">{tr('extra.r.days')}</h2>
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="text-start border-b border-[#C5D0C7]">
-                  <th className="py-1 text-start font-semibold">Date</th>
-                  <th className="py-1 text-start font-semibold">Habit</th>
-                  <th className="py-1 text-start font-semibold">What happened</th>
+                  <th className="py-1 text-start font-semibold">{tr('extra.r.date')}</th>
+                  <th className="py-1 text-start font-semibold">{tr('extra.r.habit')}</th>
+                  <th className="py-1 text-start font-semibold">{tr('extra.r.what')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -259,7 +261,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
           </section>
 
           <section className="flex flex-col gap-1 break-inside-avoid">
-            <h2 className="m-0 text-[16px] font-semibold">Why your plan looks like this</h2>
+            <h2 className="m-0 text-[16px] font-semibold">{tr('extra.r.why')}</h2>
             <ul className="m-0 ps-5 list-disc">
               {plan.all_reasons.map((r) => (
                 <li key={r}>{r}</li>
@@ -268,8 +270,7 @@ export const ReportScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
           </section>
 
           <footer className="pt-3 border-t border-[#DCE3DA] text-[11px] leading-snug text-[#5A6A60]">
-            Made on your device from your Rebound data. It contains health information, so share it only with people you trust.
-            This is not a medical document.
+            {tr('extra.r.footer')}
           </footer>
         </article>
       )}

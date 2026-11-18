@@ -3,6 +3,7 @@ import { ScreenProps } from '../types'
 import { TatreezPattern, ArabicCalligraphyRing } from '../components/BackgroundMotifs'
 import { ScreenFrame } from '../components/ScreenFrame'
 import { PlanSummary } from '../components/PlanSummary'
+import { tr } from '../i18n'
 
 interface PlanCardScreenProps extends ScreenProps {
   onStart: () => void
@@ -25,19 +26,21 @@ export const PlanCardScreen: React.FC<PlanCardScreenProps> = ({ state, onStart }
         onClick={onStart}
         className="w-full min-h-[52px] rounded-2xl bg-white hover:bg-[#F3F7F4] text-[#2C5140] text-[16px] font-bold shadow-[0_10px_22px_-10px_rgba(20,40,28,0.6)] border-0 cursor-pointer"
       >
-        Continue
+        {tr('common.continue')}
       </button>
     }
   >
     <div className="p-6 pb-2">
-      <span className="text-[13px] text-[#F3F7F4]">Sign-up done{state.displayName ? `, ${state.displayName}` : ''}</span>
+      <span className="text-[13px] text-[#F3F7F4]">
+        {state.displayName ? tr('onboarding.plan.doneName', { name: state.displayName }) : tr('onboarding.plan.done')}
+      </span>
       <h1 className="mt-2 mb-1.5 font-display tracking-tight text-[32px] leading-[1.12] font-semibold">
-        Your plan,
+        {tr('onboarding.plan.title1')}
         <br />
-        built for you
+        {tr('onboarding.plan.title2')}
       </h1>
       <p className="m-0 mb-4 text-[14px] leading-relaxed text-[#F3F7F4]">
-        Small steps every day. Each one grows only when you're ready. You'll find this any time under My plan.
+        {tr('onboarding.plan.intro')}
       </p>
       {state.plan && <PlanSummary plan={state.plan} />}
     </div>

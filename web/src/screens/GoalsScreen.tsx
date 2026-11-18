@@ -4,14 +4,11 @@ import type { Behaviour, Condition } from '../api/client'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
 import { GOAL_OPTIONS } from '../lib/behaviour'
 import { stepOf } from '../lib/onboarding'
+import { options, tr } from '../i18n'
 
-const CONDITION_OPTIONS: { value: Condition; label: string }[] = [
-  { value: 'diabetes', label: 'Diabetes' },
-  { value: 'high_blood_pressure', label: 'High blood pressure' },
-  { value: 'back_or_joint_pain', label: 'Back or joint pain' },
-  { value: 'stress', label: 'Stress' },
-  { value: 'recovering_from_illness_or_injury', label: 'Recovering from illness or injury' },
-]
+export const CONDITION_OPTIONS = options<Condition>('onboarding.condition', [
+  'diabetes', 'high_blood_pressure', 'back_or_joint_pain', 'stress', 'recovering_from_illness_or_injury',
+])
 
 const SMOKES = 'smokes' as const
 
@@ -30,22 +27,22 @@ export const GoalsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
     update({ smokes: !p.smokes, goals: p.smokes ? p.goals.filter((g) => g !== 'smoking') : p.goals })
 
   const handleContinue = () => {
-    if (p.goals.length === 0) return showToast('Pick at least one thing to work on.')
+    if (p.goals.length === 0) return showToast(tr('onboarding.goals.toastPick'))
     onNavigate('onboarding-health')
   }
 
   return (
     <OnboardingLayout
       {...stepOf(p, 'onboarding-goals')}
-      title="What do you want to work on?"
-      subtitle="Pick any. We'll start with one or two."
+      title={tr('onboarding.goals.title')}
+      subtitle={tr('onboarding.goals.subtitle')}
       onBack={() => onNavigate('onboarding-basics')}
       onContinue={handleContinue}
     >
       <ChipGroup<Condition | typeof SMOKES>
-        label="Anything you're managing?"
-        hint="Optional. It changes the order of your steps, never the medical care you get. You can remove it any time."
-        options={[...CONDITION_OPTIONS, { value: SMOKES, label: 'I smoke' }]}
+        label={tr('onboarding.goals.managing')}
+        hint={tr('onboarding.goals.managingHint')}
+        options={[...CONDITION_OPTIONS, { value: SMOKES, label: tr('onboarding.goals.smokes') }]}
         isSelected={(v) => (v === SMOKES ? p.smokes : p.conditions.includes(v))}
         onToggle={(v) => (v === SMOKES ? toggleSmokes() : update({ conditions: toggle(p.conditions, v) }))}
       />
@@ -57,12 +54,12 @@ export const GoalsScreen: React.FC<ScreenProps> = ({ state, setState, onNavigate
           onChange={(e) => update({ consentConditions: e.target.checked })}
           className="mt-0.5 w-5 h-5 flex-none accent-[#3E6B53] cursor-pointer"
         />
-        I agree Rebound can use the conditions I picked to shape my plan.
+        {tr('onboarding.goals.consent')}
       </label>
 
       <ChipGroup<Behaviour>
-        label="Your goals"
-        hint={p.smokes ? undefined : '"Smoke less" appears if you tell us you smoke.'}
+        label={tr('onboarding.goals.goals')}
+        hint={p.smokes ? undefined : tr('onboarding.goals.smokeHint')}
         options={goalOptions}
         isSelected={(v) => p.goals.includes(v)}
         onToggle={(v) => update({ goals: toggle(p.goals, v) })}

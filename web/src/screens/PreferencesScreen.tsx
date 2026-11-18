@@ -4,34 +4,14 @@ import { api, errorText, FollowUp } from '../api/client'
 import { OnboardingLayout, ChipGroup } from '../components/OnboardingLayout'
 import { asksBaseline, buildOnboardPayload, missingStep, showFollowUp, stepOf } from '../lib/onboarding'
 import { useAsync } from '../lib/useAsync'
+import { options, tr } from '../i18n'
 
-const HELPERS: { value: PastHelper; label: string }[] = [
-  { value: 'small_steps', label: 'Small steps' },
-  { value: 'reminders', label: 'Reminders' },
-  { value: 'buddy', label: 'A buddy' },
-  { value: 'tracking', label: 'Tracking' },
-  { value: 'rewards', label: 'Rewards' },
-  { value: 'routine_anchor', label: 'Tying it to a routine' },
-  { value: 'other', label: 'Something else' },
-]
-
-const SETTINGS: { value: SettingPref; label: string }[] = [
-  { value: 'indoor', label: 'Indoors' },
-  { value: 'outdoor', label: 'Outdoors' },
-  { value: 'either', label: 'Either' },
-]
-
-const HOUSEHOLD: { value: Household; label: string }[] = [
-  { value: 'alone', label: 'I live alone' },
-  { value: 'family', label: 'With family' },
-  { value: 'children', label: 'With children' },
-  { value: 'older_relatives', label: 'With older relatives' },
-]
-
-const YES_NO = [
-  { value: 'yes', label: 'Yes' },
-  { value: 'no', label: 'No' },
-]
+const HELPERS = options<PastHelper>('onboarding.helper', [
+  'small_steps', 'reminders', 'buddy', 'tracking', 'rewards', 'routine_anchor', 'other',
+])
+const SETTINGS = options<SettingPref>('onboarding.place', ['indoor', 'outdoor', 'either'])
+const HOUSEHOLD = options<Household>('onboarding.household', ['alone', 'family', 'children', 'older_relatives'])
+const YES_NO = options<'yes' | 'no'>('common', ['yes', 'no'])
 
 const MAX_REASON = 200
 
@@ -48,7 +28,7 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
 
   const submit = async () => {
     const missing = missingStep(p)
-    if (missing) return showToast(`Please finish "${missing}" first.`)
+    if (missing) return showToast(tr('onboarding.prefs.finishFirst', { step: missing }))
     setSubmitting(true)
     try {
       const out = await api.onboard(buildOnboardPayload(state))
@@ -70,26 +50,27 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
 
   // Follow-ups answered on this screen (shifts and the smoking goal are asked on steps 1 and 2 by the same rules).
   const followUps = ((content.data?.follow_ups ?? []) as unknown as FollowUp[]).filter(
-    (q) => ['anchor', 'iftar_time', 'family_fasting', 'caregiver', 'quiet_hours'].includes(q.id) && showFollowUp(q, p),
+    (q) =>
+      ['setting', 'anchor', 'iftar_time', 'family_fasting', 'caregiver', 'quiet_hours'].includes(q.id) && showFollowUp(q, p),
   )
   const examples = content.data?.reading_level_examples ?? {}
   const levels: { value: ReadingLevel; label: string }[] = [
-    { value: 'standard', label: 'Standard' },
-    { value: 'simple', label: 'Simpler words' },
+    { value: 'standard', label: tr('onboarding.prefs.standard') },
+    { value: 'simple', label: tr('onboarding.prefs.simpler') },
   ]
 
   return (
     <OnboardingLayout
       {...stepOf(p, 'onboarding-preferences')}
-      title="What helps you"
-      subtitle="All optional. It helps us pick the kind of step that suits you."
+      title={tr('onboarding.prefs.title')}
+      subtitle={tr('onboarding.prefs.subtitle')}
       onBack={() => onNavigate(asksBaseline(p) ? 'onboarding-baseline' : 'onboarding-health')}
       onContinue={submit}
-      continueLabel={submitting ? 'Building your plan…' : 'Build my plan'}
+      continueLabel={submitting ? tr('onboarding.prefs.building') : tr('onboarding.prefs.build')}
       continueDisabled={submitting}
     >
       <fieldset className="m-0 p-0 border-0">
-        <legend className="p-0 text-[15px] font-semibold">How should we word your steps?</legend>
+        <legend className="p-0 text-[15px] font-semibold">{tr('onboarding.prefs.wording')}</legend>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {levels.map((l) => {
             const on = p.readingLevel === l.value
@@ -112,22 +93,22 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
       </fieldset>
 
       <ChipGroup<PastHelper>
-        label="What helped when you tried before?"
-        hint="Pick any."
+        label={tr('onboarding.prefs.helped')}
+        hint={tr('onboarding.prefs.pickAny')}
         options={HELPERS}
         isSelected={(v) => p.pastHelpers.includes(v)}
         onToggle={toggleHelper}
       />
 
       <label className="block text-[15px] font-semibold">
-        Why does this matter to you?
-        <span className="block mt-0.5 text-[12px] font-normal text-[#5A6A60]">We'll remind you of this on tough days.</span>
+        {tr('onboarding.prefs.why')}
+        <span className="block mt-0.5 text-[12px] font-normal text-[#5A6A60]">{tr('onboarding.prefs.whyHint')}</span>
         <textarea
           rows={2}
           maxLength={MAX_REASON}
           value={p.motivationReason}
           onChange={(e) => update({ motivationReason: e.target.value })}
-          placeholder="e.g. to keep up with my kids"
+          placeholder={tr('onboarding.prefs.whyPlaceholder')}
           className="mt-2 w-full box-border rounded-xl border border-[#C5D0C7] bg-white p-3 text-[15px] font-normal text-[#1B2A22] resize-none font-sans"
         />
         <span className="block text-end text-[11px] font-normal text-[#5A6A60]">
@@ -136,24 +117,12 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
       </label>
 
       <ChipGroup<Household>
-        label="Who do you live with?"
-        hint={
-          p.scheduleType === 'home_caregiver'
-            ? 'You care for family at home, so we can suggest steps you can do together.'
-            : 'Unlocks steps you can do with family.'
-        }
+        label={tr('onboarding.prefs.household')}
+        hint={p.scheduleType === 'home_caregiver' ? tr('onboarding.prefs.householdHintCare') : tr('onboarding.prefs.householdHint')}
         options={HOUSEHOLD}
         isSelected={(v) => p.household === v}
         onToggle={(v) => update({ household: p.household === v ? null : v })}
         columns={2}
-      />
-
-      <ChipGroup<SettingPref>
-        label="Where do you prefer to be active?"
-        options={SETTINGS}
-        isSelected={(v) => p.setting === v}
-        onToggle={(v) => update({ setting: v })}
-        columns={3}
       />
 
       {p.sex === 'female' && (
@@ -164,13 +133,13 @@ export const PreferencesScreen: React.FC<ScreenProps> = ({ state, setState, onNa
             onChange={(e) => update({ womenOnlySpaces: e.target.checked })}
             className="mt-0.5 w-5 h-5 flex-none accent-[#3E6B53] cursor-pointer"
           />
-          I prefer women-only spaces (for community events and outdoor steps)
+          {tr('onboarding.prefs.womenOnly')}
         </label>
       )}
 
       <ChipGroup
-        label="Do you fast in Ramadan?"
-        hint="Steps during Ramadan will be fasting-friendly."
+        label={tr('onboarding.prefs.fast')}
+        hint={tr('onboarding.prefs.fastHint')}
         options={YES_NO}
         isSelected={(v) => (v === 'yes' ? p.fastingRamadan === true : p.fastingRamadan === false)}
         onToggle={(v) => update({ fastingRamadan: v === 'yes', familyFasting: v === 'yes' ? p.familyFasting : false })}
@@ -204,6 +173,17 @@ const FollowUpField: React.FC<{
       {q.text}
     </label>
   )
+  // "Indoors or outdoors?": only asked with a movement goal (the engine ranks and filters steps by it).
+  if (q.id === 'setting')
+    return (
+      <ChipGroup<SettingPref>
+        label={q.text}
+        options={SETTINGS}
+        isSelected={(v) => p.setting === v}
+        onToggle={(v) => update({ setting: v })}
+        columns={3}
+      />
+    )
   if (q.id === 'family_fasting') return check(p.familyFasting, (v) => update({ familyFasting: v }))
   if (q.id === 'caregiver') return check(p.caregiver, (v) => update({ caregiver: v }))
   if (q.id === 'anchor')
@@ -215,7 +195,7 @@ const FollowUpField: React.FC<{
           maxLength={40}
           value={p.anchor}
           onChange={(e) => update({ anchor: e.target.value })}
-          placeholder="e.g. after maghrib"
+          placeholder={tr('onboarding.prefs.anchorPlaceholder')}
           className={fieldClass}
         />
       </label>
@@ -233,11 +213,11 @@ const FollowUpField: React.FC<{
       <legend className="p-0 text-[15px] font-semibold">{q.text}</legend>
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-[14px] font-semibold">
-          From
+          {tr('onboarding.prefs.from')}
           <input type="time" value={p.quietStart} onChange={(e) => update({ quietStart: e.target.value })} className={fieldClass} />
         </label>
         <label className="block text-[14px] font-semibold">
-          Until
+          {tr('onboarding.prefs.until')}
           <input type="time" value={p.quietEnd} onChange={(e) => update({ quietEnd: e.target.value })} className={fieldClass} />
         </label>
       </div>

@@ -2,6 +2,7 @@ import React from 'react'
 import { api, ApiError, GoalOut, RecapFacts, Session } from '../api/client'
 import { BEHAVIOUR_STYLE } from '../lib/behaviour'
 import { useAsync } from '../lib/useAsync'
+import { tr } from '../i18n'
 
 /** One card per goal (plan.goals): level, good days to the next level, the last change and today's note.
  *  All texts come from the API in the user's language and reading level. It counts forward, never a streak. */
@@ -18,12 +19,12 @@ export const GoalCards: React.FC<{ goals: GoalOut[] }> = ({ goals }) => (
             </span>
             <span className="flex-1 text-[15px] font-semibold">{st.label}</span>
             <span className="text-[13px] font-semibold" style={{ color: st.color }}>
-              Level {g.tier}
+              {tr('common.level', { n: g.tier })}
             </span>
           </div>
           {toNext !== null && (
             <p className="m-0 text-[13px] text-[#3F4F45]">
-              {toNext <= 1 ? 'One more good day' : `${toNext} more good days`} to level {g.tier + 1}
+              {toNext <= 1 ? tr('common.oneMoreDay', { level: g.tier + 1 }) : tr('common.moreDays', { n: toNext, level: g.tier + 1 })}
             </p>
           )}
           {g.today_note && <p className="m-0 text-[13px] font-medium text-[#2E2563]">{g.today_note}</p>}
@@ -35,12 +36,7 @@ export const GoalCards: React.FC<{ goals: GoalOut[] }> = ({ goals }) => (
   </div>
 )
 
-const HOW: Record<RecapFacts['goals'][number]['how'], string> = {
-  mostly_done: 'mostly done',
-  mixed: 'mixed',
-  mostly_missed: 'mostly missed',
-  no_steps: 'no steps yet',
-}
+const HOW = (how: RecapFacts['goals'][number]['how']) => tr(`common.how.${how}`)
 
 /** Weekly recap (GET /recap): the server's 2–3 sentences and one word per goal. Hidden while coaching is paused
  *  after a safety concern (409) or if the recap can't be loaded. No numbers, no streaks. */
@@ -52,15 +48,15 @@ export const RecapCard: React.FC<{ session: Session; version: number }> = ({ ses
   if (!recap.data) return null
   const facts = recap.data.facts as unknown as RecapFacts
   return (
-    <section aria-label="Your week" className="rounded-[20px] p-4 bg-white/95 shadow-card flex flex-col gap-2">
-      <h2 className="m-0 text-[15px] font-semibold">Your week</h2>
+    <section aria-label={tr('common.yourWeek')} className="rounded-[20px] p-4 bg-white/95 shadow-card flex flex-col gap-2">
+      <h2 className="m-0 text-[15px] font-semibold">{tr('common.yourWeek')}</h2>
       <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">{recap.data.summary}</p>
       <ul className="m-0 p-0 list-none flex flex-wrap gap-1.5">
         {facts.goals.map((g) => {
           const st = BEHAVIOUR_STYLE[g.behaviour]
           return (
             <li key={g.behaviour} className="px-2.5 py-1 rounded-full text-[12px] font-semibold" style={{ background: st.tint, color: st.color }}>
-              {st.label}: {HOW[g.how]}
+              {st.label}: {HOW(g.how)}
             </li>
           )
         })}

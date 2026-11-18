@@ -27,6 +27,7 @@ import { GoalsScreen } from './screens/GoalsScreen'
 import { CommunityScreen } from './screens/CommunityScreen'
 
 import { DEMO_MODE } from './lib/demo'
+import i18n, { tr } from './i18n'
 
 const freshState = (): AppState => ({
   session: null,
@@ -58,7 +59,16 @@ export function App() {
     let live = true
     api
       .exportData(state.session)
-      .then((e) => live && setState((prev) => ({ ...prev, displayName: e.profile.preferences?.display_name ?? '' })))
+      // The app follows the person's saved language (Ahmed opens in Arabic) and their name for the greeting.
+      .then(
+        (e) =>
+          live &&
+          setState((prev) => ({
+            ...prev,
+            displayName: e.profile.preferences?.display_name ?? '',
+            language: e.profile.basics.language === 'ar' ? 'ar' : 'en',
+          })),
+      )
       .catch(() => {}) // a 401 is handled below; the greeting just goes without a name
     return () => {
       live = false
@@ -97,16 +107,19 @@ export function App() {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       startOver()
-      showToast('Your session has ended. Please sign in or start again.')
+      showToast(tr('common.sessionEnded'))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const finishOnboarding = () => {
     setState((prev) => ({ ...prev, justSignedUp: false, profile: emptyDraft() }))
-    showToast('Your plan is ready. Here is your first step.')
+    showToast(tr('common.planReady'))
     navigateTo('today')
   }
+
+  // Labels switch in the same render as the language (resources are in memory, so this is immediate).
+  if (i18n.language !== state.language) void i18n.changeLanguage(state.language)
 
   const props = { state, setState, onNavigate: navigateTo, showToast }
 
@@ -120,7 +133,7 @@ export function App() {
     try {
       await api.demoAdvance(state.session, body)
       setState((prev) => ({ ...prev, dataVersion: prev.dataVersion + 1, bannerDismissed: false }))
-      showToast(`${label}: done.`)
+      showToast(tr('common.advanced', { label }))
     } catch (e) {
       showToast(errorText(e))
     }
@@ -206,6 +219,8 @@ export function App() {
                 'print-full phone-frame'
           }
           style={{ '--demo-bar': `${barHeight}px` } as CSSProperties}
+          dir={state.language === 'ar' ? 'rtl' : 'ltr'}
+          lang={state.language}
         >
           <Routes>
             <Route path="/" element={<Navigate to={signedIn ? SCREEN_PATHS.today : SCREEN_PATHS.welcome} replace />} />
@@ -228,8 +243,8 @@ export function App() {
           <span className="truncate">{toast.message}</span>
           <button
             onClick={() => setToast(null)}
-            className="text-[#A2C7B0] hover:text-white font-bold ml-1 text-base leading-none bg-transparent border-0 cursor-pointer"
-            aria-label="Dismiss notification"
+            className="text-[#A2C7B0] hover:text-white font-bold ms-1 text-base leading-none bg-transparent border-0 cursor-pointer"
+            aria-label={tr('common.dismiss')}
           >
             ×
           </button>

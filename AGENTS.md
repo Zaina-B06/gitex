@@ -181,8 +181,9 @@ GET    /users/{id}/recap?days=7       → { days, facts, summary, written_by: ll
 GET    /users/{id}/community/events   → read-only events filtered to the user (Bearer token; real ones cite a source URL + date checked, others are labelled Example)
 GET    /recipes?tag=                  → curated recipes (general guidance, not medical advice); /recipes/{id}
                                          /today also returns recipes: { action_id: recipe } for cooking steps
-PATCH  /users/{id}/settings           body: { preferences?, consents?, context?, conditions?, shifts?, ramadan?: "started_today"|"ended_today", login?: { username, password } } → { preferences, consents, state, plan_summary }   (login: once, for accounts created without it; 409 otherwise)
+PATCH  /users/{id}/settings           body: { preferences?, consents?, context?, conditions?, shifts?, ramadan?: "started_today"|"ended_today", login?: { username, password }, language?: "en"|"ar" } → { preferences, consents, state, plan_summary, today }   (login: once, for accounts created without it; 409 otherwise; language switches every API text at once)
 DELETE /users/{id}                    → deletes all user data
+GET    /health                        → { ok: true }   (no auth, no database work; wakes a sleeping free-tier server)
 POST   /demo/users/{id}/advance       body: { days, scenario?: "ramadan"|"lapse"|"heat" }  (demo time travel)
 GET    /dashboard/outcomes?run_id=    → simulation metrics by arm + segment
 GET    /dashboard/employer?org_id=    → aggregates only; 403 if group < 10

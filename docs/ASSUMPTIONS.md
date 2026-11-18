@@ -917,6 +917,23 @@ rotated by day, EN + AR (draft) + simple EN and AR variants.
 - **Old saved states** (before 18 Nov) have no `tier_changes`. They load with an empty list (tested), so their plan
   screen shows no last change until the next one happens.
 
+**Round 2 (added 19 Nov).**
+- **Language can change after sign-up** (`PATCH /settings {language}`). Every API text is rendered per request,
+  so steps, reasons, messages and the recap switch at once. The engine itself never reads the language.
+- **Demo seeding and time travel are batched:** each person's rows are kept in memory and written at the end in
+  one transaction with bulk inserts (`SQLiteStore.batch()`). Results are unchanged (the same tests pass). On an
+  error nothing is written. Other requests see that person once the batch is written.
+- **The anchor appears on 10 tier-1/2 steps** ("... right after something you do daily": habit stacking). It's
+  wording only: their BCT codes are unchanged, because the simulator's personas respond to BCT codes, and
+  changing them would change run_011.
+- **Follow-up questions added only when the engine uses the answer.** Added: "Indoors or outdoors?" (movement goal
+  → `preferences.setting`). Skipped:
+  - "What keeps you up?": nothing reads `history.past_stop_reasons`.
+  - "Who cooks at home?": there's no field for it.
+  - "When do you get a quiet moment?": rest steps are always prompted in the evening, and nothing reads
+    `notification_window`.
+- **The app's Arabic labels are a draft translation, pending native review,** like the API's Arabic.
+
 **Sign-in and database (added 18 Nov).**
 - **Optional username + password**, at sign-up or later in settings (once). Usernames are 3–30 letters, digits,
   `.`, `_` or `-`, unique and not case-sensitive. Passwords are at least 8 characters (at most 128).

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ScreenId } from '../types'
 import type { AdvanceIn, SeedPersona } from '../api/client'
 import { firstName, loadPersonas } from '../lib/demo'
+import { tr } from '../i18n'
 
 interface ScreenSwitcherProps {
   currentScreen: ScreenId | null
@@ -15,12 +16,12 @@ interface ScreenSwitcherProps {
   onAdvance: (body: AdvanceIn, label: string) => Promise<void>
 }
 
-const TIME_TRAVEL: { label: string; body: AdvanceIn }[] = [
-  { label: 'Good day', body: { days: 1, pattern: 'good' } },
-  { label: 'Mixed day', body: { days: 1, pattern: 'mixed' } },
-  { label: 'Skip 4 days (lapse)', body: { days: 4, pattern: 'lapse' } },
-  { label: 'Ramadan', body: { days: 1, pattern: 'good', scenario: 'ramadan' } },
-  { label: 'Heat', body: { days: 1, pattern: 'good', scenario: 'heat' } },
+const TIME_TRAVEL: { key: string; body: AdvanceIn }[] = [
+  { key: 'goodDay', body: { days: 1, pattern: 'good' } },
+  { key: 'mixedDay', body: { days: 1, pattern: 'mixed' } },
+  { key: 'skip4', body: { days: 4, pattern: 'lapse' } },
+  { key: 'ramadan', body: { days: 1, pattern: 'good', scenario: 'ramadan' } },
+  { key: 'heat', body: { days: 1, pattern: 'good', scenario: 'heat' } },
 ]
 
 // Grouped in the order a real user meets them.
@@ -96,7 +97,7 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
   return (
     <div className="w-full bg-[#263A30] text-white text-xs border-b border-[#3E6B53]">
     {signedIn && (
-      <div className="px-4 pt-2 flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }} aria-label="Demo controls">
+      <div className="px-4 pt-2 flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }} aria-label={tr('common.demoControls')}>
         {personas.map((p) => (
           <button
             key={p.user_id}
@@ -108,16 +109,16 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
             {firstName(p)}
           </button>
         ))}
-        {TIME_TRAVEL.map((t) => (
-          <button key={t.label} type="button" disabled={busy} onClick={() => advance(t.body, t.label)} className={`${chip} bg-[#3E6B53] text-white`}>
-            {t.label}
+        {TIME_TRAVEL.map((tt) => (
+          <button key={tt.key} type="button" disabled={busy} onClick={() => advance(tt.body, tr(`common.${tt.key}`))} className={`${chip} bg-[#3E6B53] text-white`}>
+            {tr(`common.${tt.key}`)}
           </button>
         ))}
       </div>
     )}
     <div className="px-4 py-2 flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="font-semibold tracking-wider text-[#A2C7B0] uppercase text-[10px]">Demo</span>
+        <span className="font-semibold tracking-wider text-[#A2C7B0] uppercase text-[10px]">{tr('common.demo')}</span>
         <span className="font-medium text-white truncate max-w-[170px] sm:max-w-xs">{active?.label ?? '—'}</span>
       </div>
 
@@ -127,7 +128,7 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
           onClick={() => setIsOpen(!isOpen)}
           className="bg-[#3E6B53] hover:bg-[#2C5140] text-white font-medium px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors border-0 cursor-pointer"
         >
-          <span>Demo menu</span>
+          <span>{tr('common.demoMenu')}</span>
           <svg className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
             <path
               fillRule="evenodd"
@@ -167,7 +168,7 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
                   }}
                   className="w-full text-left px-3 py-2 text-xs font-semibold text-[#A02A1C] bg-transparent border-0 cursor-pointer hover:bg-[#FDE8E4]"
                 >
-                  Start over as a new user (forgets this device's account)
+                  {tr('common.startOver')}
                 </button>
               </div>
             </div>

@@ -6,6 +6,7 @@ import { ScreenFrame } from '../components/ScreenFrame'
 import { RecipeDetail } from '../components/RecipeDetail'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { useAsync } from '../lib/useAsync'
+import { tr } from '../i18n'
 
 /** Recipe opened from today's meal step. "I cooked it" marks that step done (POST /events). */
 export const RecipeScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToast }) => {
@@ -27,9 +28,9 @@ export const RecipeScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
     setSaving(true)
     try {
       await api.recordEvent(state.session, target.actionId, 'completed')
-      showToast('Meal step done. Nicely cooked.')
+      showToast(tr('app.recipe.doneToast'))
     } catch (e) {
-      showToast(e instanceof ApiError && e.status === 409 ? 'This meal step was already answered today.' : errorText(e))
+      showToast(e instanceof ApiError && e.status === 409 ? tr('app.recipe.already') : errorText(e))
     } finally {
       setSaving(false)
     }
@@ -48,7 +49,7 @@ export const RecipeScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
               onClick={cooked}
               className="w-full min-h-[52px] rounded-[14px] bg-[#8A4B0F] hover:bg-[#6B3A0B] disabled:opacity-60 text-white text-[16px] font-semibold border-0 cursor-pointer shadow-button"
             >
-              I cooked it
+              {tr('app.recipe.cooked')}
             </button>
             {recipes.length > 1 && (
               <button
@@ -56,7 +57,7 @@ export const RecipeScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
                 onClick={() => setIndex((i) => i + 1)}
                 className="min-h-[40px] bg-transparent border-0 text-[14px] font-medium text-[#8A4B0F] cursor-pointer"
               >
-                Show another recipe ({(index % recipes.length) + 1}/{recipes.length})
+                {tr('app.recipe.another', { i: (index % recipes.length) + 1, n: recipes.length })}
               </button>
             )}
           </div>
@@ -67,18 +68,18 @@ export const RecipeScreen: React.FC<ScreenProps> = ({ state, onNavigate, showToa
         <button
           type="button"
           onClick={() => onNavigate('today')}
-          aria-label="Back"
+          aria-label={tr('common.back')}
           className="min-w-[44px] min-h-[44px] flex items-center bg-transparent border-0 p-0 cursor-pointer text-[#1B2A22]"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg className="rtl-flip" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        {list.loading && <LoadingView label="Loading recipes…" />}
+        {list.loading && <LoadingView label={tr('app.recipe.loading')} />}
         {list.error && <ErrorView message={list.error} onRetry={list.reload} />}
         {recipe && (
           <>
-            <span className="block mt-1.5 mb-1.5 text-[12px] font-semibold text-[#8A4B0F]">For today's meal step</span>
+            <span className="block mt-1.5 mb-1.5 text-[12px] font-semibold text-[#8A4B0F]">{tr('app.recipe.forToday')}</span>
             <RecipeDetail recipe={recipe} lang={state.language} />
           </>
         )}

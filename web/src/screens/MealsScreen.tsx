@@ -6,6 +6,7 @@ import { ScreenFrame } from '../components/ScreenFrame'
 import { RecipeDetail, tagLabel } from '../components/RecipeDetail'
 import { LoadingView, ErrorView } from '../components/StatusViews'
 import { useAsync } from '../lib/useAsync'
+import { tr } from '../i18n'
 
 /** Meals tab: browse every recipe (GET /recipes), filter by tag, open one. Browsing logs nothing. */
 export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
@@ -21,13 +22,11 @@ export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
   const top = open ? null : (
     <>
       <header className="p-6 pb-0 flex flex-col gap-1">
-        <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">Meals</h1>
-        <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">
-          Simple home cooking from the region. General guidance, not medical advice.
-        </p>
+        <h1 className="m-0 font-display tracking-tight text-[28px] font-semibold">{tr('app.meals.title')}</h1>
+        <p className="m-0 text-[14px] leading-relaxed text-[#3F4F45]">{tr('app.meals.intro')}</p>
       </header>
       {tags.length > 0 && (
-        <div className="px-6 py-3 flex gap-2 overflow-x-auto overflow-y-hidden" role="group" aria-label="Filter meals">
+        <div className="px-6 py-3 flex gap-2 overflow-x-auto overflow-y-hidden" role="group" aria-label={tr('app.meals.filter')}>
           {[null, ...tags].map((t) => (
             <button
               key={t ?? 'all'}
@@ -38,7 +37,7 @@ export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
                 tag === t ? 'bg-[#8A4B0F] text-white font-semibold border-0' : 'bg-white border border-[#C5D0C7]'
               }`}
             >
-              {t ? tagLabel(t) : 'All'}
+              {t ? tagLabel(t) : tr('app.meals.all')}
             </button>
           ))}
         </div>
@@ -65,17 +64,17 @@ export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
             onClick={() => setOpen(null)}
             className="min-h-[44px] mb-1 flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer text-[14px] font-medium text-[#3E6B53]"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <svg className="rtl-flip" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M15 18l-6-6 6-6" />
             </svg>
-            All meals
+            {tr('app.meals.allMeals')}
           </button>
           <RecipeDetail recipe={open} lang={lang} />
         </div>
       ) : (
         <>
           <div className="px-6 pt-1 pb-6 flex flex-col gap-2.5">
-            {list.loading && <LoadingView label="Loading meals…" />}
+            {list.loading && <LoadingView label={tr('app.meals.loading')} />}
             {list.error && <ErrorView message={list.error} onRetry={list.reload} />}
             {shown.map((r) => (
               <button
@@ -92,7 +91,7 @@ export const MealsScreen: React.FC<ScreenProps> = ({ state, onNavigate }) => {
                 <span className="flex-1 flex flex-col gap-0.5">
                   <span className="text-[15px] font-semibold text-[#1B2A22]">{r.title[lang]}</span>
                   <span className="text-[12px] text-[#5A6A60] capitalize">
-                    {r.minutes} min · {r.tags.map(tagLabel).join(' · ')}
+                    {tr('common.minutes', { n: r.minutes })} · {r.tags.map(tagLabel).join(' · ')}
                   </span>
                 </span>
               </button>

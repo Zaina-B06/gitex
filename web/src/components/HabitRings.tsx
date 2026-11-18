@@ -1,4 +1,5 @@
 import React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import type { Behaviour } from '../api/client'
 import { BEHAVIOUR_STYLE, pct } from '../lib/behaviour'
 
@@ -7,11 +8,12 @@ const CIRC = 2 * Math.PI * R
 
 /** One ring per behaviour from `habit_strength` (0–1). Strength fades slowly and never resets. */
 export const HabitRings: React.FC<{ strength: Record<string, number> }> = ({ strength }) => {
+  const { t } = useTranslation()
   const entries = Object.entries(strength).filter(([b]) => b in BEHAVIOUR_STYLE) as [Behaviour, number][]
   if (entries.length === 0) return null
   return (
     <section
-      aria-label="Habit strength"
+      aria-label={t('common.habitStrength')}
       className="mx-6 mt-2.5 p-2.5 px-3 bg-white/90 rounded-[20px] flex justify-between items-center gap-2 shadow-card"
     >
       <div className="flex gap-3 flex-wrap">
@@ -20,7 +22,7 @@ export const HabitRings: React.FC<{ strength: Record<string, number> }> = ({ str
           const value = pct(h)
           return (
             <div key={b} className="flex flex-col items-center gap-0.5">
-              <svg width="40" height="40" viewBox="0 0 40 40" role="img" aria-label={`${st.label} habit strength ${value} percent`}>
+              <svg width="40" height="40" viewBox="0 0 40 40" role="img" aria-label={t('common.ringLabel', { label: st.label, n: value })}>
                 <circle cx="20" cy="20" r={R} fill="none" stroke={st.tint} strokeWidth="5" />
                 <circle
                   cx="20"
@@ -43,7 +45,7 @@ export const HabitRings: React.FC<{ strength: Record<string, number> }> = ({ str
         })}
       </div>
       <p className="m-0 w-[92px] text-[11px] leading-[1.35] text-[#3F4F45]">
-        Fades slowly, <strong className="text-[#1B2A22]">never resets to zero</strong>.
+        <Trans i18nKey="common.fadesSlowly" components={{ 1: <strong className="text-[#1B2A22]" /> }} />
       </p>
     </section>
   )

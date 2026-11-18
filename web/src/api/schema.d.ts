@@ -335,6 +335,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health
+         * @description Wake-up check for the frontend (free hosting sleeps when idle). No auth, no database work.
+         */
+        get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dashboard/outcomes": {
         parameters: {
             query?: never;
@@ -1141,6 +1161,7 @@ export interface components {
             /** Ramadan */
             ramadan?: ("started_today" | "ended_today") | null;
             login?: components["schemas"]["LoginIn"] | null;
+            language?: components["schemas"]["Language"] | null;
         };
         /** SettingsOut */
         SettingsOut: {
@@ -1151,6 +1172,7 @@ export interface components {
             };
             state: components["schemas"]["StateOut"];
             plan_summary: components["schemas"]["PlanOut"];
+            today: components["schemas"]["TodayOut"];
         };
         /**
          * Sex
@@ -2062,6 +2084,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
         };

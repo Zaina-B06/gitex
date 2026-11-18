@@ -864,6 +864,29 @@
     }
    }
   },
+  "/health": {
+   "get": {
+    "summary": "Health",
+    "description": "Wake-up check for the frontend (free hosting sleeps when idle). No auth, no database work.",
+    "operationId": "health_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "boolean"
+         },
+         "type": "object",
+         "title": "Response Health Health Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/dashboard/outcomes": {
    "get": {
     "summary": "Outcomes",
@@ -3147,6 +3170,16 @@
         "type": "null"
        }
       ]
+     },
+     "language": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Language"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "additionalProperties": false,
@@ -3173,6 +3206,9 @@
      },
      "plan_summary": {
       "$ref": "#/components/schemas/PlanOut"
+     },
+     "today": {
+      "$ref": "#/components/schemas/TodayOut"
      }
     },
     "type": "object",
@@ -3180,7 +3216,8 @@
      "preferences",
      "consents",
      "state",
-     "plan_summary"
+     "plan_summary",
+     "today"
     ],
     "title": "SettingsOut"
    },

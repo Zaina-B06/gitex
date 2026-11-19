@@ -1,191 +1,385 @@
-import React, { useState } from 'react'
-import { Trans } from 'react-i18next'
+import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ScreenProps } from '../types'
-import { TatreezPattern, ArabicCalligraphyRing } from '../components/BackgroundMotifs'
+import { api, ApiError, EmployerData, errorText } from '../api/client'
+import { demoKey, loadOrgId, loadOrgKey, saveOrgId, saveOrgKey, savePersonas } from '../lib/demo'
 import { BARRIER_LABEL } from '../lib/history'
-import { tr } from '../i18n'
+import { LanguageSwitch } from '../components/LanguageSwitch'
+import { useLanguageChange } from '../lib/language'
+import { TatreezPattern, ArabicCalligraphyRing } from '../components/BackgroundMotifs'
 
-type Range = 'thisWeek' | 'lastWeek' | 'last30'
-const RANGES: Range[] = ['thisWeek', 'lastWeek', 'last30']
-const D = (key: string, vars?: Record<string, unknown>) => tr(`extra.d.${key}`, vars)
-const card =
-  'bg-white/90 rounded-[20px] p-4.5 flex flex-col gap-1.5 shadow-[0_1px_2px_rgba(38,58,48,0.06),0_10px_28px_-14px_rgba(38,58,48,0.22)]'
-
-// Illustrative pilot numbers (no real organisation data); the live view is GET /dashboard/employer.
-const METRICS: Record<Range, { enrolled: number; active: string; slipping: string; returned: number }> = {
-  thisWeek: { enrolled: 312, active: '61%', slipping: '14%', returned: 47 },
-  lastWeek: { enrolled: 308, active: '59%', slipping: '16%', returned: 42 },
-  last30: { enrolled: 312, active: '64%', slipping: '12%', returned: 118 },
+function getBarrierLabel(code: string): string {
+  const friendly = BARRIER_LABEL[code as keyof typeof BARRIER_LABEL]
+  return friendly || code
 }
-const GROUPS: { key: string; people: number; top: [string, number]; second: [string, number]; hot?: boolean }[] = [
-  { key: 'shift', people: 84, top: ['energy_fatigue', 38], second: ['schedule_change', 22] },
-  { key: 'outdoor', people: 61, top: ['environment', 41], second: ['energy_fatigue', 24], hot: true },
-  { key: 'office', people: 139, top: ['time', 35], second: ['forgot', 19] },
-  { key: 'carers', people: 28, top: ['social_family', 44], second: ['time', 30] },
-]
-const LANGS: [string, number][] = [['arabic', 63], ['english', 60], ['southAsian', 58]]
 
-const reason = ([barrier, n]: [string, number]) =>
-  D('reason', { reason: BARRIER_LABEL[barrier as keyof typeof BARRIER_LABEL] ?? barrier, n })
+export const ProgramDashboardScreen: React.FC<ScreenProps> = (props) => {
+  const { state, onNavigate } = props
+  const { t } = useTranslation()
+  const changeLanguage = useLanguageChange(props)
 
-/** Workplace view (outside the user app): group totals only, never individual data. */
-export const ProgramDashboardScreen: React.FC<ScreenProps> = ({ onNavigate, showToast }) => {
-  const [range, setRange] = useState<Range>('thisWeek')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const metrics = METRICS[range]
+  const [orgId, setOrgId] = useState<string | null>(() => loadOrgId())
+  const [orgKey, setOrgKey] = useState<string | null>(() => loadOrgKey())
+  const [data, setData] = useState<EmployerData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [keyInput, setKeyInput] = useState('')
+  const [error, setError] = useState<{ status?: number; message: string } | null>(null)
 
-  return (
-    <div className="relative overflow-hidden isolation-auto box-border min-h-[900px] w-full max-w-[1240px] mx-auto bg-[#EEF1EA] font-sans text-[#1B2A22] p-6 sm:p-7 shadow-2xl rounded-3xl">
-      <TatreezPattern width={360} height={360} style={{ right: '-50px', top: '170px', opacity: 0.07 }} />
-      <ArabicCalligraphyRing width={680} height={680} style={{ right: '-200px', top: '-220px', opacity: 0.12 }} />
-      <ArabicCalligraphyRing width={520} height={520} style={{ left: '-230px', bottom: '-200px', opacity: 0.09 }} />
+  const fetchEmployerData = async (targetOrgId: string, targetKey: string | null) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const out = await api.dashboardEmployer(targetOrgId, targetKey || '')
+      setData(out)
+    } catch (e) {
+      setData(null)
+      if (e instanceof ApiError) {
+        if (e.status === 401) {
+          setError({ status: 401, message: t('d.keyWrong') })
+        } else if (e.status === 403) {
+          setError({ status: 403, message: t('d.groupTooSmall') })
+        } else {
+          setError({ status: e.status, message: errorText(e) })
+        }
+      } else {
+        setError({ status: 0, message: t('d.error') })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      <div className="max-w-[1220px] mx-auto flex flex-col gap-5">
-        <header className="flex flex-wrap justify-between items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <span className="text-[13px] text-[#5A6A60]">{D('kicker')}</span>
-              <button type="button" onClick={() => onNavigate('today')}
-                className="text-xs text-[#3E6B53] underline font-medium hover:text-[#2C5140] bg-transparent border-0 cursor-pointer">
-                {D('back')}
-              </button>
-            </div>
-            <h1 className="m-0 font-display tracking-tight text-[32px] font-semibold text-[#1B2A22]">{D('title')}</h1>
+  // Initial load
+  useEffect(() => {
+    if (orgId) {
+      void fetchEmployerData(orgId, orgKey)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId])
+
+  // Seed demo org if requested or if none exists
+  const runSeed = async () => {
+    const key = demoKey(t('onboarding.welcome.demoKeyPrompt'))
+    if (!key) return
+    setSeeding(true)
+    setError(null)
+    try {
+      const out = await api.demoSeed(key)
+      savePersonas(out.personas)
+      if (out.org_id) {
+        saveOrgId(out.org_id)
+        setOrgId(out.org_id)
+        await fetchEmployerData(out.org_id, orgKey)
+      }
+    } catch (e) {
+      setError({ status: e instanceof ApiError ? e.status : 0, message: errorText(e) })
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  const handleKeySubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = keyInput.trim()
+    if (!trimmed) return
+    saveOrgKey(trimmed)
+    setOrgKey(trimmed)
+    if (orgId) {
+      void fetchEmployerData(orgId, trimmed)
+    }
+  }
+
+  // 1. Loading state (no hard-coded numbers)
+  if (loading || seeding) {
+    return (
+      <div className="min-h-screen w-full bg-[#EEF1EA] text-[#1B2A22] p-6 sm:p-10 flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="spinner" aria-hidden="true" />
+          <p className="text-[15px] font-medium text-[#3F4F45]">
+            {seeding ? t('d.seeding') : t('d.loading')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // 2. Error: 401 Key required or wrong key
+  if (error?.status === 401) {
+    return (
+      <div className="min-h-screen w-full bg-[#EEF1EA] text-[#1B2A22] p-4 sm:p-8 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-[#DCE3DA] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] font-bold text-[#5A6A60] uppercase tracking-wide">
+              {t('d.kicker')}
+            </span>
+            <LanguageSwitch value={state.language} onChange={changeLanguage} tone="light" />
           </div>
 
-          <div className="relative">
+          <h2 className="m-0 text-[20px] font-bold text-[#1B2A22]">
+            {t('d.keyRequiredTitle')}
+          </h2>
+
+          <div className="p-3 rounded-xl bg-[#FFF2E6] border border-[#F5C299] text-[#9A4A00] text-[13px] font-semibold">
+            {t('d.keyWrong')}
+          </div>
+
+          <form onSubmit={handleKeySubmit} className="flex flex-col gap-3">
+            <label className="text-[14px] text-[#3F4F45] font-medium flex flex-col gap-1.5">
+              <span>{t('d.keyPrompt')}</span>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder={t('d.keyPlaceholder')}
+                className="min-h-[44px] px-3.5 rounded-xl border border-[#C5D0C7] text-[14px] focus:outline-none focus:border-[#2C5140] transition-colors"
+                autoFocus
+              />
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={!keyInput.trim()}
+                className="flex-1 min-h-[44px] px-4 rounded-xl bg-[#2C5140] hover:bg-[#1E382B] disabled:opacity-50 text-white text-[14px] font-semibold border-0 cursor-pointer transition-colors"
+              >
+                {t('d.keySubmit')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('welcome')}
+                className="min-h-[44px] px-4 rounded-xl bg-[#E6EBE4] hover:bg-[#DCE3DA] text-[#1B2A22] text-[14px] font-medium border-0 cursor-pointer transition-colors"
+              >
+                {t('common.back')}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  // 3. Error: 403 Group too small or other network error
+  if (error && error.status !== 401) {
+    return (
+      <div className="min-h-screen w-full bg-[#EEF1EA] text-[#1B2A22] p-4 sm:p-8 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-[#DCE3DA] flex flex-col items-center text-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#FCE8E6] text-[#A02A1C] flex items-center justify-center text-xl font-bold">
+            !
+          </div>
+          <h2 className="m-0 text-[18px] font-bold text-[#1B2A22]">
+            {error.status === 403 ? t('d.groupTooSmall') : t('d.error')}
+          </h2>
+          <p className="m-0 text-[14px] text-[#5A6A60] leading-relaxed">
+            {error.message}
+          </p>
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="min-h-[44px] px-4 rounded-[14px] border border-[#C5D0C7] bg-white text-[14px] text-[#1B2A22] hover:bg-[#F3F7F4] flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              onClick={() => (orgId ? fetchEmployerData(orgId, orgKey) : runSeed())}
+              className="min-h-[44px] px-5 rounded-xl bg-[#2C5140] hover:bg-[#1E382B] text-white text-[14px] font-semibold border-0 cursor-pointer transition-colors"
             >
-              <span>{D(range)}</span>
-              <span className="text-xs">▾</span>
+              {t('common.tryAgain')}
             </button>
-            {dropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setDropdownOpen(false)} />
-                <div className="absolute end-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-[#C5D0C7] py-1 z-40">
-                  {RANGES.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => {
-                        setRange(opt)
-                        setDropdownOpen(false)
-                        showToast(D('loaded', { range: D(opt) }))
-                      }}
-                      className={`w-full text-start px-3 py-2 text-xs hover:bg-[#DDE9E0] transition-colors bg-transparent border-0 cursor-pointer ${
-                        range === opt ? 'font-bold text-[#2C5140] bg-[#DDE9E0]/40' : ''
-                      }`}
-                    >
-                      {D(opt)}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => onNavigate('welcome')}
+              className="min-h-[44px] px-4 rounded-xl bg-[#E6EBE4] hover:bg-[#DCE3DA] text-[#1B2A22] text-[14px] font-medium border-0 cursor-pointer transition-colors"
+            >
+              {t('common.back')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 4. Missing orgId state
+  if (!orgId || !data) {
+    return (
+      <div className="min-h-screen w-full bg-[#EEF1EA] text-[#1B2A22] p-4 sm:p-8 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-2xl p-6 sm:p-7 shadow-sm border border-[#DCE3DA] flex flex-col items-center text-center gap-4">
+          <span className="text-[12px] font-bold text-[#5A6A60] uppercase tracking-wide">
+            {t('d.kicker')}
+          </span>
+          <h2 className="m-0 text-[19px] font-bold text-[#1B2A22]">
+            {t('d.noOrgId')}
+          </h2>
+          <p className="m-0 text-[14px] text-[#5A6A60] leading-relaxed">
+            {t('d.seedPrompt')}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={runSeed}
+              className="min-h-[44px] px-5 rounded-xl bg-[#2C5140] hover:bg-[#1E382B] text-white text-[14px] font-semibold border-0 cursor-pointer transition-colors"
+            >
+              {t('d.seedButton')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('welcome')}
+              className="min-h-[44px] px-4 rounded-xl bg-[#E6EBE4] hover:bg-[#DCE3DA] text-[#1B2A22] text-[14px] font-medium border-0 cursor-pointer transition-colors"
+            >
+              {t('common.back')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 5. Successful Data Display (100% data-driven, NO hardcoded numbers)
+  const habitEntries = Object.entries(data.average_habit_strength || {})
+
+  return (
+    <div className="relative overflow-hidden box-border min-h-screen w-full bg-[#EEF1EA] font-sans text-[#1B2A22] p-4 sm:p-8">
+      <TatreezPattern width={340} height={340} style={{ right: '-50px', top: '150px', opacity: 0.06 }} />
+      <ArabicCalligraphyRing width={640} height={640} style={{ right: '-220px', top: '-240px', opacity: 0.1 }} />
+      <ArabicCalligraphyRing width={480} height={480} style={{ left: '-200px', bottom: '-180px', opacity: 0.08 }} />
+
+      <div className="max-w-[1120px] mx-auto flex flex-col gap-6">
+        {/* Header */}
+        <header className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => onNavigate('welcome')}
+              className="min-h-[44px] px-2 flex items-center gap-2 text-[14px] text-[#2C5140] hover:text-[#1B2A22] font-semibold bg-transparent border-0 cursor-pointer"
+            >
+              <span className="text-base rtl:rotate-180 transition-transform">←</span>
+              <span>{t('d.back')}</span>
+            </button>
+            <LanguageSwitch value={state.language} onChange={changeLanguage} tone="light" />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[13px] font-semibold text-[#5A6A60] tracking-wide uppercase">
+              {t('d.kicker')}
+            </span>
+            <h1 className="m-0 font-display tracking-tight text-[28px] sm:text-[36px] font-bold text-[#1B2A22]">
+              {t('d.title')}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[13px] sm:text-[14px]">
+              <span className="px-2.5 py-1 rounded-md bg-[#2C5140] text-white font-medium">
+                {t('d.demoOrgLabel')}
+              </span>
+              <span className="text-[#5A6A60] font-medium">
+                {t('d.privacyLine')}
+              </span>
+            </div>
           </div>
         </header>
 
-        <section aria-label={D('keyNumbers')} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={card}>
-            <span className="text-[13px] text-[#5A6A60]">{D('enrolled')}</span>
-            <span className="font-display tracking-tight text-[32px] font-semibold">{metrics.enrolled}</span>
+        {/* 3 Tiles: group_size, active_share, first top barrier */}
+        <section aria-label={t('d.keyNumbers')} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Tile 1: Group size */}
+          <div className="bg-white/95 rounded-2xl p-5 border border-[#DCE3DA] shadow-xs flex flex-col gap-1">
+            <span className="text-[13px] font-semibold text-[#5A6A60]">{t('d.groupSize')}</span>
+            <span className="font-display tracking-tight text-[32px] sm:text-[36px] font-bold text-[#1B2A22]">
+              {t('d.people', { n: data.group_size })}
+            </span>
           </div>
-          <div className={card}>
-            <span className="text-[13px] text-[#5A6A60]">{D('active')}</span>
-            <span className="font-display tracking-tight text-[32px] font-semibold">{metrics.active}</span>
+
+          {/* Tile 2: Active share as % */}
+          <div className="bg-white/95 rounded-2xl p-5 border border-[#DCE3DA] shadow-xs flex flex-col gap-1">
+            <span className="text-[13px] font-semibold text-[#5A6A60]">{t('d.activeShare')}</span>
+            <span className="font-display tracking-tight text-[32px] sm:text-[36px] font-bold text-[#2C5140]">
+              {(data.active_share * 100).toFixed(0)}%
+            </span>
           </div>
-          <div className={card}>
-            <span className="text-[13px] text-[#5A6A60]">{D('slipping')}</span>
-            <span className="font-display tracking-tight text-[32px] font-semibold text-[#9A4A00]">{metrics.slipping}</span>
-            <span className="text-[12px] text-[#5A6A60]">{D('slippingNote')}</span>
-          </div>
-          <div className={card}>
-            <span className="text-[13px] text-[#5A6A60]">{D('returned')}</span>
-            <span className="font-display tracking-tight text-[32px] font-semibold text-[#3E6B53]">
-              {D('people', { n: metrics.returned })}
+
+          {/* Tile 3: Top barrier */}
+          <div className="bg-white/95 rounded-2xl p-5 border border-[#DCE3DA] shadow-xs flex flex-col gap-1">
+            <span className="text-[13px] font-semibold text-[#5A6A60]">{t('d.topBarrierTile')}</span>
+            <span className="font-display tracking-tight text-[24px] sm:text-[28px] font-bold text-[#9A4A00] truncate">
+              {data.top_barriers && data.top_barriers[0]
+                ? getBarrierLabel(data.top_barriers[0].barrier)
+                : t('d.noneReported')}
             </span>
           </div>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <section aria-labelledby="barriers-title" className={'lg:col-span-8 p-5 gap-3.5 ' + card}>
-            <h2 id="barriers-title" className="m-0 text-[16px] font-semibold">{D('barriers')}</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[14px]">
-                <thead>
-                  <tr className="text-start text-[#5A6A60]">
-                    <th scope="col" className="py-2 pe-2 font-medium text-start">{D('group')}</th>
-                    <th scope="col" className="p-2 font-medium text-start">{D('peopleCol')}</th>
-                    <th scope="col" className="p-2 font-medium text-start">{D('top')}</th>
-                    <th scope="col" className="p-2 font-medium text-start">{D('second')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#DCE3DA]">
-                  {GROUPS.map((g) => (
-                    <tr key={g.key}>
-                      <td className="py-2.5 pe-2 font-medium">{D(g.key)}</td>
-                      <td className="p-2.5">{g.people}</td>
-                      <td className={`p-2.5 ${g.hot ? 'text-[#9A4A00] font-medium' : ''}`}>{reason(g.top)}</td>
-                      <td className="p-2.5">{reason(g.second)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="m-0 p-3 px-3.5 rounded-xl bg-[#DDE9E0] text-[#2C5140] text-[14px] leading-relaxed">
-              <strong>{D('suggested')}</strong> {D('suggestedText')}
-            </p>
+        {/* Dynamic Habit Strengths & Top Barriers */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Habit Strengths: one bar per behaviour present in average_habit_strength */}
+          <section
+            aria-labelledby="habit-strengths-title"
+            className="lg:col-span-7 bg-white/95 rounded-2xl p-5 sm:p-6 border border-[#DCE3DA] shadow-xs flex flex-col gap-4"
+          >
+            <h2 id="habit-strengths-title" className="m-0 text-[17px] font-bold text-[#1B2A22]">
+              {t('d.habitStrengths')}
+            </h2>
+
+            {habitEntries.length > 0 ? (
+              <div className="flex flex-col gap-3.5">
+                {habitEntries.map(([bKey, val]) => {
+                  const bLabel = t(`common.behaviour.${bKey}`, { defaultValue: bKey })
+                  const score = Math.round(val <= 1 ? val * 100 : val)
+                  return (
+                    <div key={bKey} className="flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center text-[13px] sm:text-[14px]">
+                        <span className="font-semibold text-[#1B2A22]">{bLabel}</span>
+                        <span className="font-bold text-[#2C5140]">{score}%</span>
+                      </div>
+                      <div className="h-3 rounded-full bg-[#E5E9E4] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#2C5140] transition-all duration-300"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, score))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="m-0 text-[14px] text-[#5A6A60]">{t('d.noneReported')}</p>
+            )}
           </section>
 
-          <section aria-labelledby="fair-title" className={'lg:col-span-4 p-5 gap-3.5 ' + card}>
-            <h2 id="fair-title" className="m-0 text-[16px] font-semibold">{D('fair')}</h2>
-            <p className="m-0 text-[13px] text-[#5A6A60]">{D('byLang')}</p>
-            <div className="flex flex-col gap-2.5">
-              {LANGS.map(([key, pctValue]) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[13px]">
-                    <span>{D(key)}</span>
-                    <span className="font-semibold">{pctValue}%</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-[#E6EBE4] overflow-hidden">
-                    <div className="h-full rounded-full bg-[#3E6B53]" style={{ width: `${pctValue}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="m-0 text-[13px] leading-relaxed text-[#3F4F45]">
-              <Trans i18nKey="extra.d.gap" components={{ 1: <strong /> }} />
-            </p>
+          {/* Top Barriers List */}
+          <section
+            aria-labelledby="top-barriers-title"
+            className="lg:col-span-5 bg-white/95 rounded-2xl p-5 sm:p-6 border border-[#DCE3DA] shadow-xs flex flex-col gap-4"
+          >
+            <h2 id="top-barriers-title" className="m-0 text-[17px] font-bold text-[#1B2A22]">
+              {t('d.topBarriers')}
+            </h2>
+
+            {data.top_barriers && data.top_barriers.length > 0 ? (
+              <ul className="m-0 p-0 list-none divide-y divide-[#E8ECE6] flex flex-col">
+                {data.top_barriers.map((tb, idx) => (
+                  <li key={idx} className="py-3 flex items-center justify-between text-[14px]">
+                    <span className="font-medium text-[#2C3830]">
+                      {getBarrierLabel(tb.barrier)}
+                    </span>
+                    <span className="font-bold text-[#9A4A00] px-2.5 py-0.5 rounded-full bg-[#FFF2E6] border border-[#F5C299] text-[12px]">
+                      {t('d.barrierCount', { count: tb.count })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="m-0 text-[14px] text-[#5A6A60]">{t('d.noneReported')}</p>
+            )}
           </section>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <section aria-labelledby="evidence-title"
-            className="relative overflow-hidden isolation-auto bg-[#263A30] text-white rounded-2xl p-5 flex flex-col gap-2.5 shadow-sm">
-            <TatreezPattern width={220} height={220} color="#9DBBA5" opacity={0.16} style={{ right: '-60px', bottom: '-70px' }} />
-            <h2 id="evidence-title" className="m-0 text-[16px] font-semibold text-white">{D('evidence')}</h2>
-            <p className="m-0 text-[14px] leading-relaxed text-[#DCE7E0]">
-              <Trans i18nKey="extra.d.evidence1"
-                components={{ 1: <strong className="text-white" />, 3: <strong className="text-white" /> }} />
-            </p>
-            <p className="m-0 text-[14px] leading-relaxed text-[#DCE7E0]">
-              <Trans i18nKey="extra.d.evidence2" components={{ 1: <strong className="text-white" /> }} />
-            </p>
-          </section>
-
-          <section aria-labelledby="privacy-title" className={'p-5 gap-2.5 ' + card}>
-            <h2 id="privacy-title" className="m-0 text-[16px] font-semibold">{D('privacy')}</h2>
-            <ul className="m-0 ps-4.5 text-[14px] leading-relaxed text-[#3F4F45] list-disc space-y-1">
-              <li>{D('privacy1')}</li>
-              <li>{D('privacy2')}</li>
-              <li>{D('privacy3')}</li>
-            </ul>
-          </section>
-        </div>
+        {/* Privacy by Design */}
+        <section aria-labelledby="privacy-title" className="p-5 sm:p-6 rounded-2xl bg-white/95 border border-[#DCE3DA] shadow-xs flex flex-col gap-3">
+          <h2 id="privacy-title" className="m-0 text-[17px] font-bold text-[#1B2A22]">
+            {t('d.privacy')}
+          </h2>
+          <ul className="m-0 ps-5 text-[14px] leading-relaxed text-[#3F4F45] list-disc space-y-1.5 font-medium">
+            <li>{t('d.privacy1')}</li>
+            <li>{t('d.privacy2')}</li>
+            <li>{t('d.privacy3')}</li>
+          </ul>
+        </section>
       </div>
     </div>
   )
 }
+
+export default ProgramDashboardScreen

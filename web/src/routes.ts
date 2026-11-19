@@ -22,6 +22,7 @@ export const SCREEN_PATHS: Record<ScreenId, string> = {
   care: '/care',
   'program-dashboard': '/employer',
   'chat-nudge': '/chat',
+  results: '/results',
 }
 
 /** Screens that need a signed-in user; others are always reachable. */

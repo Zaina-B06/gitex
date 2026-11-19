@@ -25,6 +25,7 @@ import { OnboardingHealthScreen } from './screens/OnboardingHealthScreen'
 import { CheckinScreen } from './screens/CheckinScreen'
 import { GoalsScreen } from './screens/GoalsScreen'
 import { CommunityScreen } from './screens/CommunityScreen'
+import { ResultsScreen } from './screens/ResultsScreen'
 
 import { DEMO_MODE } from './lib/demo'
 import i18n, { tr } from './i18n'
@@ -179,6 +180,8 @@ export function App() {
         return <RecipeScreen {...props} />
       case 'program-dashboard':
         return <ProgramDashboardScreen {...props} />
+      case 'results':
+        return <ResultsScreen {...props} />
       case 'chat-nudge':
         return <ChatNudgeScreen {...props} />
     }
@@ -192,7 +195,7 @@ export function App() {
     return renderScreen(screen)
   }
 
-  const isWideDashboard = currentScreen === 'program-dashboard'
+  const isWidePage = currentScreen === 'program-dashboard' || currentScreen === 'results'
 
   return (
     <div className="print-full min-h-screen bg-[#d9dfd6] flex flex-col items-center">
@@ -210,11 +213,11 @@ export function App() {
         </div>
       )}
 
-      <main className={`print-full w-full flex justify-center ${isWideDashboard ? 'max-w-6xl py-0 sm:py-6 px-0 sm:px-4' : ''}`}>
+      <main className={`print-full w-full flex justify-center ${isWidePage ? 'max-w-7xl py-0 sm:py-6 px-0 sm:px-4' : ''}`}>
         <div
           className={
-            isWideDashboard
-              ? 'print-full w-full shadow-2xl overflow-hidden rounded-none sm:rounded-3xl max-w-[960px]'
+            isWidePage
+              ? 'print-full w-full shadow-2xl overflow-hidden rounded-none sm:rounded-3xl max-w-[1160px]'
               : // Phone frame (index.css): 390 x min(844, screen - 32), full screen under 500px wide.
                 'print-full phone-frame'
           }

@@ -209,10 +209,44 @@ export const api = {
 
   recap: (s: Session, days = 7) => request<RecapOut>('GET', `${u(s)}/recap${q({ days: String(days) })}`, { session: s }),
 
+  // Dashboard pages (no auth).
+  dashboardOutcomes: () => request<DashboardOutcomesData>('GET', '/dashboard/outcomes'),
+  dashboardEmployer: (orgId: string, orgKey: string) =>
+    request<EmployerData>('GET', `/dashboard/employer?org_id=${encodeURIComponent(orgId)}`, {
+      headers: { 'X-Org-Key': orgKey },
+    }),
+
   // Demo only (backend DEMO_MODE=true): seeded personas and time travel.
   demoSeed: (demoKey: string) => request<SeedOut>('POST', '/demo/seed', { headers: { 'X-Demo-Key': demoKey } }),
   demoAdvance: (s: Session, body: AdvanceIn) =>
     request<AdvanceOut>('POST', `/demo${u(s)}/advance`, { session: s, body }),
+}
+
+// ---------- dashboard types ----------
+
+export interface MeasureStat { mean: number; ci_low: number; ci_high: number }
+export interface ComparisonStat extends MeasureStat { verdict: 'helps' | 'not shown' | 'worse' }
+export interface MeasureMeta { label: string; unit: string }
+export interface ScenarioData {
+  arms: Record<string, Record<string, MeasureStat>>
+  comparisons: Record<string, Record<string, ComparisonStat>>
+  safety: Record<string, { violations: number; quiet_messages: number }>
+}
+export interface DashboardOutcomesData {
+  personas: number
+  days: number
+  seeds: number[]
+  measures: Record<string, MeasureMeta>
+  scenarios: Record<string, ScenarioData>
+  verdict_rule: string
+  [key: string]: unknown
+}
+export interface EmployerData {
+  org_id: string
+  group_size: number
+  active_share: number
+  average_habit_strength: Record<string, number>
+  top_barriers: { barrier: string; count: number }[]
 }
 
 /** Friendly text for an error shown in a toast or inline. Server details are English, so Arabic gets our own. */

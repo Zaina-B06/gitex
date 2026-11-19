@@ -54,6 +54,7 @@ const GROUPS: { title: string; screens: { id: ScreenId; label: string }[] }[] = 
   {
     title: '3 · Outside the app',
     screens: [
+      { id: 'results', label: 'Simulation results (How we know it works)' },
       { id: 'program-dashboard', label: 'Workplace dashboard' },
     ],
   },

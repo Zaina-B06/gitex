@@ -26,6 +26,7 @@ export type ScreenId =
   // outside the user app
   | 'program-dashboard'
   | 'chat-nudge' // chat check-in (WhatsApp-style), at /chat
+  | 'results' // "How we know it works" simulation outcomes
 
 type S = components['schemas']
 export type Sex = S['Sex']

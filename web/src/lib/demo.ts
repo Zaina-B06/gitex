@@ -4,6 +4,8 @@ export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
 const KEY_STORE = 'rebound.demoKey'
 const PERSONAS_STORE = 'rebound.demoPersonas'
+const ORG_ID_STORE = 'rebound.demoOrgId'
+const ORG_KEY_STORE = 'rebound.orgKey'
 
 export const firstName = (p: SeedPersona) => p.name.split(',')[0]
 
@@ -48,3 +50,21 @@ export function loadPersonas(): SeedPersona[] {
   }
 }
 export const savePersonas = (p: SeedPersona[]) => session.set(PERSONAS_STORE, JSON.stringify(p))
+
+/** The org ID from the last POST /demo/seed, kept in sessionStorage for the employer dashboard. */
+export function loadOrgId(): string | null {
+  return session.get(ORG_ID_STORE)
+}
+export function saveOrgId(orgId: string | null): void {
+  session.set(ORG_ID_STORE, orgId)
+}
+
+/** The org key: VITE_ORG_KEY if configured, else stored in sessionStorage. */
+export function loadOrgKey(): string | null {
+  const built = import.meta.env.VITE_ORG_KEY as string | undefined
+  if (built) return built
+  return session.get(ORG_KEY_STORE)
+}
+export function saveOrgKey(key: string | null): void {
+  session.set(ORG_KEY_STORE, key)
+}

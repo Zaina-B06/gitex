@@ -6,7 +6,7 @@ import { LanguageSwitch } from '../components/LanguageSwitch'
 import { api, ApiError, errorText, SeedPersona } from '../api/client'
 import { useAsync } from '../lib/useAsync'
 import { useLanguageChange } from '../lib/language'
-import { demoKey, firstName, forgetDemoKey, savePersonas } from '../lib/demo'
+import { demoKey, firstName, forgetDemoKey, saveOrgId, savePersonas } from '../lib/demo'
 
 type Mode = 'home' | 'signin' | 'demo'
 const SLOW_MS = 60_000 // after this, offer "Try again"
@@ -86,6 +86,7 @@ export const WelcomeScreen: React.FC<ScreenProps> = (props) => {
     try {
       const out = await api.demoSeed(key)
       savePersonas(out.personas)
+      if (out.org_id) saveOrgId(out.org_id)
       setPersonas(out.personas)
       setMode('demo')
     } catch (e) {
@@ -151,6 +152,22 @@ export const WelcomeScreen: React.FC<ScreenProps> = (props) => {
               {busy === 'demo' && spinner}
               {busy === 'demo' ? t('onboarding.welcome.loadingDemo') : t('onboarding.welcome.tryDemo')}
             </button>
+            <div className="mt-2 pt-2 flex flex-col items-center gap-1 border-t border-white/20">
+              <button
+                type="button"
+                onClick={() => onNavigate('results')}
+                className="min-h-[44px] px-3 py-1 bg-transparent border-0 text-[#DDE9E0] hover:text-white text-[13px] underline cursor-pointer flex items-center justify-center transition-colors"
+              >
+                {t('onboarding.welcome.howItWorks')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('program-dashboard')}
+                className="min-h-[44px] px-3 py-1 bg-transparent border-0 text-[#DDE9E0] hover:text-white text-[13px] underline cursor-pointer flex items-center justify-center transition-colors"
+              >
+                {t('onboarding.welcome.forEmployers')}
+              </button>
+            </div>
           </>
         )}
 

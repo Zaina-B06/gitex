@@ -502,8 +502,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=[o for o in (LOCAL_FRONTEND if demo_mode or dev_mode else None, frontend_url) if o],
         allow_methods=["*"],
-        allow_headers=["Authorization", "Content-Type"],
-    )
+        allow_headers=["Authorization", "Content-Type", "X-Demo-Key", "X-Org-Key"],    )
     bearer = HTTPBearer(auto_error=False)
 
     def authed(
